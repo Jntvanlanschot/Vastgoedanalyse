@@ -15,9 +15,11 @@ export default function LandingPage() {
         method: 'POST',
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         // Redirect to login page after successful logout
-        router.push('/login');
+        router.push(data.redirectTo || '/login');
       } else {
         console.error('Logout failed');
         // Still redirect to login even if logout fails

@@ -4,8 +4,8 @@ const COOKIE_NAME = 'auth-session';
 
 export async function POST(request: NextRequest) {
   try {
-    // Create response with redirect to login page
-    const response = NextResponse.redirect(new URL('/login', request.url));
+    // Create JSON response
+    const response = NextResponse.json({ success: true, redirectTo: '/login' });
     
     // Clear the authentication cookie
     response.cookies.delete(COOKIE_NAME);

@@ -37,7 +37,7 @@ export default function LoginPage() {
 
       if (response.ok) {
         // Redirect to landing page on successful login
-        router.push('/landing');
+        router.push(data.redirectTo || '/landing');
       } else {
         setError(data.error || 'Onjuiste gebruikersnaam of wachtwoord');
       }

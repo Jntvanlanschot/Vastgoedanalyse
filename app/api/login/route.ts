@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     // Create JWT token
     const token = await signJWT({ sub: username });
     
-    // Create response with redirect to landing page
-    const response = NextResponse.redirect(new URL('/landing', request.url));
+    // Create JSON response
+    const response = NextResponse.json({ success: true, redirectTo: '/landing' });
     
     // Set the authentication cookie
     response.cookies.set(COOKIE_NAME, token, {
