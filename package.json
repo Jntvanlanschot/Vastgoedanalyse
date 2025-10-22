@@ -1,0 +1,51 @@
+{
+  "name": "vastgoedanalyse",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "convert-gpkg": "ogr2ogr -f GeoJSON -t_srs EPSG:4326 public/data/buurten-nl.geojson data/WijkBuurtkaart_2025_v0.gpkg buurten_v0",
+    "convert-gpkg-amsterdam": "ogr2ogr -f GeoJSON -t_srs EPSG:4326 -where \"GM_NAAM='Amsterdam'\" public/data/buurten-amsterdam-wgs84.geojson data/WijkBuurtkaart_2025_v0.gpkg buurten_v0",
+    "convert-gpkg-simplify": "ogr2ogr -f GeoJSON -t_srs EPSG:4326 -simplify 0.0001 public/data/buurten-nl.geojson data/WijkBuurtkaart_2025_v0.gpkg buurten_v0",
+    "convert-gpkg-amsterdam-simplify": "ogr2ogr -f GeoJSON -t_srs EPSG:4326 -where \"GM_NAAM='Amsterdam'\" -simplify 0.0001 public/data/buurten-amsterdam-wgs84.geojson data/WijkBuurtkaart_2025_v0.gpkg buurten_v0"
+  },
+  "dependencies": {
+    "@types/geolib": "^2.0.3",
+    "@types/leaflet": "^1.9.21",
+    "@types/leaflet.vectorgrid": "^1.3.8",
+    "@types/maplibre-gl": "^1.13.2",
+    "@types/papaparse": "^5.3.16",
+    "axios": "^1.12.2",
+    "geolib": "^3.3.4",
+    "leaflet": "^1.9.4",
+    "leaflet.vectorgrid": "^1.3.0",
+    "maplibre-gl": "^5.9.0",
+    "next": "15.5.4",
+    "papaparse": "^5.5.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-leaflet": "^5.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/google.maps": "^3.58.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.4",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
+    "tailwindcss": "^4",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5"
+  }
+}
