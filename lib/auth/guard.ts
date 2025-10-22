@@ -13,11 +13,9 @@ export async function authGuard(request: NextRequest): Promise<AuthGuardResult> 
   
   // Public routes that don't require authentication
   const publicRoutes = [
-    '/',
     '/login',
     '/api/login',
     '/api/logout',
-    '/nearest-buurten-nl',
     '/api/address',
     '/api/run-scraper',
     '/api/streets-overpass',
@@ -38,7 +36,7 @@ export async function authGuard(request: NextRequest): Promise<AuthGuardResult> 
     };
   }
   
-  // Verify authentication for protected routes
+  // Verify authentication for protected routes (including root route)
   const payload = await verifyAuthCookieFromRequest(request);
   
   if (!payload) {
@@ -57,7 +55,7 @@ export async function authGuard(request: NextRequest): Promise<AuthGuardResult> 
       isAuthenticated: true,
       payload,
       shouldRedirect: true,
-      redirectTo: '/landing',
+      redirectTo: '/',
     };
   }
   

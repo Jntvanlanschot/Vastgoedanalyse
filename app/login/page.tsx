@@ -36,8 +36,8 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Redirect to landing page on successful login
-        router.push(data.redirectTo || '/landing');
+        // Redirect to main page on successful login
+        router.push(data.redirectTo || '/');
       } else {
         setError(data.error || 'Onjuiste gebruikersnaam of wachtwoord');
       }

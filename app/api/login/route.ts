@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const token = await signJWT({ sub: username });
     
     // Create JSON response
-    const response = NextResponse.json({ success: true, redirectTo: '/landing' });
+    const response = NextResponse.json({ success: true, redirectTo: '/' });
     
     // Set the authentication cookie
     response.cookies.set(COOKIE_NAME, token, {
