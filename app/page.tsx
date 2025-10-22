@@ -150,6 +150,8 @@ export default function Home() {
                 onPlaceSelect={handlePlaceSelect}
                 placeholder="Voer adres in..."
                 disabled={isLoading}
+                value={propertyData.address}
+                onChange={(value) => handleInputChange('address', value)}
               />
               {errors.address && (
                 <p className="text-red-400 text-sm">{errors.address}</p>

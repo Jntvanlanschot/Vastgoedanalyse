@@ -7,13 +7,17 @@ interface GooglePlacesAutocompleteProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
 export default function GooglePlacesAutocomplete({
   onPlaceSelect,
   placeholder = "Enter address...",
   className = "",
-  disabled = false
+  disabled = false,
+  value = "",
+  onChange
 }: GooglePlacesAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -25,8 +29,9 @@ export default function GooglePlacesAutocomplete({
     console.log('API Key loaded:', apiKey ? 'Yes' : 'No');
     console.log('API Key value:', apiKey);
     
-    if (!apiKey || apiKey === 'your_api_key_here') {
-      console.warn('Google Maps API key not configured');
+    if (!apiKey || apiKey === 'your_api_key_here' || apiKey === 'your_google_maps_api_key_here') {
+      console.warn('Google Maps API key not configured - input will work as regular text input');
+      setIsLoaded(true); // Enable the input even without API key
       return;
     }
 
@@ -95,6 +100,8 @@ export default function GooglePlacesAutocomplete({
     <input
       ref={inputRef}
       type="text"
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
       placeholder={placeholder}
       disabled={disabled || !isLoaded}
       className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${className}`}
