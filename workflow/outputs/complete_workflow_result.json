@@ -1,0 +1,15 @@
+{
+  "status": "error",
+  "message": "Step 1 failed: [Errno 2] No such file or directory: 'dataset_funda-nl-scraper_2025-10-21_11-18-05-402.csv'",
+  "step1_result": {
+    "status": "error",
+    "message": "[Errno 2] No such file or directory: 'dataset_funda-nl-scraper_2025-10-21_11-18-05-402.csv'",
+    "top_5_streets": [],
+    "street_statistics": [],
+    "total_funda_records": 0,
+    "ranking_records": 0
+  },
+  "step2_result": null,
+  "step3_result": null,
+  "step4_result": null
+}

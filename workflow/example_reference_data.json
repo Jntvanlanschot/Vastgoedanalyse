@@ -1,0 +1,12 @@
+{
+  "address_full": "Eerste Laurierdwarsstraat 19, 1016 PV Amsterdam",
+  "area_m2": 120,
+  "energy_label": "A",
+  "bedrooms": 3,
+  "bathrooms": 2,
+  "rooms": 4,
+  "has_terrace": true,
+  "has_balcony": false,
+  "has_garden": false,
+  "sun_orientation": "zuid"
+}
