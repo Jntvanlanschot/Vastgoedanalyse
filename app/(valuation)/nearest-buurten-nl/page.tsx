@@ -76,14 +76,31 @@ export default function NearestBuurtenNLPage() {
       // Parse the generated Apify JSON to send to the scraper
       const apifyConfig = JSON.parse(apifyJson);
 
-      console.log('Sending Apify config to /api/run-scraper:', apifyConfig);
+      // Get reference data from sessionStorage
+      const referenceDataStr = sessionStorage.getItem('referenceData');
+      let referenceData = null;
+      if (referenceDataStr) {
+        try {
+          referenceData = JSON.parse(referenceDataStr);
+        } catch (e) {
+          console.error('Failed to parse reference data:', e);
+        }
+      }
+
+      // Combine Apify config with reference data
+      const requestBody = {
+        ...apifyConfig,
+        referenceData: referenceData
+      };
+
+      console.log('Sending request to /api/run-scraper:', requestBody);
 
       const response = await fetch('/api/run-scraper', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(apifyConfig),
+        body: JSON.stringify(requestBody),
       });
 
       console.log('Response status:', response.status);
@@ -94,23 +111,51 @@ export default function NearestBuurtenNLPage() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
-        } catch (e) {
+        } catch {
           // If response is not JSON, use the status text
           console.log('Response is not JSON, using status text');
         }
         throw new Error(errorMessage);
       }
 
-      // Download the CSV file
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'funda-buurten-nl.csv';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // Check if response contains workflow results
+      const contentType = response.headers.get('content-type');
+      console.log('Response content-type:', contentType);
+      
+      if (contentType && contentType.includes('application/json')) {
+        // Response contains workflow results
+        const workflowResult = await response.json();
+        console.log('Workflow result:', workflowResult);
+        
+        // Store analysis results in sessionStorage for the upload-realworks page
+        if (workflowResult.workflow && workflowResult.workflow.step1_result) {
+          sessionStorage.setItem('analysisResult', JSON.stringify(workflowResult.workflow));
+          console.log('Stored analysis results in sessionStorage:', workflowResult.workflow.step1_result);
+          
+          // Navigate to upload-realworks page
+          console.log('Redirecting to upload-realworks page...');
+          window.location.href = '/upload-realworks';
+          return;
+        } else {
+          console.error('No workflow results found in response:', workflowResult);
+          setError('Geen analyse resultaten ontvangen van de scraper');
+        }
+      } else {
+        // Response is CSV file (legacy behavior)
+        console.log('Response is CSV file, downloading...');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'funda-buurten-nl.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        // Show message that CSV was downloaded but no workflow was run
+        setError('CSV bestand gedownload, maar geen workflow analyse uitgevoerd. Controleer of de workflow correct is geconfigureerd.');
+      }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
@@ -220,7 +265,7 @@ export default function NearestBuurtenNLPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Map Section */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className={`bg-white rounded-lg shadow-sm border p-6 ${isScraping ? 'opacity-30 pointer-events-none' : ''}`}>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Buurten Kaart</h2>
             <BuurtenMap 
               className="h-[600px]" 
@@ -384,7 +429,7 @@ export default function NearestBuurtenNLPage() {
         </div>
 
         {isScraping && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
             <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>

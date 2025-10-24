@@ -79,7 +79,7 @@ async function geocodeAddress(address: string): Promise<GeocodingResult> {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { address } = body;
+    const { address, referenceData } = body;
 
     if (!address || typeof address !== 'string') {
       return NextResponse.json(
@@ -111,7 +111,8 @@ export async function POST(request: NextRequest) {
         lng: geo.lng,
         city: geo.city,
         address: address
-      }
+      },
+      referenceData: referenceData || null
     });
   } catch (error) {
     console.error('Error processing address:', error);

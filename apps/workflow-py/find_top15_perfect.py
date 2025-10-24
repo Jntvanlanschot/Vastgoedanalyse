@@ -10,15 +10,15 @@ from typing import Dict, Any
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# Reference data for scoring
-REFERENCE_DATA = {
-    'address_full': "Eerste Laurierdwarsstraat 19, 1016 PV Amsterdam",
-    'area_m2': 120,
-    'energy_label': 'A',
-    'bedrooms': 3,
-    'bathrooms': 2,
-    'rooms': 4,  # Added missing rooms
-    'has_terrace': True,
+# Default reference data for scoring - will be overridden by actual user data
+DEFAULT_REFERENCE_DATA = {
+    'address_full': "Onbekend adres",
+    'area_m2': 100,
+    'energy_label': 'B',
+    'bedrooms': 2,
+    'bathrooms': 1,
+    'rooms': 3,
+    'has_terrace': False,
     'has_balcony': False,
     'has_garden': False,
     'sun_orientation': 'zuid',
@@ -94,8 +94,13 @@ def calculate_similarity_score(house: pd.Series, reference: Dict[str, Any]) -> f
 
     return score
 
-def find_top15_perfect():
+def find_top15_perfect(reference_data=None):
     """Find top 15 matches using perfect merged data."""
+    
+    # Use provided reference data or defaults
+    ref_data = reference_data or DEFAULT_REFERENCE_DATA
+    
+    logger.info(f"Using reference data: {ref_data.get('address_full', 'Unknown address')}")
     
     # Load perfect merged data
     df = pd.read_csv('outputs/perfect_merged_data_fixed.csv')
@@ -106,7 +111,7 @@ def find_top15_perfect():
     logger.info(f"Records with Realworks data: {len(df_with_rw)}")
     
     # Calculate similarity scores
-    df_with_rw['similarity_score'] = df_with_rw.apply(lambda row: calculate_similarity_score(row, REFERENCE_DATA), axis=1)
+    df_with_rw['similarity_score'] = df_with_rw.apply(lambda row: calculate_similarity_score(row, ref_data), axis=1)
     
     # Sort by score and select top 15
     top15_df = df_with_rw.sort_values(by='similarity_score', ascending=False).head(15).copy()
@@ -119,8 +124,8 @@ def find_top15_perfect():
     logger.info(f"Top 15 perfect matches saved to: outputs/top15_perfect_matches.csv")
     
     print("\n=== TOP 15 PERFECTE MATCHES ===")
-    print(f"Referentie: {REFERENCE_DATA['address_full']}")
-    print(f"Referentie eigenschappen: {REFERENCE_DATA['area_m2']}m², {REFERENCE_DATA['energy_label']}, {REFERENCE_DATA['bedrooms']} slaapkamers, {REFERENCE_DATA['bathrooms']} badkamers")
+    print(f"Referentie: {ref_data.get('address_full', 'Unknown address')}")
+    print(f"Referentie eigenschappen: {ref_data.get('area_m2', 0)}m², {ref_data.get('energy_label', 'Unknown')}, {ref_data.get('bedrooms', 0)} slaapkamers, {ref_data.get('bathrooms', 0)} badkamers")
     
     # Calculate average price per m2 for top 15
     valid_prices_per_m2 = []

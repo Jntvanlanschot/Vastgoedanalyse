@@ -17,15 +17,6 @@ interface ApifyRunStatus {
   };
 }
 
-interface FundaProperty {
-  url: string;
-  address: string;
-  price: number;
-  saleDate: string;
-  taxatieValue?: number;
-  [key: string]: unknown;
-}
-
 interface StreetScrapingRequest {
   city?: string;
   streets: string[];
@@ -69,7 +60,7 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
   const fundaConfig = {
     includeSold: true,
     includeUnderOffer: true,
-    maxItems: 300,
+    maxItems: 150,
     proxyConfiguration: {
       useApifyProxy: true
     },
@@ -295,7 +286,7 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
   const fundaConfig = {
     includeSold: true,
     includeUnderOffer: true,
-    maxItems: 300,
+    maxItems: 150,
     proxyConfiguration: {
       useApifyProxy: true
     },
@@ -476,14 +467,76 @@ export async function POST(request: NextRequest) {
     const csvData = datasetResponse.data;
     console.log(`Dataset fetched, ${csvData.length} characters`);
 
-    // Return CSV file for download (same as other handlers)
-    return new NextResponse(csvData, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': 'attachment; filename="funda-buurten-nl.csv"',
-      },
-    });
+    // Run Python workflow on the CSV data
+    console.log('Starting Python workflow analysis...');
+    
+    try {
+      // Get reference data from the request or use default structure
+      const referenceData = {
+        address_full: requestBody.referenceData?.address_full || 'Unknown Address',
+        area_m2: requestBody.referenceData?.area_m2 || 100,
+        energy_label: requestBody.referenceData?.energy_label || 'B',
+        bedrooms: requestBody.referenceData?.bedrooms || 2,
+        bathrooms: requestBody.referenceData?.bathrooms || 1,
+        rooms: requestBody.referenceData?.rooms || 3,
+        has_terrace: requestBody.referenceData?.has_terrace || false,
+        has_balcony: requestBody.referenceData?.has_balcony || false,
+        has_garden: requestBody.referenceData?.has_garden || false,
+        sun_orientation: requestBody.referenceData?.sun_orientation || 'zuid'
+      };
+
+      // Call the workflow API
+      const workflowResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/run-workflow`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          csvData,
+          referenceData
+        }),
+      });
+
+      const workflowResult = await workflowResponse.json();
+      
+      if (workflowResult.status === 'success') {
+        console.log('Workflow completed successfully:', workflowResult.summary);
+        
+        // Return both CSV and workflow results
+        return NextResponse.json({
+          success: true,
+          csvData: csvData,
+          workflow: workflowResult,
+          runId,
+          datasetId
+        });
+      } else {
+        console.error('Workflow failed:', workflowResult.message);
+        
+        // Return CSV with workflow error
+        return NextResponse.json({
+          success: true,
+          csvData: csvData,
+          workflow: workflowResult,
+          runId,
+          datasetId
+        });
+      }
+    } catch (workflowError) {
+      console.error('Error running workflow:', workflowError);
+      
+      // Return CSV even if workflow fails
+      return NextResponse.json({
+        success: true,
+        csvData: csvData,
+        workflow: {
+          status: 'error',
+          message: 'Workflow execution failed'
+        },
+        runId,
+        datasetId
+      });
+    }
 
   } catch (error) {
     console.error('Error running Apify scraper:', error);
@@ -496,68 +549,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function analyzeFundaData(csvData: string) {
-  const lines = csvData.split('\n');
-  const headers = lines[0].split(',');
-  
-  // Find relevant column indices
-  const priceIndex = headers.findIndex(h => h.toLowerCase().includes('price') || h.toLowerCase().includes('prijs'));
-  const saleDateIndex = headers.findIndex(h => h.toLowerCase().includes('sale') || h.toLowerCase().includes('verkoop'));
-  const taxatieIndex = headers.findIndex(h => h.toLowerCase().includes('taxatie') || h.toLowerCase().includes('valuation'));
-  const addressIndex = headers.findIndex(h => h.toLowerCase().includes('address') || h.toLowerCase().includes('adres'));
-  const urlIndex = headers.findIndex(h => h.toLowerCase().includes('url') || h.toLowerCase().includes('link'));
-
-  const properties: FundaProperty[] = [];
-  let totalPrice = 0;
-  let totalTaxatieValue = 0;
-  let taxatieCount = 0;
-
-  // Parse CSV data (skip header row)
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const values = line.split(',');
-    if (values.length < headers.length) continue;
-
-    const price = parseFloat(values[priceIndex]?.replace(/[^\d.-]/g, '') || '0');
-    const saleDate = values[saleDateIndex] || '';
-    const taxatieValue = taxatieIndex >= 0 ? parseFloat(values[taxatieIndex]?.replace(/[^\d.-]/g, '') || '0') : undefined;
-    const address = values[addressIndex] || '';
-    const url = values[urlIndex] || '';
-
-    if (price > 0) {
-      properties.push({
-        url,
-        address,
-        price,
-        saleDate,
-        taxatieValue,
-      });
-
-      totalPrice += price;
-      if (taxatieValue && taxatieValue > 0) {
-        totalTaxatieValue += taxatieValue;
-        taxatieCount++;
-      }
-    }
-  }
-
-  // Filter properties from last 12 months
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-
-  const recentSales = properties.filter(prop => {
-    if (!prop.saleDate) return false;
-    const saleDate = new Date(prop.saleDate);
-    return saleDate >= twelveMonthsAgo;
-  });
-
-  return {
-    totalProperties: properties.length,
-    recentSales: recentSales.length,
-    averagePrice: properties.length > 0 ? Math.round(totalPrice / properties.length) : 0,
-    averageTaxatieValue: taxatieCount > 0 ? Math.round(totalTaxatieValue / taxatieCount) : 0,
-    properties: recentSales.slice(0, 50), // Return top 50 recent sales for display
-  };
-}

@@ -84,7 +84,7 @@ export function generateFundaConfig(closestWijken: string[]) {
   const config = {
     includeSold: true,
     includeUnderOffer: true,
-    maxItems: 300,
+    maxItems: 150,
     proxyConfiguration: {
       useApifyProxy: true
     },

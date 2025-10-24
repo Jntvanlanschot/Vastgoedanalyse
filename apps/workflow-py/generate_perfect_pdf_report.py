@@ -15,36 +15,39 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# Reference data
-REFERENCE_ADDRESS = "Eerste Laurierdwarsstraat 19"
-REFERENCE_DATA = {
-    'address_full': "Eerste Laurierdwarsstraat 19, 1016 PV Amsterdam",
-    'area_m2': 120,
-    'energy_label': 'A',
-    'bedrooms': 3,
-    'bathrooms': 2,
-    'rooms': 4,
-    'has_terrace': True,
+# Reference data - will be passed as parameter to functions
+# These are defaults that will be overridden by actual user data
+DEFAULT_REFERENCE_DATA = {
+    'address_full': "Onbekend adres",
+    'area_m2': 100,
+    'energy_label': 'B',
+    'bedrooms': 2,
+    'bathrooms': 1,
+    'rooms': 3,
+    'has_terrace': False,
     'has_balcony': False,
     'has_garden': False,
 }
 
-def create_comparison_table(house_data: dict) -> Table:
+def create_comparison_table(house_data: dict, reference_data: dict = None) -> Table:
     """Create comparison table for a single house."""
+    
+    # Use provided reference data or defaults
+    ref_data = reference_data or DEFAULT_REFERENCE_DATA
     
     # Prepare data
     data = [
         ['Eigenschap', 'Referentie', 'Huidig pand'],
-        ['Adres', REFERENCE_ADDRESS, house_data['address']],
+        ['Adres', ref_data.get('address_full', 'Onbekend'), house_data['address']],
         ['Verkoopprijs', 'Onbekend', f"€{house_data['sale_price']:,.0f}" if house_data['sale_price'] > 0 else 'Onbekend'],
-        ['Oppervlakte (m²)', f"{REFERENCE_DATA['area_m2']}", f"{int(house_data['area_m2'])}" if house_data['area_m2'] > 0 else 'Onbekend'],
-        ['Kamers', f"{REFERENCE_DATA['rooms']}", f"{int(house_data['rooms'])}" if house_data['rooms'] > 0 else 'Onbekend'],
-        ['Slaapkamers', f"{REFERENCE_DATA['bedrooms']}", f"{int(house_data['bedrooms'])}" if house_data['bedrooms'] > 0 else 'Onbekend'],
-        ['Badkamers', f"{REFERENCE_DATA['bathrooms']}", f"{int(house_data['bathrooms'])}" if house_data['bathrooms'] > 0 else 'Onbekend'],
+        ['Oppervlakte (m²)', f"{ref_data.get('area_m2', 0)}", f"{int(house_data['area_m2'])}" if house_data['area_m2'] > 0 else 'Onbekend'],
+        ['Kamers', f"{ref_data.get('rooms', 0)}", f"{int(house_data['rooms'])}" if house_data['rooms'] > 0 else 'Onbekend'],
+        ['Slaapkamers', f"{ref_data.get('bedrooms', 0)}", f"{int(house_data['bedrooms'])}" if house_data['bedrooms'] > 0 else 'Onbekend'],
+        ['Badkamers', f"{ref_data.get('bathrooms', 0)}", f"{int(house_data['bathrooms'])}" if house_data['bathrooms'] > 0 else 'Onbekend'],
         ['Bouwjaar', 'Onbekend', f"{int(house_data['year_built'])}" if house_data['year_built'] > 0 else 'Onbekend'],
-        ['Energielabel', REFERENCE_DATA['energy_label'], house_data['energy_label'] if house_data['energy_label'] != 'nan' else 'ONBEKEND'],
-        ['Tuin', 'Nee', 'Ja' if house_data['has_garden'] else 'Nee'],
-        ['Balkon', 'Nee', 'Ja' if house_data['has_balcony'] else 'Nee'],
+        ['Energielabel', ref_data.get('energy_label', 'Onbekend'), house_data['energy_label'] if house_data['energy_label'] != 'nan' else 'ONBEKEND'],
+        ['Tuin', 'Ja' if ref_data.get('has_garden', False) else 'Nee', 'Ja' if house_data['has_garden'] else 'Nee'],
+        ['Balkon', 'Ja' if ref_data.get('has_balcony', False) else 'Nee', 'Ja' if house_data['has_balcony'] else 'Nee'],
         ['Terras', 'Ja', 'Ja' if house_data['has_terrace'] else 'Nee'],
         ['Onderhoud binnen', 'Onbekend', house_data['maintenance_inside'] if house_data['maintenance_inside'] != 'nan' else 'Onbekend'],
         ['Onderhoud buiten', 'Onbekend', house_data['maintenance_outside'] if house_data['maintenance_outside'] != 'nan' else 'Onbekend'],
@@ -73,8 +76,11 @@ def create_comparison_table(house_data: dict) -> Table:
     
     return table
 
-def generate_perfect_pdf_report():
+def generate_perfect_pdf_report(reference_data=None):
     """Generate PDF report from perfect top 15 data."""
+    
+    # Use provided reference data or defaults
+    ref_data = reference_data or DEFAULT_REFERENCE_DATA
     
     # Load perfect top 15 data
     df = pd.read_csv('outputs/top15_perfect_matches.csv')
@@ -120,9 +126,9 @@ def generate_perfect_pdf_report():
     
     if valid_prices:
         avg_price = sum(valid_prices) / len(valid_prices)
-        advice_price = avg_price * REFERENCE_DATA['area_m2']
+        advice_price = avg_price * ref_data.get('area_m2', 100)
         story.append(Paragraph(f"BEREKENDE ADVIESPRIJS: €{advice_price:,.0f}", subtitle_style))
-        story.append(Paragraph(f"(Gemiddelde prijs per m²: €{avg_price:,.0f} × {REFERENCE_DATA['area_m2']}m²)", styles['Normal']))
+        story.append(Paragraph(f"(Gemiddelde prijs per m²: €{avg_price:,.0f} × {ref_data.get('area_m2', 100)}m²)", styles['Normal']))
     
     story.append(Spacer(1, 20))
     
@@ -187,7 +193,7 @@ def generate_perfect_pdf_report():
         }
         
         # Comparison table
-        comparison_table = create_comparison_table(house_data)
+        comparison_table = create_comparison_table(house_data, ref_data)
         story.append(comparison_table)
         
         # Funda link

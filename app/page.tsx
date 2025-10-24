@@ -100,13 +100,30 @@ export default function Home() {
       // Save property data to localStorage
       localStorage.setItem('propertyData', JSON.stringify(propertyData));
       
-      // Send address to API for geocoding
+      // Prepare reference data for the workflow
+      const referenceData = {
+        address_full: propertyData.address.trim(),
+        area_m2: propertyData.oppervlakte || 100,
+        energy_label: propertyData.energielabel || 'B',
+        bedrooms: propertyData.slaapkamers || 2,
+        bathrooms: propertyData.badkamers || 1,
+        rooms: propertyData.kamers || 3,
+        has_terrace: propertyData.dakterras_balkon === 'Ja',
+        has_balcony: propertyData.dakterras_balkon === 'Ja',
+        has_garden: propertyData.tuin === 'Ja',
+        sun_orientation: 'zuid' // Default value
+      };
+
+      // Send address and reference data to API for geocoding
       const response = await fetch('/api/address', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ address: propertyData.address.trim() }),
+        body: JSON.stringify({ 
+          address: propertyData.address.trim(),
+          referenceData: referenceData
+        }),
       });
 
       const data = await response.json();
@@ -127,6 +144,11 @@ export default function Home() {
           lng: data.geo.lng,
           city: data.geo.city
         }));
+        
+        // Store reference data for the workflow
+        if (data.referenceData) {
+          sessionStorage.setItem('referenceData', JSON.stringify(data.referenceData));
+        }
         
         // Navigate to the nationwide buurten page
         window.location.href = '/nearest-buurten-nl';

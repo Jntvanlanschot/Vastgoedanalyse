@@ -48,14 +48,10 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
                 "excel_file": None
             }
         
-        # Generate Excel report using existing script
-        import sys
-        sys.path.append('.')
-        from create_perfect_excel_table import create_excel_table
-        
+        # Generate Excel report
         excel_output = Path('outputs/top15_perfecte_woningen_tabel_final.xlsx')
         
-        # Create Excel table
+        # Create Excel table using pandas
         excel_df = top15_df.copy()
         excel_df['rank'] = range(1, len(excel_df) + 1)
         
@@ -92,13 +88,101 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
         excel_df.to_excel(excel_output, index=False, sheet_name='Top 15 Woningen')
         logger.info(f"Saved Excel report to {excel_output}")
         
-        # Generate PDF report using existing script
-        from generate_perfect_pdf_report import generate_pdf_report
-        
+        # Generate PDF report
         pdf_output = Path('outputs/top15_perfect_report_final.pdf')
         
-        # Generate PDF
-        generate_pdf_report(top15_df, pdf_output, reference_data)
+        # Create PDF using reportlab
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        
+        doc = SimpleDocTemplate(str(pdf_output), pagesize=A4)
+        story = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#366092')
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#666666')
+        )
+        
+        # Title page
+        story.append(Paragraph("TOP 15 PERFECTE WONINGMATCHES", title_style))
+        story.append(Paragraph("Gebaseerd op Funda + Realworks data", subtitle_style))
+        story.append(Spacer(1, 20))
+        
+        # Reference property info
+        if reference_data:
+            story.append(Paragraph(f"<b>Referentie Woning:</b> {reference_data.get('address_full', 'Onbekend')}", styles['Normal']))
+            story.append(Paragraph(f"<b>Oppervlakte:</b> {reference_data.get('area_m2', 'Onbekend')} m²", styles['Normal']))
+            story.append(Paragraph(f"<b>Energielabel:</b> {reference_data.get('energy_label', 'Onbekend')}", styles['Normal']))
+            story.append(Spacer(1, 20))
+        
+        # Calculate and show advice price
+        valid_prices = []
+        for i, row in top15_df.iterrows():
+            sale_price = row.get('rw_sale_price', 0)
+            area_m2 = row.get('rw_area_m2', 0)
+            if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0:
+                valid_prices.append(sale_price / area_m2)
+        
+        if valid_prices and reference_data:
+            avg_price = sum(valid_prices) / len(valid_prices)
+            advice_price = avg_price * reference_data.get('area_m2', 100)
+            story.append(Paragraph(f"<b>BEREKENDE ADVIESPRIJS: €{advice_price:,.0f}</b>", subtitle_style))
+            story.append(Paragraph(f"(Gemiddelde prijs per m²: €{avg_price:,.0f} × {reference_data.get('area_m2', 100)}m²)", styles['Normal']))
+        
+        story.append(Spacer(1, 20))
+        
+        # Overview table
+        overview_data = [['#', 'Adres', 'Verkoopprijs', 'Oppervlakte (m²)', 'Score']]
+        
+        for i, row in top15_df.iterrows():
+            address = row.get('address_full', 'Onbekend adres')
+            sale_price = row.get('rw_sale_price', 0)
+            area_m2 = row.get('rw_area_m2', 0)
+            score = row.get('similarity_score', 0)
+            
+            overview_data.append([
+                str(i + 1),
+                address[:50] + '...' if len(address) > 50 else address,
+                f"€{sale_price:,.0f}" if sale_price > 0 else 'Onbekend',
+                f"{area_m2:.0f}" if area_m2 > 0 else 'Onbekend',
+                f"{score:.3f}" if pd.notna(score) else '0.000'
+            ])
+        
+        overview_table = Table(overview_data, colWidths=[0.5*inch, 3*inch, 1.2*inch, 1*inch, 0.8*inch])
+        overview_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(overview_table)
+        
+        # Build PDF
+        doc.build(story)
         logger.info(f"Saved PDF report to {pdf_output}")
         
         # Calculate summary statistics

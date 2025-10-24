@@ -72,10 +72,10 @@ def merge_and_select_top15(reference_data, funda_csv_path="dataset_funda-nl-scra
         logger.info(f"Loaded {len(merged_df)} merged records")
         
         # Find top 15 using existing algorithm
-        from find_top15_perfect import calculate_similarity_score, REFERENCE_DATA
+        from find_top15_perfect import calculate_similarity_score
         
-        # Update reference data
-        REFERENCE_DATA.update(reference_data)
+        # Use the provided reference data directly
+        logger.info(f"Using reference data: {reference_data.get('address_full', 'Unknown address')}")
         
         # Only consider records with Realworks data
         df_with_rw = merged_df[merged_df['match_type'] != 'no_match'].copy()
@@ -90,8 +90,8 @@ def merge_and_select_top15(reference_data, funda_csv_path="dataset_funda-nl-scra
                 "top_15_matches": []
             }
         
-        # Calculate similarity scores
-        df_with_rw['similarity_score'] = df_with_rw.apply(lambda row: calculate_similarity_score(row, REFERENCE_DATA), axis=1)
+        # Calculate similarity scores using the provided reference data
+        df_with_rw['similarity_score'] = df_with_rw.apply(lambda row: calculate_similarity_score(row, reference_data), axis=1)
         
         # Sort by score and select top 15
         top15_df = df_with_rw.sort_values(by='similarity_score', ascending=False).head(15).copy()

@@ -1,0 +1,72 @@
+{
+  "status": "success",
+  "message": "API workflow executed successfully",
+  "step1_result": {
+    "status": "success",
+    "message": "Found 5 top streets",
+    "top_5_streets": [
+      {
+        "street_name": "Bloemgracht",
+        "name": "Bloemgracht",
+        "city": "Amsterdam",
+        "properties_count": 24,
+        "average_price": 842792
+      },
+      {
+        "street_name": "Lauriergracht",
+        "name": "Lauriergracht",
+        "city": "Amsterdam",
+        "properties_count": 19,
+        "average_price": 955737
+      },
+      {
+        "street_name": "Elandsgracht",
+        "name": "Elandsgracht",
+        "city": "Amsterdam",
+        "properties_count": 14,
+        "average_price": 632500
+      },
+      {
+        "street_name": "Nieuwe Leliestraat",
+        "name": "Nieuwe Leliestraat",
+        "city": "Amsterdam",
+        "properties_count": 13,
+        "average_price": 733462
+      },
+      {
+        "street_name": "Bloemstraat",
+        "name": "Bloemstraat",
+        "city": "Amsterdam",
+        "properties_count": 13,
+        "average_price": 610923
+      }
+    ],
+    "total_funda_records": 150
+  },
+  "step2_result": {
+    "status": "success",
+    "message": "No Realworks files to process",
+    "processed_records": 0
+  },
+  "step3_result": {
+    "status": "success",
+    "message": "Analysis completed",
+    "matched_records": 15,
+    "top_15_count": 15,
+    "top15_file": "outputs/top15_perfect_matches_final.csv"
+  },
+  "step4_result": {
+    "status": "success",
+    "message": "Successfully generated reports for 15 properties",
+    "pdf_file": "outputs/top15_perfect_report_final.pdf",
+    "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx"
+  },
+  "summary": {
+    "total_funda_records": 150,
+    "realworks_records": 0,
+    "matched_records": 150,
+    "top_15_matches": 15,
+    "pdf_file": "outputs/top15_perfect_report_final.pdf",
+    "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx"
+  }
+}
