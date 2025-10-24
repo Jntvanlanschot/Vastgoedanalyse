@@ -476,19 +476,13 @@ export async function POST(request: NextRequest) {
     const csvData = datasetResponse.data;
     console.log(`Dataset fetched, ${csvData.length} characters`);
 
-    // Step 4: Parse and analyze the data
-    const analysisResult = analyzeFundaData(csvData);
-    
-    return NextResponse.json({
-      success: true,
-      runId,
-      datasetId,
-      totalProperties: analysisResult.totalProperties,
-      recentSales: analysisResult.recentSales,
-      averagePrice: analysisResult.averagePrice,
-      averageTaxatieValue: analysisResult.averageTaxatieValue,
-      csvData: csvData, // Include raw CSV for download
-      analysis: analysisResult.properties, // Include analyzed properties
+    // Return CSV file for download (same as other handlers)
+    return new NextResponse(csvData, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="funda-buurten-nl.csv"',
+      },
     });
 
   } catch (error) {

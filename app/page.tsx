@@ -51,10 +51,11 @@ export default function Home() {
   const handleInputChange = (field: keyof PropertyData, value: string | number) => {
     setPropertyData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
-    if (errors[field]) {
+    if (errors[field] || errors.general) {
       setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[field];
+        delete newErrors.general;
         return newErrors;
       });
     }
@@ -79,6 +80,15 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear any previous general errors
+    if (errors.general) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.general;
+        return newErrors;
+      });
+    }
     
     if (!validateForm()) {
       return;
@@ -105,6 +115,7 @@ export default function Home() {
       // Check if response has error property
       if (data.error) {
         console.error('API Error:', data.error);
+        setErrors({ general: data.error });
         return;
       }
       
@@ -124,6 +135,7 @@ export default function Home() {
       
     } catch (error) {
       console.error('Error:', error);
+      setErrors({ general: 'Er is een fout opgetreden bij het verwerken van uw aanvraag. Probeer het opnieuw.' });
     } finally {
       setIsLoading(false);
     }
@@ -139,6 +151,12 @@ export default function Home() {
           <p className="text-gray-300 text-center">
             Vul de eigenschappen van uw woning in voor een uitgebreide analyse.
           </p>
+          
+          {errors.general && (
+            <div className="bg-red-900/20 border border-red-500 rounded-lg p-4">
+              <p className="text-red-400 text-sm">{errors.general}</p>
+            </div>
+          )}
           
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Address Field */}
