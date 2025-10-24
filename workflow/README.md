@@ -126,3 +126,4 @@ Alle scripts hebben uitgebreide foutafhandeling en retourneren altijd een JSON r
 - **Step 4**: ~3-5 seconden (rapport generatie)
 
 Totale workflow tijd: ~15-30 seconden voor typische datasets.
+
