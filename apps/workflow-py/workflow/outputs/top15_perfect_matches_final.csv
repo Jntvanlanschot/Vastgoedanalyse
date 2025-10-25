@@ -1,1 +1,16 @@
 address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_energy_label,similarity_score
+"Elandsgracht 41, 1016TV, Amsterdam",1475000,136,3,0,E,0.96
+"Lijnbaansgracht 1183V, 1016VV, Amsterdam",725000,110,3,0,C,0.9386363636363636
+"Akoleienstraat 81, 1016LN, Amsterdam",725000,105,3,0,G,0.9261363636363636
+"Elandsgracht 103A, 1016TS, Amsterdam",950000,113,3,0,A,0.9097727272727272
+"Eerste Leliedwarsstraat 5, 1015SZ, Amsterdam",850000,142,3,0,C,0.9086363636363636
+"Lijnbaansgracht 2043, 1016XA, Amsterdam",750000,90,3,0,D,0.906818181818182
+"Nieuwe Leliestraat 168H, 1015HE, Amsterdam",745000,126,3,0,A,0.8747727272727273
+"Lauriergracht 1142, 1016RR, Amsterdam",1250000,109,3,0,unknown,0.8724999999999999
+"Tweede Bloemdwarsstraat 34A, 1016LM, Amsterdam",750000,83,3,0,C,0.8711363636363637
+"Lauriergracht 1263, 1016RS, Amsterdam",615000,132,3,0,G,0.8586363636363638
+"Rozengracht 225D, 1016NA, Amsterdam",795000,121,2,0,C,0.856969696969697
+"Hazenstraat 12, 1016SP, Amsterdam",1000000,131,2,0,D,0.8501515151515152
+"Bloemstraat 83, 1016KX, Amsterdam",1750000,132,3,0,A,0.8222727272727274
+"Bloemstraat 1211, 1016KZ, Amsterdam",950000,97,2,0,B,0.8212878787878789
+"Elandsstraat 58, 1016SG, Amsterdam",900000,116,2,0,A,0.8131060606060607

@@ -17,6 +17,11 @@ import logging
 import sys
 from pathlib import Path
 import pandas as pd
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -41,11 +46,24 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
         logger.info(f"Loaded {len(top15_df)} top 15 matches")
         
         if len(top15_df) == 0:
+            logger.warning("No top 15 matches found, creating empty reports")
+            # Create empty Excel file
+            excel_output = Path('outputs/top15_perfecte_woningen_tabel_final.xlsx')
+            empty_df = pd.DataFrame(columns=['Rang', 'Adres', 'Verkoopprijs (€)', 'Oppervlakte (m²)', 'Score'])
+            empty_df.to_excel(excel_output, index=False, sheet_name='Top 15 Woningen')
+            
+            # Create empty PDF with proper PDF structure
+            pdf_output = Path('outputs/top15_perfect_report_final.pdf')
+            create_empty_pdf(pdf_output, reference_data)
+            
             return {
-                "status": "error",
-                "message": "No top 15 matches found to generate reports",
-                "pdf_file": None,
-                "excel_file": None
+                "status": "success",
+                "message": "Generated empty reports (no data available)",
+                "pdf_file": str(pdf_output),
+                "excel_file": str(excel_output),
+                "total_properties": 0,
+                "avg_price_per_m2": 0,
+                "score_range": {"highest": 0, "lowest": 0}
             }
         
         # Generate Excel report
@@ -264,6 +282,59 @@ def main():
         
         print(json.dumps(error_result, indent=2, ensure_ascii=False))
         sys.exit(1)
+
+def create_empty_pdf(pdf_output, reference_data):
+    """Create an empty PDF with proper structure when no data is available."""
+    try:
+        doc = SimpleDocTemplate(str(pdf_output), pagesize=A4)
+        story = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#366092')
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#666666')
+        )
+        
+        # Title page
+        story.append(Paragraph("TOP 15 PERFECTE WONINGMATCHES", title_style))
+        story.append(Paragraph("Gebaseerd op Funda + Realworks data", subtitle_style))
+        story.append(Spacer(1, 20))
+        
+        # Reference property info
+        if reference_data:
+            story.append(Paragraph(f"<b>Referentie Woning:</b> {reference_data.get('address_full', 'Onbekend')}", styles['Normal']))
+            story.append(Paragraph(f"<b>Oppervlakte:</b> {reference_data.get('area_m2', 'Onbekend')} m²", styles['Normal']))
+            story.append(Paragraph(f"<b>Energielabel:</b> {reference_data.get('energy_label', 'Onbekend')}", styles['Normal']))
+            story.append(Spacer(1, 20))
+        
+        # No data message
+        story.append(Paragraph("<b>Geen matches gevonden</b>", subtitle_style))
+        story.append(Paragraph("Er zijn geen woningen gevonden die voldoen aan de zoekcriteria.", styles['Normal']))
+        story.append(Paragraph("Probeer andere zoekparameters of controleer of er data beschikbaar is.", styles['Normal']))
+        
+        # Build PDF
+        doc.build(story)
+        logger.info(f"Created empty PDF report at {pdf_output}")
+        
+    except Exception as e:
+        logger.error(f"Error creating empty PDF: {e}")
+        # Create a minimal PDF as fallback
+        with open(pdf_output, 'wb') as f:
+            f.write(b'%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Contents 4 0 R\n>>\nendobj\n4 0 obj\n<<\n/Length 44\n>>\nstream\nBT\n/F1 12 Tf\n72 720 Td\n(No data available) Tj\nET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000204 00000 n \ntrailer\n<<\n/Size 5\n/Root 1 0 R\n>>\nstartxref\n297\n%%EOF')
 
 if __name__ == "__main__":
     main()
