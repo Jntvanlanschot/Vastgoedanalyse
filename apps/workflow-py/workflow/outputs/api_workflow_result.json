@@ -1,79 +1,8 @@
 {
-  "status": "success",
-  "message": "API workflow executed successfully",
-  "step1_result": {
-    "status": "success",
-    "message": "Fetched similarity data for 0 streets",
-    "street_similarity_cache": {
-      "Eerste Laurierdwarsstraat": []
-    }
-  },
-  "step2_result": {
-    "status": "success",
-    "message": "Found reference street + 4 other similar streets",
-    "top_5_streets": [
-      {
-        "street_name": "Akoleienstraat",
-        "name": "Akoleienstraat",
-        "city": "Amsterdam",
-        "properties_count": 2,
-        "average_price": 535000,
-        "is_reference": false
-      },
-      {
-        "street_name": "Tweede Bloemdwarsstraat",
-        "name": "Tweede Bloemdwarsstraat",
-        "city": "Amsterdam",
-        "properties_count": 2,
-        "average_price": 774500,
-        "is_reference": false
-      },
-      {
-        "street_name": "Tweede Leliedwarsstraat",
-        "name": "Tweede Leliedwarsstraat",
-        "city": "Amsterdam",
-        "properties_count": 1,
-        "average_price": 775000,
-        "is_reference": false
-      },
-      {
-        "street_name": "Eerste Leliedwarsstraat",
-        "name": "Eerste Leliedwarsstraat",
-        "city": "Amsterdam",
-        "properties_count": 2,
-        "average_price": 950000,
-        "is_reference": false
-      },
-      {
-        "street_name": "Tweede Laurierdwarsstraat",
-        "name": "Tweede Laurierdwarsstraat",
-        "city": "Amsterdam",
-        "properties_count": 1,
-        "average_price": 850000,
-        "is_reference": false
-      }
-    ],
-    "total_funda_records": 150
-  },
-  "step3_result": {
-    "status": "success",
-    "message": "Processed 17 Realworks records",
-    "processed_records": 17,
-    "realworks_file": "outputs/realworks_perfect_data.csv"
-  },
-  "step4_result": {
-    "status": "success",
-    "message": "Analysis completed",
-    "matched_records": 167,
-    "top_15_count": 15,
-    "top15_file": "outputs/top15_perfect_matches_final.csv"
-  },
-  "summary": {
-    "total_funda_records": 150,
-    "realworks_records": 17,
-    "matched_records": 167,
-    "top_15_matches": 15,
-    "pdf_file": "outputs/top15_perfect_report_final.pdf",
-    "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx"
-  }
+  "status": "error",
+  "message": "Failed to run API workflow: Object of type StreetProfile is not JSON serializable",
+  "step1_result": null,
+  "step2_result": null,
+  "step3_result": null,
+  "step5_result": null
 }

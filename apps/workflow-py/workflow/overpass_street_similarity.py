@@ -124,32 +124,66 @@ class OverpassStreetSimilarity:
         street_lower = street_name.lower()
         return any(pattern in street_lower for pattern in gracht_patterns)
     
-    def build_overpass_query(self, street_names: List[str], include_waterways: bool = True) -> str:
-        """Build Overpass QL query for street data."""
-        # Escape street names for Overpass QL
-        escaped_names = [f'"{name}"' for name in street_names]
-        name_filter = '|'.join(escaped_names)
+    def build_overpass_query(self, street_names: List[str], include_waterways: bool = True, use_anchors: bool = True) -> str:
+        """Build Overpass QL query for street data.
         
-        query = f"""
-        [out:json][timeout:60];
-        (
-          way["highway"~"^(living_street|residential|tertiary|secondary)$"]["name"~"^({name_filter})$"]({self.amsterdam_bbox[1]},{self.amsterdam_bbox[0]},{self.amsterdam_bbox[3]},{self.amsterdam_bbox[2]});
+        Args:
+            street_names: List of street names to query
+            include_waterways: Whether to also fetch waterways
+            use_anchors: Whether to use exact match anchors (^...$)
         """
+        if not street_names:
+            return ""
         
+        # Clean and normalize street names for matching
+        # Remove quotes, trim spaces, handle special characters
+        cleaned_names = []
+        for name in street_names:
+            # Remove quotes if present, trim
+            clean_name = name.strip().strip('"')
+            if clean_name:
+                # Escape special regex characters
+                clean_name = clean_name.replace('\\', '\\\\').replace('.', '\\.')
+                cleaned_names.append(clean_name)
+        
+        if not cleaned_names:
+            return ""
+        
+        # Build case-insensitive alternation pattern (no inner parentheses)
+        name_pattern = '|'.join(cleaned_names)
+        
+        # Build bbox for Amsterdam: south, west, north, east
+        south, west, north, east = self.amsterdam_bbox[1], self.amsterdam_bbox[0], self.amsterdam_bbox[3], self.amsterdam_bbox[2]
+        
+        # Build query with proper structure
+        query = "[out:json][timeout:60];\n(\n"
+        
+        # Add name filter with or without anchors (no parentheses around entire pattern)
+        if use_anchors:
+            name_filter = f'^{name_pattern}$'
+        else:
+            name_filter = name_pattern
+        
+        # Highway whitelist only
+        highway_filter = "residential|living_street|tertiary|secondary"
+        
+        # Build the way selector
+        query += f'  way["highway"~"{highway_filter}"]["name"~"{name_filter}",i]({south},{west},{north},{east});\n'
+        
+        # Add waterways if requested
         if include_waterways:
-            query += f"""
-          way["waterway"~"^(canal|river|stream)$"]({self.amsterdam_bbox[1]},{self.amsterdam_bbox[0]},{self.amsterdam_bbox[3]},{self.amsterdam_bbox[2]});
-            """
+            query += f'  way["waterway"~"canal|river|stream"]({south},{west},{north},{east});\n'
         
-        query += """
-        );
-        out geom;
-        """
+        # Close the block and add output directive
+        query += ");\nout body geom qt;"
         
         return query
     
-    def fetch_street_data(self, street_names: List[str]) -> Dict:
-        """Fetch street data from Overpass API with caching."""
+    def fetch_street_data(self, street_names: List[str], batch_size: int = 30) -> Dict:
+        """Fetch street data from Overpass API with batching and fallbacks.
+        
+        Implements F) Guardrails - tracks success rate and logs metrics.
+        """
         # Check cache first
         cache_key = f"streets_{hash(tuple(sorted(street_names)))}.json"
         cache_file = self.cache_dir / cache_key
@@ -157,44 +191,138 @@ class OverpassStreetSimilarity:
         if cache_file.exists():
             logger.info(f"Loading street data from cache: {cache_file}")
             with open(cache_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                cached_data = json.load(f)
+                # G) Log cache hit
+                logger.info(f"Cache hit for {len(street_names)} streets")
+                return cached_data
         
-        # Fetch from Overpass API
-        query = self.build_overpass_query(street_names)
+        # I) Track metrics for health monitoring
+        total_requested = len(street_names)
+        total_batches = (len(street_names) + batch_size - 1) // batch_size
+        error_400_count = 0
+        error_429_count = 0
+        timeout_count = 0
+        profiles_built = 0
         
+        # Batch street names (max batch_size per request to avoid 400 errors)
+        all_results = []
+        
+        for i in range(0, len(street_names), batch_size):
+            batch = street_names[i:i+batch_size]
+            batch_num = i//batch_size + 1
+            logger.info(f"Fetching batch {batch_num}/{total_batches} ({len(batch)} streets)")
+            
+            # Try with anchors first
+            result = self._fetch_batch_with_fallback(batch, use_anchors=True)
+            all_results.extend(result.get('elements', []))
+        
+        # Return combined results
+        combined_result = {"elements": all_results}
+        
+        # I) Log per-run summary
+        streets_found = [e for e in all_results if e.get('type') == 'way' and 'tags' in e and 'highway' in e.get('tags', {})]
+        unique_streets = set()
+        for e in streets_found:
+            name = e.get('tags', {}).get('name', '')
+            if name:
+                unique_streets.add(name.lower())
+        
+        profiles_built = len(unique_streets)
+        
+        logger.info(f"=== Overpass API Summary ===")
+        logger.info(f"Requested streets: {total_requested}")
+        logger.info(f"Batches queried: {total_batches}")
+        logger.info(f"Street segments found: {len(streets_found)}")
+        logger.info(f"Unique street profiles built: {profiles_built}")
+        logger.info(f"Success rate: {profiles_built/total_requested*100:.1f}%")
+        
+        # F) Check if health threshold is met (70%)
+        if profiles_built / total_requested < 0.7:
+            logger.warning(f"WARNING: Low Overpass success rate ({profiles_built/total_requested*100:.1f}%)")
+            logger.warning("Only 70% of streets were matched. Results may be less accurate.")
+        
+        # Cache the result
+        try:
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump(combined_result, f, indent=2, ensure_ascii=False)
+            logger.info(f"Cached street data to: {cache_file}")
+        except Exception as e:
+            logger.warning(f"Failed to cache results: {e}")
+        
+        return combined_result
+    
+    def _fetch_batch_with_fallback(self, street_names: List[str], use_anchors: bool = True) -> Dict:
+        """Fetch a batch of streets with fallback strategies."""
         headers = {
-            'User-Agent': 'Vastgoedanalyse-StreetSimilarity/1.0',
+            'User-Agent': 'Vastgoedanalyse-StreetSimilarity/1.0 (contact: mail@example.com)',
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         
-        max_retries = 3
-        for attempt in range(max_retries):
+        # Strategy 1: Try with anchors (exact match)
+        query = self.build_overpass_query(street_names, use_anchors=use_anchors)
+        
+        # I) Log the query body for debugging
+        logger.info(f"Overpass query for batch of {len(street_names)} streets:")
+        logger.info(query)
+        
+        for attempt in range(3):
             try:
-                logger.info(f"Fetching street data from Overpass API (attempt {attempt + 1})")
+                logger.info(f"Fetching street data from Overpass API (attempt {attempt + 1}, anchors={'on' if use_anchors else 'off'})")
+                
                 response = requests.post(
                     self.overpass_url,
                     data={'data': query},
                     headers=headers,
                     timeout=60
                 )
+                
+                # Check for error status
+                if response.status_code == 400:
+                    logger.warning(f"Bad Request (400) - query may be too complex")
+                    logger.warning(f"Response text: {response.text[:500]}")
+                    # Try fallback: without anchors
+                    if use_anchors and attempt == 0:
+                        logger.info("Retrying without anchors")
+                        return self._fetch_batch_with_fallback(street_names, use_anchors=False)
+                    break
+                
+                # Check for rate limiting
+                if response.status_code == 429:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Rate limited (429), waiting {wait_time}s")
+                    time.sleep(wait_time)
+                    continue
+                
                 response.raise_for_status()
                 
                 data = response.json()
                 
-                # Cache the result
-                with open(cache_file, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-                
-                logger.info(f"Cached street data to: {cache_file}")
-                return data
-                
+                # Check if we got results
+                if data.get('elements'):
+                    streets_found = [e for e in data['elements'] if e.get('type') == 'way' and 'tags' in e]
+                    logger.info(f"Successfully fetched {len(streets_found)} street segments")
+                    return data
+                elif use_anchors and attempt == 0:
+                    # Try without anchors as fallback
+                    logger.info("No results with anchors, trying without")
+                    return self._fetch_batch_with_fallback(street_names, use_anchors=False)
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f"Timeout on attempt {attempt + 1}")
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                else:
+                    logger.error("All timeouts exhausted")
             except requests.exceptions.RequestException as e:
                 logger.warning(f"Overpass API request failed (attempt {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
+                if attempt < 2:
                     time.sleep(2 ** attempt)  # Exponential backoff
                 else:
-                    logger.error("All Overpass API attempts failed")
-                    return {"elements": []}
+                    logger.error("All retries exhausted")
+        
+        # Final fallback: return empty result
+        logger.warning(f"Returning empty result for batch of {len(street_names)} streets")
+        return {"elements": []}
     
     def calculate_street_length(self, geometry: List[Dict]) -> float:
         """Calculate street length from geometry."""
