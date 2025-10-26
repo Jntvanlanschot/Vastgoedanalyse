@@ -1,16 +1,16 @@
-address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_energy_label,similarity_score
-"Elandsgracht 41, 1016TV, Amsterdam",1475000,136,3,0,E,0.96
-"Lijnbaansgracht 1183V, 1016VV, Amsterdam",725000,110,3,0,C,0.9386363636363636
-"Akoleienstraat 81, 1016LN, Amsterdam",725000,105,3,0,G,0.9261363636363636
-"Elandsgracht 103A, 1016TS, Amsterdam",950000,113,3,0,A,0.9097727272727272
-"Eerste Leliedwarsstraat 5, 1015SZ, Amsterdam",850000,142,3,0,C,0.9086363636363636
-"Lijnbaansgracht 2043, 1016XA, Amsterdam",750000,90,3,0,D,0.906818181818182
-"Nieuwe Leliestraat 168H, 1015HE, Amsterdam",745000,126,3,0,A,0.8747727272727273
-"Lauriergracht 1142, 1016RR, Amsterdam",1250000,109,3,0,unknown,0.8724999999999999
-"Tweede Bloemdwarsstraat 34A, 1016LM, Amsterdam",750000,83,3,0,C,0.8711363636363637
-"Lauriergracht 1263, 1016RS, Amsterdam",615000,132,3,0,G,0.8586363636363638
-"Rozengracht 225D, 1016NA, Amsterdam",795000,121,2,0,C,0.856969696969697
-"Hazenstraat 12, 1016SP, Amsterdam",1000000,131,2,0,D,0.8501515151515152
-"Bloemstraat 83, 1016KX, Amsterdam",1750000,132,3,0,A,0.8222727272727274
-"Bloemstraat 1211, 1016KZ, Amsterdam",950000,97,2,0,B,0.8212878787878789
-"Elandsstraat 58, 1016SG, Amsterdam",900000,116,2,0,A,0.8131060606060607
+address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_energy_label,rw_has_garden,rw_has_balcony,rw_has_terrace,similarity_score,final_score,match_type,match_priority,object_detail_page_relative_url
+"Nieuwe Leliestraat 97, 1015SL, Amsterdam",925000.0,100.0,2.0,4.0,Unknown,,,,0.8052333333333335,0.8392333333333335,funda_only,2,/detail/koop/amsterdam/appartement-nieuwe-leliestraat-97/43943647/
+"Nieuwe Leliestraat 8H, 1015SP, Amsterdam",895000.0,98.0,2.0,3.0,Unknown,,,,0.7852333333333333,0.8192333333333334,funda_only,2,/detail/koop/amsterdam/appartement-nieuwe-leliestraat-8-h/43097753/
+"Oude Looiersstraat 382, 1016VJ, Amsterdam",795000.0,90.0,2.0,3.0,Unknown,,,,0.7762627450980394,0.8102627450980394,funda_only,2,/detail/koop/amsterdam/appartement-oude-looiersstraat-38-2/43427349/
+"Tweede Bloemdwarsstraat 34A, 1016LM, Amsterdam",750000.0,83.0,3.0,4.0,Unknown,,,,0.7638000000000001,0.7978000000000002,funda_only,2,/detail/koop/amsterdam/appartement-tweede-bloemdwarsstraat-34-a/43179850/
+"Akoleienstraat 81, 1016LN, Amsterdam",725000.0,105.0,3.0,4.0,Unknown,,,,0.7626000000000001,0.7966000000000001,funda_only,2,/detail/koop/amsterdam/appartement-akoleienstraat-8-1/43604976/
+"Laurierstraat 26H, 1016PM, Amsterdam",949000.0,96.0,2.0,3.0,Unknown,,,,0.7600627450980393,0.7940627450980393,funda_only,2,/detail/koop/amsterdam/appartement-laurierstraat-26-h/89305914/
+"Laurierstraat 11B, 1016PG, Amsterdam",1100000.0,96.0,2.0,3.0,Unknown,,,,0.7600627450980393,0.7940627450980393,funda_only,2,/detail/koop/amsterdam/appartement-laurierstraat-11-b/43711612/
+"Oude Looiersstraat 372, 1016VG, Amsterdam",660000.0,83.0,2.0,3.0,Unknown,,,,0.7587627450980393,0.7927627450980393,funda_only,2,/detail/koop/amsterdam/appartement-oude-looiersstraat-37-2/89512602/
+"Elandsgracht 103A, 1016TS, Amsterdam",950000.0,113.0,3.0,4.0,Unknown,,,,0.7536294117647061,0.7876294117647061,funda_only,2,/detail/koop/amsterdam/appartement-elandsgracht-103-a/43717919/
+"Tweede Bloemdwarsstraat 92, 1016LL, Amsterdam",799000.0,82.0,2.0,4.0,Unknown,,,,0.7446333333333335,0.7786333333333335,funda_only,2,/detail/koop/amsterdam/appartement-tweede-bloemdwarsstraat-9-2/43808176/
+"Nieuwe Leliestraat 168H, 1015HE, Amsterdam",745000.0,126.0,3.0,5.0,Unknown,,,,0.7419000000000001,0.7759000000000001,funda_only,2,/detail/koop/amsterdam/appartement-nieuwe-leliestraat-168-h/89238381/
+"Tweede Leliedwarsstraat 16, 1015TC, Amsterdam",775000.0,79.0,2.0,5.0,Unknown,,,,0.7377333333333335,0.7717333333333335,funda_only,2,/detail/koop/amsterdam/huis-tweede-leliedwarsstraat-16/43618232/
+"Bloemstraat 1211, 1016KZ, Amsterdam",950000.0,97.0,2.0,4.0,Unknown,,,,0.7353333333333334,0.7693333333333334,funda_only,2,/detail/koop/amsterdam/appartement-bloemstraat-121-1/89174200/
+"Egelantiersgracht 101A, 1015RG, Amsterdam",850000.0,89.0,3.0,5.0,Unknown,,,,0.7326000000000001,0.7666000000000002,funda_only,2,/detail/koop/amsterdam/huis-egelantiersgracht-101-a/43812001/
+"Lauriergracht 1142, 1016RR, Amsterdam",1250000.0,109.0,3.0,4.0,Unknown,,,,0.732429411764706,0.766429411764706,funda_only,2,/detail/koop/amsterdam/appartement-lauriergracht-114-2/43720049/

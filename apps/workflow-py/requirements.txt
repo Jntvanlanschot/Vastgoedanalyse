@@ -3,3 +3,4 @@ numpy
 openpyxl
 reportlab
 matplotlib
+requests

@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdtemp, rmSync } from 'fs/promises';
+import { writeFile, mkdtemp } from 'fs/promises';
+import { rmSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
+
+function extractStreetName(address: string): string {
+  try {
+    // Extract street name from full address
+    // Format: "Eerste Laurierdwarsstraat 19, 1016 PW Amsterdam, Nederland"
+    const parts = address.split(',');
+    if (parts.length > 0) {
+      const streetPart = parts[0].trim();
+      // Remove house number (everything after the last space that contains digits)
+      const streetName = streetPart.replace(/\s+\d+.*$/, '').trim();
+      return streetName;
+    }
+    return '';
+  } catch (error) {
+    console.error('Error extracting street name:', error);
+    return '';
+  }
+}
 
 interface WorkflowResult {
   status: 'success' | 'error';
@@ -15,7 +34,7 @@ interface WorkflowResult {
   artifacts?: any;
 }
 
-async function runPythonWorkflowWithRealworks(
+async function runHouseAnalysisWithRealworks(
   tempDir: string, 
   referenceFilePath: string, 
   csvFilePath: string,
@@ -23,9 +42,9 @@ async function runPythonWorkflowWithRealworks(
 ): Promise<WorkflowResult> {
   return new Promise((resolve) => {
     const workflowPath = join(process.cwd(), 'apps', 'workflow-py', 'workflow');
-    const pythonScript = join(workflowPath, 'api_workflow_with_realworks.py');
+    const pythonScript = join(workflowPath, 'api_workflow.py');
 
-    console.log('Running Python script with Realworks files:', pythonScript);
+    console.log('Running Algorithm 2 (house analysis) with Realworks files:', pythonScript);
     console.log('Working directory:', workflowPath);
     console.log('Realworks files:', realworksFiles);
 
@@ -177,9 +196,16 @@ export async function POST(request: NextRequest) {
     console.log('Temp directory:', tempDir);
     
     try {
-      // Write reference data to file
+      // Process reference data to extract street name and neighbourhood
+      const processedReferenceData = {
+        ...referenceData,
+        street_name: extractStreetName(referenceData.address_full),
+        neighbourhood: referenceData.neighbourhood || 'unknown'
+      };
+
+      // Write processed reference data to file
       const referenceFilePath = join(tempDir, 'reference_data.json');
-      await writeFile(referenceFilePath, JSON.stringify(referenceData, null, 2), 'utf8');
+      await writeFile(referenceFilePath, JSON.stringify(processedReferenceData, null, 2), 'utf8');
       
       // Write Realworks files
       const realworksFilePaths: string[] = [];
@@ -191,19 +217,22 @@ export async function POST(request: NextRequest) {
         realworksFilePaths.push(filePath);
       }
       
-      // Get CSV data from sessionStorage or create a placeholder
-      // For now, we'll need to get the CSV data from the previous step
-      // This could be stored in a database or passed through the form
-      const csvFilePath = join(tempDir, 'funda_data.csv');
-      // TODO: Get actual CSV data from previous step
-      await writeFile(csvFilePath, 'placeholder_csv_data', 'utf8');
+    // Get CSV data from the form data
+    const csvData = formData.get('csvData') as string;
+    if (!csvData) {
+      return NextResponse.json({ error: 'CSV data is required' }, { status: 400 });
+    }
+    
+    // Write CSV data to file
+    const csvFilePath = join(tempDir, 'funda_data.csv');
+    await writeFile(csvFilePath, csvData, 'utf8');
       
-      console.log('Reference file:', referenceFilePath);
-      console.log('CSV file:', csvFilePath);
-      console.log('Realworks files:', realworksFilePaths);
+    console.log('Reference file:', referenceFilePath);
+    console.log('CSV file:', csvFilePath);
+    console.log('Realworks files:', realworksFilePaths);
       
       // Run Python workflow with Realworks files
-      const result = await runPythonWorkflowWithRealworks(
+      const result = await runHouseAnalysisWithRealworks(
         tempDir,
         referenceFilePath,
         csvFilePath,

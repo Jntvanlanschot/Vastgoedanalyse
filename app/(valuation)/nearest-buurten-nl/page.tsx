@@ -127,18 +127,60 @@ export default function NearestBuurtenNLPage() {
         const workflowResult = await response.json();
         console.log('Workflow result:', workflowResult);
         
-        // Store analysis results in sessionStorage for the upload-realworks page
-        if (workflowResult.workflow && workflowResult.workflow.step1_result) {
-          sessionStorage.setItem('analysisResult', JSON.stringify(workflowResult.workflow));
-          console.log('Stored analysis results in sessionStorage:', workflowResult.workflow.step1_result);
+        // Store street analysis results and CSV data in sessionStorage for the upload-realworks page
+        // Check for street analysis results
+        if (workflowResult.streetAnalysis && workflowResult.streetAnalysis.top_streets) {
+          sessionStorage.setItem('streetAnalysisResult', JSON.stringify(workflowResult.streetAnalysis));
+          console.log('Stored street analysis results in sessionStorage:', workflowResult.streetAnalysis);
           
-          // Navigate to upload-realworks page
-          console.log('Redirecting to upload-realworks page...');
-          window.location.href = '/upload-realworks';
+          // Store CSV data for the upload-realworks page
+          if (workflowResult.csvData) {
+            sessionStorage.setItem('csvData', workflowResult.csvData);
+            console.log('Stored CSV data in sessionStorage, length:', workflowResult.csvData.length);
+          }
+          
+          // Automatically download CSV file
+          if (workflowResult.downloadUrl) {
+            console.log('Auto-downloading CSV file:', workflowResult.downloadUrl);
+            console.log('RunId:', workflowResult.runId, 'DatasetId:', workflowResult.datasetId);
+            
+            // Use fetch to get the CSV data and create a blob download
+            try {
+              const response = await fetch(workflowResult.downloadUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `funda-data-${workflowResult.runId || 'scraped'}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                console.log('CSV download initiated successfully');
+              } else {
+                console.error('Failed to fetch CSV:', response.status, response.statusText);
+              }
+            } catch (error) {
+              console.error('Error downloading CSV:', error);
+            }
+            
+            // Wait a moment for download to start before redirecting
+            setTimeout(() => {
+              console.log('Redirecting to upload-realworks page...');
+              window.location.href = '/upload-realworks';
+            }, 1000); // 1 second delay
+          } else {
+            console.error('No downloadUrl found in workflow result:', workflowResult);
+            // Navigate to upload-realworks page even if no download URL
+            console.log('Redirecting to upload-realworks page...');
+            window.location.href = '/upload-realworks';
+          }
+          
           return;
         } else {
-          console.error('No workflow results found in response:', workflowResult);
-          setError('Geen analyse resultaten ontvangen van de scraper');
+          console.error('No street analysis results found in response:', workflowResult);
+          setError('Geen straat analyse resultaten ontvangen van de scraper');
         }
       } else {
         // Response is CSV file (legacy behavior)

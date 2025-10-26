@@ -18,14 +18,72 @@ import sys
 from pathlib import Path
 import pandas as pd
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+def create_comparison_table(house_data: dict, reference_data: dict = None) -> Table:
+    """Create comparison table for a single house."""
+    
+    # Use provided reference data or defaults
+    ref_data = reference_data or {
+        'address_full': 'Onbekend adres',
+        'area_m2': 100,
+        'energy_label': 'B',
+        'bedrooms': 2,
+        'bathrooms': 1,
+        'rooms': 3,
+        'has_terrace': False,
+        'has_balcony': False,
+        'has_garden': False,
+    }
+    
+    # Prepare data
+    data = [
+        ['Eigenschap', 'Referentie', 'Huidig pand'],
+        ['Adres', ref_data.get('address_full', 'Onbekend'), house_data['address']],
+        ['Verkoopprijs', 'Onbekend', f"€{house_data['sale_price']:,.0f}" if house_data['sale_price'] > 0 else 'Onbekend'],
+        ['Oppervlakte (m²)', f"{ref_data.get('area_m2', 0)}", f"{int(house_data['area_m2'])}" if house_data['area_m2'] > 0 else 'Onbekend'],
+        ['Kamers', f"{ref_data.get('rooms', 0)}", f"{int(house_data['rooms'])}" if house_data['rooms'] > 0 else 'Onbekend'],
+        ['Slaapkamers', f"{ref_data.get('bedrooms', 0)}", f"{int(house_data['bedrooms'])}" if house_data['bedrooms'] > 0 else 'Onbekend'],
+        ['Badkamers', f"{ref_data.get('bathrooms', 0)}", f"{int(house_data['bathrooms'])}" if house_data['bathrooms'] > 0 else 'Onbekend'],
+        ['Bouwjaar', 'Onbekend', f"{int(house_data['year_built'])}" if house_data['year_built'] > 0 else 'Onbekend'],
+        ['Energielabel', ref_data.get('energy_label', 'Onbekend'), house_data['energy_label'] if house_data['energy_label'] != 'nan' else 'ONBEKEND'],
+        ['Tuin', 'Ja' if ref_data.get('has_garden', False) else 'Nee', 'Ja' if house_data['has_garden'] else 'Nee'],
+        ['Balkon', 'Ja' if ref_data.get('has_balcony', False) else 'Nee', 'Ja' if house_data['has_balcony'] else 'Nee'],
+        ['Terras', 'Ja' if ref_data.get('has_terrace', False) else 'Nee', 'Ja' if house_data['has_terrace'] else 'Nee'],
+        ['Onderhoud binnen', 'Onbekend', house_data['maintenance_inside'] if house_data['maintenance_inside'] != 'nan' else 'Onbekend'],
+        ['Onderhoud buiten', 'Onbekend', house_data['maintenance_outside'] if house_data['maintenance_outside'] != 'nan' else 'Onbekend'],
+    ]
+    
+    table = Table(data, colWidths=[2*inch, 2*inch, 2*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+        ('LEFTPADDING', (0, 1), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 1), (-1, -1), 6),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+        ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),  # Enable text wrapping
+    ]))
+    
+    return table
 
 def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", reference_data=None):
     """
@@ -77,7 +135,7 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
         columns_order = [
             'rank', 'address_full', 'rw_sale_price', 'rw_area_m2', 'rw_energy_label',
             'rw_bedrooms', 'rw_bathrooms', 'rw_year_built', 'rw_has_garden',
-            'rw_maintenance_inside', 'rw_maintenance_outside', 'similarity_score'
+            'rw_maintenance_inside', 'rw_maintenance_outside', 'final_score'
         ]
         
         # Only include columns that exist
@@ -97,7 +155,7 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             'rw_has_garden': 'Tuin',
             'rw_maintenance_inside': 'Onderhoud Binnen',
             'rw_maintenance_outside': 'Onderhoud Buiten',
-            'similarity_score': 'Score'
+            'final_score': 'Score'
         }
         
         excel_df = excel_df.rename(columns=column_names)
@@ -151,22 +209,23 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             story.append(Paragraph(f"<b>Oppervlakte:</b> {reference_data.get('area_m2', 'Onbekend')} m²", styles['Normal']))
             story.append(Paragraph(f"<b>Energielabel:</b> {reference_data.get('energy_label', 'Onbekend')}", styles['Normal']))
             story.append(Spacer(1, 20))
-        
-        # Calculate and show advice price
-        valid_prices = []
-        for i, row in top15_df.iterrows():
-            sale_price = row.get('rw_sale_price', 0)
-            area_m2 = row.get('rw_area_m2', 0)
-            if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0:
-                valid_prices.append(sale_price / area_m2)
-        
-        if valid_prices and reference_data:
-            avg_price = sum(valid_prices) / len(valid_prices)
-            advice_price = avg_price * reference_data.get('area_m2', 100)
-            story.append(Paragraph(f"<b>BEREKENDE ADVIESPRIJS: €{advice_price:,.0f}</b>", subtitle_style))
-            story.append(Paragraph(f"(Gemiddelde prijs per m²: €{avg_price:,.0f} × {reference_data.get('area_m2', 100)}m²)", styles['Normal']))
-        
-        story.append(Spacer(1, 20))
+            
+            # Calculate and show advice price
+            valid_prices = []
+            for i, row in top15_df.iterrows():
+                sale_price = row.get('rw_sale_price', 0)
+                area_m2 = row.get('rw_area_m2', 0)
+                if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0:
+                    valid_prices.append(sale_price / area_m2)
+            
+            if valid_prices:
+                avg_price = sum(valid_prices) / len(valid_prices)
+                area_m2_ref = reference_data.get('area_m2', 100) if isinstance(reference_data, dict) else 100
+                if isinstance(area_m2_ref, (int, float)) and area_m2_ref > 0:
+                    advice_price = avg_price * area_m2_ref
+                    story.append(Paragraph(f"<b>BEREKENDE ADVIESPRIJS: €{advice_price:,.0f}</b>", subtitle_style))
+                    story.append(Paragraph(f"(Gemiddelde prijs per m²: €{avg_price:,.0f} × {area_m2_ref:.0f}m²)", styles['Normal']))
+                    story.append(Spacer(1, 20))
         
         # Overview table
         overview_data = [['#', 'Adres', 'Verkoopprijs', 'Oppervlakte (m²)', 'Score']]
@@ -175,7 +234,7 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             address = row.get('address_full', 'Onbekend adres')
             sale_price = row.get('rw_sale_price', 0)
             area_m2 = row.get('rw_area_m2', 0)
-            score = row.get('similarity_score', 0)
+            score = row.get('final_score', 0)
             
             overview_data.append([
                 str(i + 1),
@@ -198,6 +257,56 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
         ]))
         
         story.append(overview_table)
+        story.append(PageBreak())
+        
+        # Individual property pages with detailed analysis
+        logger.info("Generating individual property pages...")
+        for i, row in top15_df.iterrows():
+            # Property info page
+            address = row.get('address_full', 'Onbekend adres')
+            
+            story.append(Paragraph(f"<b>{i+1}. {address}</b>", styles['Heading2']))
+            story.append(Spacer(1, 20))
+            
+            # Property details
+            house_data = {
+                'address': address,
+                'sale_price': row.get('rw_sale_price', 0),
+                'area_m2': row.get('rw_area_m2', 0),
+                'rooms': row.get('rw_rooms', 0),
+                'bedrooms': row.get('rw_bedrooms', 0),
+                'bathrooms': row.get('rw_bathrooms', 0),
+                'year_built': row.get('rw_year_built', 0),
+                'energy_label': row.get('rw_energy_label', 'unknown'),
+                'has_garden': row.get('rw_has_garden', False),
+                'has_balcony': row.get('rw_has_balcony', False),
+                'has_terrace': row.get('rw_has_terrace', False),
+                'maintenance_inside': row.get('rw_maintenance_inside', 'unknown'),
+                'maintenance_outside': row.get('rw_maintenance_outside', 'unknown'),
+            }
+            
+            # Create comparison table
+            comparison_table = create_comparison_table(house_data, reference_data)
+            story.append(comparison_table)
+            
+            # Add similarity score
+            score = row.get('final_score', 0)
+            story.append(Spacer(1, 20))
+            story.append(Paragraph(f"<b>Match Score:</b> {score:.3f}", styles['Normal']))
+            
+            # Price per m² analysis
+            if house_data['sale_price'] > 0 and house_data['area_m2'] > 0:
+                price_per_m2 = house_data['sale_price'] / house_data['area_m2']
+                story.append(Paragraph(f"<b>Prijs per m²:</b> €{price_per_m2:,.0f}", styles['Normal']))
+                
+                # Compare with reference property
+                if reference_data and isinstance(reference_data, dict) and reference_data.get('area_m2', 0) > 0:
+                    area_m2 = reference_data.get('area_m2', 0)
+                    if isinstance(area_m2, (int, float)) and area_m2 > 0:
+                        estimated_value = price_per_m2 * area_m2
+                        story.append(Paragraph(f"<b>Geschatte waarde referentie woning:</b> €{estimated_value:,.0f}", styles['Normal']))
+            
+            story.append(PageBreak())
         
         # Build PDF
         doc.build(story)
@@ -225,8 +334,8 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             "total_properties": len(top15_df),
             "avg_price_per_m2": round(avg_price_per_m2, 0),
             "score_range": {
-                "highest": round(top15_df['similarity_score'].max(), 3),
-                "lowest": round(top15_df['similarity_score'].min(), 3)
+                "highest": round(top15_df['final_score'].max(), 3),
+                "lowest": round(top15_df['final_score'].min(), 3)
             }
         }
         

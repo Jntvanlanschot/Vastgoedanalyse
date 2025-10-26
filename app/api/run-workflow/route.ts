@@ -4,6 +4,24 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
+function extractStreetName(address: string): string {
+  try {
+    // Extract street name from full address
+    // Format: "Eerste Laurierdwarsstraat 19, 1016 PW Amsterdam, Nederland"
+    const parts = address.split(',');
+    if (parts.length > 0) {
+      const streetPart = parts[0].trim();
+      // Remove house number (everything after the last space that contains digits)
+      const streetName = streetPart.replace(/\s+\d+.*$/, '').trim();
+      return streetName;
+    }
+    return '';
+  } catch (error) {
+    console.error('Error extracting street name:', error);
+    return '';
+  }
+}
+
 interface WorkflowRequest {
   csvData: string;
   referenceData: {
@@ -62,9 +80,16 @@ export async function POST(request: NextRequest) {
     const csvFilePath = join(tempDir, 'funda_data.csv');
     writeFileSync(csvFilePath, csvData, 'utf-8');
 
-    // Save reference data to JSON file
+    // Process reference data to extract street name and neighbourhood
+    const processedReferenceData = {
+      ...referenceData,
+      street_name: extractStreetName(referenceData.address_full),
+      neighbourhood: referenceData.neighbourhood || 'unknown'
+    };
+
+    // Save processed reference data to JSON file
     const referenceFilePath = join(tempDir, 'reference_data.json');
-    writeFileSync(referenceFilePath, JSON.stringify(referenceData, null, 2), 'utf-8');
+    writeFileSync(referenceFilePath, JSON.stringify(processedReferenceData, null, 2), 'utf-8');
 
     // Create empty uploaded files directory (workflow expects this)
     const uploadedFilesDir = join(tempDir, 'uploaded_files');

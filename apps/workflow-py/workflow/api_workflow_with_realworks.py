@@ -121,17 +121,16 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
             else:
                 # Fallback to placeholder if generation fails
                 logger.warning(f"Report generation failed: {report_result.get('message', 'Unknown error')}")
-                pdf_file = "outputs/top15_perfect_report_final.pdf"
-                excel_file = "outputs/top15_perfecte_woningen_tabel_final.xlsx"
+                pdf_file = "outputs/top15_perfect_report_realworks_fallback.pdf"
+                excel_file = "outputs/top15_perfecte_woningen_tabel_realworks_fallback.xlsx"
                 
-                with open(pdf_file, 'w') as f:
-                    f.write("PDF Report Placeholder\n")
-                    f.write(f"Analysis of {analysis_summary['matched_records']} properties\n")
-                    f.write(f"Reference: {reference_data.get('address_full', 'Unknown')}\n")
+                # Create empty Excel file
+                empty_df = pd.DataFrame(columns=['Rang', 'Adres', 'Verkoopprijs (€)', 'Oppervlakte (m²)', 'Score'])
+                empty_df.to_excel(excel_file, index=False, sheet_name='Top 15 Woningen')
                 
-                with open(excel_file, 'w') as f:
-                    f.write("Excel Report Placeholder\n")
-                    f.write(f"Analysis of {analysis_summary['matched_records']} properties\n")
+                # Create proper PDF
+                from step4_generate_reports import create_empty_pdf
+                create_empty_pdf(pdf_file, reference_data)
                 
                 step4_result = {
                     "status": "success",
@@ -142,22 +141,22 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
                 
         except Exception as e:
             logger.error(f"Error generating reports: {e}")
-            # Fallback to placeholder
-            pdf_file = "outputs/top15_perfect_report_final.pdf"
-            excel_file = "outputs/top15_perfecte_woningen_tabel_final.xlsx"
+            # Fallback to proper PDF generation
+            from step4_generate_reports import create_empty_pdf
             
-            with open(pdf_file, 'w') as f:
-                f.write("PDF Report Placeholder\n")
-                f.write(f"Analysis of {analysis_summary['matched_records']} properties\n")
-                f.write(f"Reference: {reference_data.get('address_full', 'Unknown')}\n")
+            pdf_file = "outputs/top15_perfect_report_realworks_fallback.pdf"
+            excel_file = "outputs/top15_perfecte_woningen_tabel_realworks_fallback.xlsx"
             
-            with open(excel_file, 'w') as f:
-                f.write("Excel Report Placeholder\n")
-                f.write(f"Analysis of {analysis_summary['matched_records']} properties\n")
+            # Create empty Excel file
+            empty_df = pd.DataFrame(columns=['Rang', 'Adres', 'Verkoopprijs (€)', 'Oppervlakte (m²)', 'Score'])
+            empty_df.to_excel(excel_file, index=False, sheet_name='Top 15 Woningen')
+            
+            # Create proper PDF
+            create_empty_pdf(pdf_file, reference_data)
             
             step4_result = {
                 "status": "success",
-                "message": "Reports generated (placeholder)",
+                "message": "Reports generated (fallback)",
                 "pdf_file": pdf_file,
                 "excel_file": excel_file
             }

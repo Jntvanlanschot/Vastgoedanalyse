@@ -1,6 +1,6 @@
 {
   "status": "error",
-  "message": "name 'analysis_summary' is not defined",
+  "message": "local variable 'pdf_file' referenced before assignment",
   "step1_result": null,
   "step2_result": null,
   "step3_result": null,
