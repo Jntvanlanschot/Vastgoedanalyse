@@ -15,6 +15,7 @@ Output: PDF report and Excel file
 import json
 import logging
 import sys
+import re
 from pathlib import Path
 import pandas as pd
 from reportlab.lib.pagesizes import A4
@@ -27,6 +28,22 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
+def extract_street_and_number(address_full):
+    """
+    Extract only street name and house number from full address.
+    Example: 'Eerste Laurierdwarsstraat 18 B, 1016 VL Amsterdam' -> 'Eerste Laurierdwarsstraat 18 B'
+    """
+    if not address_full or pd.isna(address_full):
+        return 'Onbekend adres'
+    
+    # Try to match pattern: "Street Name 123 A, postal city"
+    # Use regex to split on comma, then take first part (street + number)
+    match = re.match(r'^([^,]+)', str(address_full))
+    if match:
+        return match.group(1).strip()
+    
+    return str(address_full)
 
 def create_comparison_table(house_data: dict, reference_data: dict = None) -> Table:
     """Create comparison table for a single house."""
@@ -80,7 +97,7 @@ def create_comparison_table(house_data: dict, reference_data: dict = None) -> Ta
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 10),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-        ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),  # Enable text wrapping
+        ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),  # Enable text wrapping in all cells
     ]))
     
     return table
@@ -210,9 +227,10 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             story.append(Paragraph(f"<b>Energielabel:</b> {reference_data.get('energy_label', 'Onbekend')}", styles['Normal']))
             story.append(Spacer(1, 20))
             
-            # Calculate and show advice price
+            # Calculate and show advice price (ONLY using TOP 10!)
             valid_prices = []
-            for i, row in top15_df.iterrows():
+            top10_df = top15_df.head(10)  # Only use top 10 for price calculation
+            for i, row in top10_df.iterrows():
                 sale_price = row.get('rw_sale_price', 0)
                 area_m2 = row.get('rw_area_m2', 0)
                 if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0:
@@ -224,37 +242,56 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
                 if isinstance(area_m2_ref, (int, float)) and area_m2_ref > 0:
                     advice_price = avg_price * area_m2_ref
                     story.append(Paragraph(f"<b>BEREKENDE ADVIESPRIJS: €{advice_price:,.0f}</b>", subtitle_style))
-                    story.append(Paragraph(f"(Gemiddelde prijs per m²: €{avg_price:,.0f} × {area_m2_ref:.0f}m²)", styles['Normal']))
+                    story.append(Paragraph(f"(Gebaseerd op TOP 10: Gem. prijs per m²: €{avg_price:,.0f} × {area_m2_ref:.0f}m²)", styles['Normal']))
                     story.append(Spacer(1, 20))
         
         # Overview table
         overview_data = [['#', 'Adres', 'Verkoopprijs', 'Oppervlakte (m²)', 'Score']]
         
-        for i, row in top15_df.iterrows():
-            address = row.get('address_full', 'Onbekend adres')
+        for idx, (i, row) in enumerate(top15_df.iterrows(), start=1):
+            address_full = row.get('address_full', 'Onbekend adres')
+            # Extract only street + house number (no postal code or city)
+            address = extract_street_and_number(address_full)
             sale_price = row.get('rw_sale_price', 0)
             area_m2 = row.get('rw_area_m2', 0)
             score = row.get('final_score', 0)
             
             overview_data.append([
-                str(i + 1),
-                address[:50] + '...' if len(address) > 50 else address,
+                str(idx),
+                address,
                 f"€{sale_price:,.0f}" if sale_price > 0 else 'Onbekend',
                 f"{area_m2:.0f}" if area_m2 > 0 else 'Onbekend',
                 f"{score:.3f}" if pd.notna(score) else '0.000'
             ])
         
         overview_table = Table(overview_data, colWidths=[0.5*inch, 3*inch, 1.2*inch, 1*inch, 0.8*inch])
-        overview_table.setStyle(TableStyle([
+        
+        # Calculate table styles - first 10 rows get green background
+        table_style = TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#366092')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('WORDWRAP', (0, 0), (-1, -1), 'CJK'),  # Enable text wrapping in all cells
+        ])
+        
+        # Green background for TOP 10 (rows 1-10, index 0 is header, so 1-10)
+        for row_num in range(1, 11):
+            if row_num <= len(overview_data) - 1:
+                table_style.add('BACKGROUND', (0, row_num), (-1, row_num), colors.HexColor('#90EE90'))
+        
+        # Default beige background for the rest
+        table_style.add('BACKGROUND', (0, 11), (-1, -1), colors.beige)
+        
+        overview_table.setStyle(table_style)
         
         story.append(overview_table)
         story.append(PageBreak())
@@ -312,11 +349,12 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
         doc.build(story)
         logger.info(f"Saved PDF report to {pdf_output}")
         
-        # Calculate summary statistics
+        # Calculate summary statistics (ONLY using TOP 10 for price calculation!)
         avg_price_per_m2 = 0
         if 'rw_sale_price' in top15_df.columns and 'rw_area_m2' in top15_df.columns:
             valid_prices = []
-            for _, row in top15_df.iterrows():
+            top10_df = top15_df.head(10)  # Only use top 10 for price calculation
+            for _, row in top10_df.iterrows():
                 sale_price = row.get('rw_sale_price', 0)
                 area_m2 = row.get('rw_area_m2', 0)
                 if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0:

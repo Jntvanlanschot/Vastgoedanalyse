@@ -26,6 +26,8 @@ from pathlib import Path
 import os
 import pandas as pd
 from io import StringIO
+import shutil
+import glob
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -114,10 +116,10 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
         # Step 1: Fetch street similarity data using Overpass API FIRST
         logger.info("STEP 1: Fetching street similarity data from Overpass API...")
         street_similarity_cache = fetch_street_similarity_data(reference_data, csv_df)
+        # Don't include street_similarity_cache in result - contains non-serializable StreetProfile objects
         step1_result = {
             "status": "success",
-            "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets",
-            "street_similarity_cache": street_similarity_cache
+            "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets"
         }
         
         # Step 2: Process the CSV data to find top streets using Algorithm 1
@@ -157,14 +159,14 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
         realworks_df = pd.read_csv(realworks_result["realworks_file"])
         logger.info(f"Loaded {len(realworks_df)} Realworks records")
         
-        # Merge Funda and Realworks data
-        merged_df = merge_funda_and_realworks(csv_df, realworks_df)
-        logger.info(f"Merged data: {len(merged_df)} total records")
+        # CRITICAL: Use ONLY Realworks data for top 15 matches (no merge with Funda!)
+        # Funda data was only used for street selection (Algorithm 1)
+        logger.info(f"Using ONLY Realworks data for top 15: {len(realworks_df)} records")
         
-        # Calculate similarity scores for all properties using Algorithm 2
-        logger.info("Calculating similarity scores using Algorithm 2...")
-        # Use the existing process function which calculates similarity scores and returns top 15
-        top_15_df = process_merged_data_for_top15(merged_df, reference_data, street_similarity_cache)
+        # Calculate similarity scores for Realworks properties using Algorithm 2
+        logger.info("Calculating similarity scores using Algorithm 2 on Realworks data...")
+        # Use Realworks data directly - no merge!
+        top_15_df = process_realworks_data_for_top15(realworks_df, reference_data, street_similarity_cache)
         logger.info(f"Selected top 15 matches with scores ranging from {top_15_df['final_score'].min():.3f} to {top_15_df['final_score'].max():.3f}")
         
         # Save top 15 matches
@@ -174,7 +176,7 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
         step4_result = {
             "status": "success",
             "message": "Analysis completed",
-            "matched_records": len(merged_df),
+            "matched_records": len(realworks_df),  # All Realworks records
             "top_15_count": len(top_15_df),
             "top15_file": str(top_15_file)
         }
@@ -196,7 +198,7 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
         summary = {
             "total_funda_records": len(csv_df),
             "realworks_records": len(realworks_df),
-            "matched_records": len(merged_df),
+            "matched_records": len(realworks_df),  # All Realworks records
             "top_15_matches": len(top_15_df),
             "pdf_file": report_result.get("pdf_file", "outputs/top15_perfect_report_final.pdf"),
             "excel_file": report_result.get("excel_file", "outputs/top15_perfecte_woningen_tabel_final.xlsx")
@@ -250,10 +252,10 @@ def run_api_workflow(reference_data, csv_file_path):
         # Step 1: Fetch street similarity data using Overpass API FIRST
         logger.info("STEP 1: Fetching street similarity data from Overpass API...")
         street_similarity_cache = fetch_street_similarity_data(reference_data, csv_df)
+        # Don't include street_similarity_cache in result - contains non-serializable StreetProfile objects
         step1_result = {
             "status": "success",
-            "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets",
-            "street_similarity_cache": street_similarity_cache
+            "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets"
         }
         
         # Step 2: Process the CSV data to find top streets using Algorithm 1
@@ -431,16 +433,22 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         unique_streets = csv_df[street_col].dropna().unique()
         street_scores = []
         
+        # MINIMUM REQUIREMENT: Filter to only streets with at least 5 properties
         for street_name in unique_streets:
+            # Get statistics for this street
+            street_data = csv_df[csv_df[street_col] == street_name]
+            properties_count = len(street_data)
+            
+            # Skip streets with less than 5 properties
+            if properties_count < 5:
+                logger.info(f"Skipping street '{street_name}' - only {properties_count} properties (minimum: 5)")
+                continue
+            
             # Get a sample property from this street for similarity calculation
             sample_property = csv_df[csv_df[street_col] == street_name].iloc[0]
             
             # Calculate similarity score using Algorithm 1 (street matching)
             similarity_score = calculate_street_similarity_score(sample_property, reference_data, street_similarity_cache)
-            
-            # Get statistics for this street
-            street_data = csv_df[csv_df[street_col] == street_name]
-            properties_count = len(street_data)
             
             # Calculate average price
             price_col = None
@@ -462,6 +470,8 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
                 "average_price": int(avg_price) if pd.notna(avg_price) else 500000,
                 "similarity_score": similarity_score
             })
+        
+        logger.info(f"Found {len(street_scores)} streets with at least 5 properties")
         
         # Sort by similarity score (descending) and take top 4 OTHER streets (excluding reference street)
         street_scores.sort(key=lambda x: x['similarity_score'], reverse=True)
@@ -659,90 +669,149 @@ def process_csv_for_top15_matches(csv_df, reference_data, street_similarity_cach
         # Return empty DataFrame with expected columns
         return pd.DataFrame(columns=['address_full', 'rw_sale_price', 'rw_area_m2', 'rw_bedrooms', 'rw_rooms', 'rw_energy_label', 'similarity_score'])
 
-def calculate_simple_similarity_score(row, reference_data, street_similarity_cache=None):
+def calculate_simple_similarity_score(row, reference_data, street_similarity_cache=None, debug=False):
     """Calculate similarity score based on new weighted criteria with OSM street similarity."""
     try:
         score = 0.0
+        breakdown = [] if debug else None
         
-        # 1. Street similarity (5% weight - significantly reduced from 10%)
+        # Check for gracht mismatch (HEAVY penalty!)
         ref_street = str(reference_data.get('street_name', '')).lower().strip()
-        row_street = str(row.get('address/street_name', '')).lower().strip()
+        # Try Realworks column first ('street'), then Funda column ('address/street_name')
+        row_street = str(row.get('street', '') or row.get('address/street_name', '')).lower().strip()
+        
+        ref_is_gracht = 'gracht' in ref_street if ref_street else False
+        row_is_gracht = 'gracht' in row_street if row_street else False
+        
+        # Apply HEAVY penalty for gracht vs straat mismatch
+        gracht_penalty = 0.01 if (ref_is_gracht != row_is_gracht) else 1.0
+        
+        if gracht_penalty < 1.0:
+            logger.info(f"Gracht penalty 0.01x applied: ref='{ref_street}' (gracht={ref_is_gracht}) vs row='{row_street}' (gracht={row_is_gracht})")
+        
+        # 1. Street similarity (2% weight - ChatGPT recommended)
         if ref_street and row_street:
             if ref_street == row_street:
-                score += 0.05 * 1.0  # Same street = perfect match
+                street_score = 0.02 * 1.0  # Same street = perfect match
+                score += street_score
+                if debug: breakdown.append(f"  1. Straat naam (2%): {street_score:.4f} (ZELFDE straat!)")
             else:
                 # Calculate street name similarity (Levenshtein distance)
                 street_similarity = calculate_string_similarity(ref_street, row_street)
-                score += 0.05 * street_similarity
+                street_score = 0.02 * street_similarity
+                score += street_score
+                if debug: breakdown.append(f"  1. Straat naam (2%): {street_score:.4f} (similariteit: {street_similarity:.3f})")
         
-        # 2. OSM-based street similarity (34% weight - highest weight)
-        osm_street_score = calculate_osm_street_similarity(row, reference_data, street_similarity_cache)
-        score += 0.34 * osm_street_score
+        # 2. OSM-based street similarity (8% weight - ChatGPT recommended)
+        osm_street_score_raw = calculate_osm_street_similarity(row, reference_data, street_similarity_cache)
+        osm_street_score = 0.08 * osm_street_score_raw
+        score += osm_street_score
+        if debug: breakdown.append(f"  2. OSM straat (8%): {osm_street_score:.4f} (raw: {osm_street_score_raw:.3f})")
         
-        # 3. Living area (m²) proximity (25% weight - increased from 20%)
+        # 3. Living area (m²) proximity (26% weight - ChatGPT recommended)
         # Try both rw_area_m2 (from merged data) and floor_area/0 (from Funda data)
         area_m2 = row.get('rw_area_m2', 0) or row.get('floor_area/0', 0)
+        area_score = 0
         if pd.notna(area_m2) and area_m2 > 0:
             area_diff = abs(area_m2 - reference_data.get('area_m2', 100))
-            area_score = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
-            score += 0.25 * area_score
+            area_score_raw = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
+            area_score = 0.26 * area_score_raw
+            score += area_score
+            if debug: breakdown.append(f"  3. Oppervlakte (26%): {area_score:.4f} (ref: {reference_data.get('area_m2')}, row: {area_m2})")
         
-        # 4. Micro-location proximity (10% weight - reduced from 16%)
+        # 4. Micro-location proximity (14% weight - ChatGPT recommended)
         # This uses neighbourhood similarity
         ref_neighbourhood = str(reference_data.get('neighbourhood', '')).lower().strip()
         row_neighbourhood = str(row.get('address/neighbourhood', '')).lower().strip()
+        neighbourhood_score = 0
         if ref_neighbourhood and row_neighbourhood:
             if ref_neighbourhood == row_neighbourhood:
-                score += 0.10 * 1.0
+                neighbourhood_score = 0.14 * 1.0
+                score += neighbourhood_score
+                if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f}")
             else:
                 neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
-                score += 0.10 * neighbourhood_similarity
+                neighbourhood_score = 0.14 * neighbourhood_similarity
+                score += neighbourhood_score
+                if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f} (similariteit: {neighbourhood_similarity:.3f})")
         
-        # 5. Garden match (10% weight)
+        # 5. Garden match (15% weight - ChatGPT recommended)
         ref_garden = reference_data.get('has_garden', False)
         row_garden = row.get('rw_has_garden', False)
+        garden_score = 0
         if ref_garden == row_garden:
-            score += 0.10 * 1.0
+            garden_score = 0.15 * 1.0
+            score += garden_score
+            if debug: breakdown.append(f"  5. Tuin (15%): {garden_score:.4f} MATCH!")
         else:
-            score += 0.10 * 0.5  # Partial score for mismatch
+            garden_score = 0.15 * 0.5  # Partial score for mismatch
+            score += garden_score
+            if debug: breakdown.append(f"  5. Tuin (15%): {garden_score:.4f} (mismatch)")
         
-        # 6. Rooms similarity (6% weight)
+        # 6. Rooms similarity (10% weight - ChatGPT recommended)
         # Try both rw_rooms (from merged data) and number_of_rooms (from Funda data)
         rooms = row.get('rw_rooms', 0) or row.get('number_of_rooms', 0)
+        room_score = 0
         if pd.notna(rooms) and rooms > 0:
             room_diff = abs(rooms - reference_data.get('rooms', 3))
-            room_score = max(0, 1 - (room_diff / max(reference_data.get('rooms', 3), 1)))
-            score += 0.06 * room_score
+            room_score_raw = max(0, 1 - (room_diff / max(reference_data.get('rooms', 3), 1)))
+            room_score = 0.10 * room_score_raw
+            score += room_score
+            if debug: breakdown.append(f"  6. Kamers (10%): {room_score:.4f} (ref: {reference_data.get('rooms')}, row: {rooms})")
         
-        # 7. Bedrooms similarity (5% weight)
+        # 7. Bedrooms similarity (10% weight - ChatGPT recommended)
         # Try both rw_bedrooms (from merged data) and number_of_bedrooms (from Funda data)
         bedrooms = row.get('rw_bedrooms', 0) or row.get('number_of_bedrooms', 0)
+        bedroom_score = 0
         if pd.notna(bedrooms) and bedrooms > 0:
             bedroom_diff = abs(bedrooms - reference_data.get('bedrooms', 2))
-            bedroom_score = max(0, 1 - (bedroom_diff / max(reference_data.get('bedrooms', 2), 1)))
-            score += 0.05 * bedroom_score
+            bedroom_score_raw = max(0, 1 - (bedroom_diff / max(reference_data.get('bedrooms', 2), 1)))
+            bedroom_score = 0.10 * bedroom_score_raw
+            score += bedroom_score
+            if debug: breakdown.append(f"  7. Slaapkamers (10%): {bedroom_score:.4f} (ref: {reference_data.get('bedrooms')}, row: {bedrooms})")
         
-        # 8. Balcony/Roof terrace (3% weight)
+        # 8. Balcony/Roof terrace (12% weight - ChatGPT recommended)
         ref_balcony = reference_data.get('has_balcony', False) or reference_data.get('has_terrace', False)
         row_balcony = row.get('rw_has_balcony', False) or row.get('rw_has_terrace', False)
+        balcony_score = 0
         if ref_balcony == row_balcony:
-            score += 0.03 * 1.0
+            balcony_score = 0.12 * 1.0
+            score += balcony_score
+            if debug: breakdown.append(f"  8. Balkon/Terras (12%): {balcony_score:.4f} MATCH!")
         else:
-            score += 0.03 * 0.5
+            balcony_score = 0.12 * 0.5
+            score += balcony_score
+            if debug: breakdown.append(f"  8. Balkon/Terras (12%): {balcony_score:.4f} (mismatch)")
         
-        # 9. Energy label (2% weight)
+        # 9. Energy label (3% weight - ChatGPT recommended)
         energy_labels = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         ref_energy = reference_data.get('energy_label', 'B')
         row_energy = row.get('rw_energy_label', 'Unknown')
-        
+        energy_score = 0
         if ref_energy in energy_labels and row_energy in energy_labels:
             ref_index = energy_labels.index(ref_energy)
             row_index = energy_labels.index(row_energy)
             energy_diff = abs(ref_index - row_index)
-            energy_score = max(0, 1 - (energy_diff / len(energy_labels)))
-            score += 0.02 * energy_score
+            energy_score_raw = max(0, 1 - (energy_diff / len(energy_labels)))
+            energy_score = 0.03 * energy_score_raw
+            score += energy_score
+            if debug: breakdown.append(f"  9. Energielabel (3%): {energy_score:.4f}")
         else:
-            score += 0.02 * 0.5  # Neutral score for unknown labels
+            energy_score = 0.03 * 0.5  # Neutral score for unknown labels
+            score += energy_score
+            if debug: breakdown.append(f"  9. Energielabel (3%): {energy_score:.4f} (unknown)")
+        
+        # Apply gracht penalty to the ENTIRE score
+        score_before_penalty = score
+        score = score * gracht_penalty
+        
+        # Log the breakdown if debug mode
+        if debug:
+            logger.info(f"\nSCORE BREAKDOWN voor: {row.get('address_full', 'Unknown')}")
+            logger.info(f"  Totaal voor penalty: {score_before_penalty:.4f}")
+            if gracht_penalty < 1.0:
+                logger.info(f"  Gracht penalty: {gracht_penalty:.2f}x")
+            logger.info(f"  FINALE SCORE: {min(1.0, score):.4f}")
         
         return min(1.0, score)  # Cap at 1.0
         
@@ -845,7 +914,8 @@ def calculate_osm_street_similarity(row, reference_data, street_similarity_cache
     try:
         # Get street names (convert to string to handle NaN/float values)
         ref_street = str(reference_data.get('street_name', '') or '')
-        row_street = str(row.get('address/street_name', '') or '')
+        # Try Realworks column first ('street'), then Funda column ('address/street_name')
+        row_street = str(row.get('street', '') or row.get('address/street_name', '') or '')
         
         if not ref_street or not row_street:
             return 0.5  # Neutral score if missing data
@@ -983,14 +1053,11 @@ def merge_funda_and_realworks(funda_df, realworks_df):
     try:
         logger.info(f"Merging {len(funda_df)} Funda records with {len(realworks_df)} Realworks records")
         
-        # Create address_full column for Funda data
-        funda_df = funda_df.copy()
-        funda_df['address_full'] = funda_df['address/street_name'] + ' ' + funda_df['address/house_number'].astype(str)
-        funda_df['address_full'] = funda_df['address_full'] + funda_df['address/house_number_suffix'].fillna('')
-        funda_df['address_full'] = funda_df['address_full'] + ', ' + funda_df['address/postal_code'] + ', ' + funda_df['address/city']
-        
-        # Create address_full column for Realworks data
+        # CRITICAL: Use Realworks as BASE - all Realworks records are preserved
+        # Funda data is added as supplementary information where it matches
         realworks_df = realworks_df.copy()
+        
+        # Ensure address_full exists in Realworks (already created by parser)
         if 'address_full' not in realworks_df.columns:
             # Try to construct address from available columns
             if 'street' in realworks_df.columns and 'house_number' in realworks_df.columns:
@@ -998,8 +1065,16 @@ def merge_funda_and_realworks(funda_df, realworks_df):
                 if 'postal_code' in realworks_df.columns and 'city' in realworks_df.columns:
                     realworks_df['address_full'] = realworks_df['address_full'] + ', ' + realworks_df['postal_code'] + ', ' + realworks_df['city']
         
-        # Merge data on address_full using outer join to include all properties
-        merged_df = pd.merge(funda_df, realworks_df, on='address_full', how='outer', suffixes=('_funda', '_realworks'))
+        logger.info(f"Realworks data: {len(realworks_df)} records")
+        
+        # Create address_full for Funda data for matching
+        funda_df = funda_df.copy()
+        funda_df['address_full'] = funda_df['address/street_name'] + ' ' + funda_df['address/house_number'].astype(str)
+        funda_df['address_full'] = funda_df['address_full'] + funda_df['address/house_number_suffix'].fillna('')
+        funda_df['address_full'] = funda_df['address_full'] + ', ' + funda_df['address/postal_code'] + ', ' + funda_df['address/city']
+        
+        # Start with Realworks as base, LEFT merge Funda data where it matches
+        merged_df = pd.merge(realworks_df, funda_df, on='address_full', how='left', suffixes=('', '_funda'))
         
         # Fill missing values appropriately and categorize match types
         merged_df['match_type'] = merged_df.apply(lambda row: 
@@ -1089,6 +1164,156 @@ def merge_funda_realworks_data(funda_df, realworks_result, reference_data):
         logger.error(f"Error merging data: {e}")
         return funda_df
 
+def process_realworks_data_for_top15(realworks_df, reference_data, street_similarity_cache=None):
+    """Process ONLY Realworks data to create top 15 matches."""
+    try:
+        logger.info(f"Processing {len(realworks_df)} Realworks records for top 15 matches")
+        
+        # CRITICAL: Fill missing sale_price with ask_price
+        if 'sale_price' in realworks_df.columns and 'ask_price' in realworks_df.columns:
+            missing_count = realworks_df['sale_price'].isna().sum()
+            realworks_df['sale_price'] = realworks_df['sale_price'].fillna(realworks_df['ask_price'])
+            logger.info(f"Filled {missing_count} missing sale_price values with ask_price")
+        
+        # CRITICAL: Remove duplicates by normalizing addresses (case-insensitive, strip whitespace)
+        realworks_df['address_normalized'] = realworks_df['address_full'].str.lower().str.strip()
+        duplicates_before = len(realworks_df)
+        realworks_df = realworks_df.drop_duplicates(subset='address_normalized', keep='first')
+        duplicates_removed = duplicates_before - len(realworks_df)
+        if duplicates_removed > 0:
+            logger.info(f"Removed {duplicates_removed} duplicate addresses")
+        realworks_df = realworks_df.drop(columns=['address_normalized'])
+        
+        # Map Realworks columns to expected names
+        realworks_df['rw_sale_price'] = realworks_df['sale_price'].fillna(0) if 'sale_price' in realworks_df.columns else 0
+        realworks_df['rw_area_m2'] = realworks_df['area_m2'].fillna(0) if 'area_m2' in realworks_df.columns else 0
+        realworks_df['rw_bedrooms'] = realworks_df['bedrooms'].fillna(0) if 'bedrooms' in realworks_df.columns else 0
+        realworks_df['rw_rooms'] = realworks_df['rooms'].fillna(0) if 'rooms' in realworks_df.columns else 0
+        realworks_df['rw_energy_label'] = realworks_df['energy_label'].fillna('Unknown') if 'energy_label' in realworks_df.columns else 'Unknown'
+        realworks_df['rw_has_garden'] = realworks_df['has_garden'].fillna(False) if 'has_garden' in realworks_df.columns else False
+        realworks_df['rw_has_balcony'] = realworks_df['has_balcony'].fillna(False) if 'has_balcony' in realworks_df.columns else False
+        realworks_df['rw_has_terrace'] = realworks_df['has_terrace'].fillna(False) if 'has_terrace' in realworks_df.columns else False
+        
+        # Map additional Realworks columns for complete data
+        realworks_df['rw_bathrooms'] = realworks_df['bathrooms'].fillna(0) if 'bathrooms' in realworks_df.columns else 0
+        realworks_df['rw_year_built'] = realworks_df['year_built'].fillna(0) if 'year_built' in realworks_df.columns else 0
+        realworks_df['rw_maintenance_inside'] = realworks_df['maintenance_inside'].fillna('Unknown') if 'maintenance_inside' in realworks_df.columns else 'Unknown'
+        realworks_df['rw_maintenance_outside'] = realworks_df['maintenance_outside'].fillna('Unknown') if 'maintenance_outside' in realworks_df.columns else 'Unknown'
+        
+        logger.info(f"INITIAL Realworks data: {len(realworks_df)} records after cleaning")
+        
+        # Calculate similarity scores using Algorithm 2 (house matching)
+        realworks_df['similarity_score'] = realworks_df.apply(lambda row: calculate_simple_similarity_score(row, reference_data, street_similarity_cache), axis=1)
+        
+        # DEBUG: Show top 5 scoring breakdown for the first property
+        if len(realworks_df) > 0:
+            logger.info("\n" + "="*80)
+            logger.info("SCORE BEREKENING VOORBEELD (Top 1 property):")
+            logger.info("="*80)
+            test_row = realworks_df.iloc[0]
+            _ = calculate_simple_similarity_score(test_row, reference_data, street_similarity_cache, debug=True)
+            logger.info("="*80 + "\n")
+        
+        # All records have match_type 'realworks_only' since we're only using Realworks
+        realworks_df['match_type'] = 'realworks_only'
+        realworks_df['match_priority'] = 2  # Consistent score for all
+        realworks_df['final_score'] = realworks_df['similarity_score']
+        
+        # Filter out reference property (address with same house number)
+        before_ref_filter = len(realworks_df)
+        if 'address_full' in realworks_df.columns:
+            ref_address = reference_data.get('address_full', '').strip()
+            if ref_address:
+                realworks_df['address_normalized'] = realworks_df['address_full'].str.lower().str.strip()
+                ref_address_normalized = ref_address.lower().strip()
+                
+                # Extract street name and house number (e.g., "eerste laurierdwarsstraat 18")
+                import re
+                ref_match = re.match(r'^(.+?)\s+(\d+)', ref_address_normalized)
+                if ref_match:
+                    ref_street = ref_match.group(1).strip()
+                    ref_number = ref_match.group(2).strip()
+                    
+                    # Filter out any property on the same street with the same house number
+                    # This catches "18 B" when reference is "18"
+                    realworks_df['is_ref_property'] = realworks_df['address_normalized'].apply(
+                        lambda addr: bool(re.match(rf'^{re.escape(ref_street)}\s+{ref_number}', addr))
+                    )
+                    realworks_df = realworks_df[~realworks_df['is_ref_property']]
+                    after_ref_filter = len(realworks_df)
+                    logger.info(f"After reference filter: {after_ref_filter} records (removed {before_ref_filter - after_ref_filter} properties on '{ref_street}' with house number '{ref_number}')")
+                else:
+                    # Fallback: exact match only
+                    realworks_df = realworks_df[realworks_df['address_normalized'] != ref_address_normalized]
+                    after_ref_filter = len(realworks_df)
+                    logger.info(f"After reference filter: {after_ref_filter} records (removed {before_ref_filter - after_ref_filter} exact matches)")
+        
+        # Remove duplicates
+        before_duplicate_filter = len(realworks_df)
+        realworks_df = realworks_df.drop_duplicates(subset=['address_full'], keep='first')
+        after_duplicate_filter = len(realworks_df)
+        duplicates_removed = before_duplicate_filter - after_duplicate_filter
+        if duplicates_removed > 0:
+            logger.info(f"After duplicate filter: {after_duplicate_filter} records (removed {duplicates_removed} duplicates)")
+        
+        logger.info(f"=== FINAL AVAILABLE: {len(realworks_df)} Realworks records for top 15 ===")
+        
+        # Sort by similarity score and take top 15
+        top15_df = realworks_df.sort_values('similarity_score', ascending=False).head(15).copy()
+        logger.info(f"=== TOP 15 SELECTED: {len(top15_df)} records ===")
+        
+        # LOG: Show how the top 15 was calculated with detailed scoring breakdown
+        if len(top15_df) > 0:
+            logger.info("\n" + "="*80)
+            logger.info("TOP 15 BEREKENING DETAILS:")
+            logger.info("="*80)
+            logger.info(f"Totaal beschikbare properties: {len(realworks_df)}")
+            logger.info(f"Referentie adres: {reference_data.get('address_full', 'Unknown')}")
+            logger.info(f"\nTop 15 geselecteerde properties:")
+            for idx, (_, row) in enumerate(top15_df.iterrows(), 1):
+                logger.info(f"\n  {idx}. {row['address_full']}")
+                logger.info(f"     Score: {row['similarity_score']:.4f}")
+                logger.info(f"     Prijs: €{row['rw_sale_price']:,.0f} | m²: {row['rw_area_m2']:.0f} | Kamers: {row['rw_rooms']:.0f}")
+            logger.info("\n" + "="*80)
+        
+        # Select relevant columns for output
+        output_columns = [
+            'address_full', 'rw_sale_price', 'rw_area_m2', 'rw_bedrooms', 'rw_rooms', 
+            'rw_bathrooms', 'rw_year_built', 'rw_energy_label', 
+            'rw_maintenance_inside', 'rw_maintenance_outside',
+            'rw_has_garden', 'rw_has_balcony', 'rw_has_terrace',
+            'similarity_score', 'final_score'
+        ]
+        
+        logger.info(f"Available columns in top15_df BEFORE filtering: {list(top15_df.columns)}")
+        
+        # Add URL column if it exists (probably won't for Realworks)
+        if 'object_detail_page_relative_url' in top15_df.columns:
+            output_columns.append('object_detail_page_relative_url')
+        
+        # Only include columns that exist
+        available_columns = [col for col in output_columns if col in top15_df.columns]
+        missing_columns = [col for col in output_columns if col not in top15_df.columns]
+        if missing_columns:
+            logger.warning(f"Missing columns in top15_df: {missing_columns}")
+        top15_df = top15_df[available_columns]
+        
+        logger.info(f"Final columns in top15_df: {list(top15_df.columns)}")
+        
+        # Remove temporary columns
+        temp_columns = ['address_normalized']
+        for col in temp_columns:
+            if col in top15_df.columns:
+                top15_df = top15_df.drop(columns=[col])
+        
+        logger.info(f"Created top 15 matches from Realworks data with scores ranging from {top15_df['similarity_score'].min():.3f} to {top15_df['similarity_score'].max():.3f}")
+        
+        return top15_df
+        
+    except Exception as e:
+        logger.error(f"Error processing Realworks data for top 15 matches: {e}")
+        return pd.DataFrame(columns=['address_full', 'rw_sale_price', 'rw_area_m2', 'rw_bedrooms', 'rw_rooms', 'rw_energy_label', 'similarity_score'])
+
 def process_merged_data_for_top15(merged_df, reference_data, street_similarity_cache=None):
     """Process merged data to create top 15 matches with similarity scores."""
     try:
@@ -1129,14 +1354,25 @@ def process_merged_data_for_top15(merged_df, reference_data, street_similarity_c
             row.get('has_terrace', False) if pd.notna(row.get('has_terrace', False)) else 
             row.get('has_terrace', False), axis=1)
         
+        # CRITICAL: Filter to ONLY Realworks properties (realworks_only OR both)
+        # This ensures we only match against properties that exist in Realworks data
+        initial_count = len(merged_df)
+        logger.info(f"INITIAL merged data: {initial_count} records")
+        logger.info(f"Match types breakdown: {merged_df['match_type'].value_counts().to_dict()}")
+        
+        merged_df = merged_df[merged_df['match_type'].isin(['realworks_only', 'both'])].copy()
+        filtered_count = len(merged_df)
+        logger.info(f"After Realworks filter: {filtered_count} records (filtered from {initial_count})")
+        
         # Calculate similarity scores using Algorithm 2 (house matching)
         merged_df['similarity_score'] = merged_df.apply(lambda row: calculate_simple_similarity_score(row, reference_data, street_similarity_cache), axis=1)
         
         # Add priority score for match type (both > funda_only > realworks_only)
+        # Note: 'funda_only' should not exist after filtering
         merged_df['match_priority'] = merged_df['match_type'].map({
             'both': 3,
-            'funda_only': 2, 
-            'realworks_only': 1,
+            'realworks_only': 2,
+            'funda_only': 1,
             'no_match': 0
         }).fillna(0)
         
@@ -1144,8 +1380,40 @@ def process_merged_data_for_top15(merged_df, reference_data, street_similarity_c
         # Match priority adds a small bonus (max 0.05) to the similarity score
         merged_df['final_score'] = merged_df['similarity_score'] + (merged_df['match_priority'] * 0.017)  # Small bonus: 3*0.017 = 0.051 max
         
-        # Sort by final score (descending)
+        # CRITICAL: Filter out the reference property to avoid duplicates
+        before_ref_filter = len(merged_df)
+        if 'address_full' in merged_df.columns:
+            ref_address = reference_data.get('address_full', '').strip()
+            if ref_address:
+                # Normalize addresses for comparison (lowercase, remove extra spaces)
+                merged_df['address_normalized'] = merged_df['address_full'].str.lower().str.strip()
+                ref_address_normalized = ref_address.lower().strip()
+                
+                # Extract street name and house number from reference address
+                # E.g., "Eerste laurierdwarsstraat 18" -> street="eerste laurierdwarsstraat", number="18"
+                import re
+                # Only filter out EXACT matches, not entire streets
+                # This filters "Eerste laurierdwarsstraat 18" but keeps "Eerste laurierdwarsstraat 19", "Eerste laurierdwarsstraat 20", etc.
+                merged_df = merged_df[merged_df['address_normalized'] != ref_address_normalized]
+                after_ref_filter = len(merged_df)
+                logger.info(f"After reference filter: {after_ref_filter} records (removed {before_ref_filter - after_ref_filter} exact matches)")
+        else:
+            after_ref_filter = len(merged_df)
+        
+        # CRITICAL: Remove duplicate addresses (same exact address appearing multiple times)
+        before_duplicate_filter = len(merged_df)
+        if 'address_full' in merged_df.columns:
+            merged_df = merged_df.drop_duplicates(subset=['address_full'], keep='first')
+            after_duplicate_filter = len(merged_df)
+            duplicates_removed = before_duplicate_filter - after_duplicate_filter
+            if duplicates_removed > 0:
+                logger.info(f"After duplicate filter: {after_duplicate_filter} records (removed {duplicates_removed} duplicates)")
+        
+        logger.info(f"=== FINAL AVAILABLE: {len(merged_df)} records for top 15 ===")
+        
+        # Sort by final score (descending) and take top 15 OTHER properties (excluding reference)
         top15_df = merged_df.sort_values('final_score', ascending=False).head(15).copy()
+        logger.info(f"=== TOP 15 SELECTED: {len(top15_df)} records ===")
         
         # Select relevant columns for the final output
         output_columns = [
@@ -1162,7 +1430,13 @@ def process_merged_data_for_top15(merged_df, reference_data, street_similarity_c
         available_columns = [col for col in output_columns if col in top15_df.columns]
         top15_df = top15_df[available_columns]
         
-        logger.info(f"Created top 15 matches with final scores ranging from {top15_df['final_score'].min():.3f} to {top15_df['final_score'].max():.3f}")
+        # Remove temporary columns if they exist
+        temp_columns = ['address_normalized', 'is_ref_property']
+        for col in temp_columns:
+            if col in top15_df.columns:
+                top15_df = top15_df.drop(columns=[col])
+        
+        logger.info(f"Created top 15 matches (excluding reference property) with final scores ranging from {top15_df['final_score'].min():.3f} to {top15_df['final_score'].max():.3f}")
         
         return top15_df
         
@@ -1194,11 +1468,26 @@ def analyze_csv_data(csv_df, reference_data):
             "average_price": 500000
         }
 
+def clear_cache():
+    """Clear the street similarity cache directory."""
+    cache_dir = Path("cache")
+    if cache_dir.exists():
+        try:
+            # Remove all cache files
+            for cache_file in cache_dir.glob("*.json"):
+                cache_file.unlink()
+            logger.info("Cache cleared successfully")
+        except Exception as e:
+            logger.warning(f"Could not clear cache: {e}")
+
 def main():
     """Main function for command line usage."""
     if len(sys.argv) < 3:
         print("Usage: python api_workflow.py <reference_data.json> <csv_file_path> [realworks_file1.rtf] [realworks_file2.rtf] ...")
         sys.exit(1)
+    
+    # Clear cache at the start of every run
+    clear_cache()
     
     reference_file = sys.argv[1]
     csv_file_path = sys.argv[2]
@@ -1216,7 +1505,7 @@ def main():
         with open('outputs/api_workflow_result.json', 'w', encoding='utf-8') as f:
             json.dump(result, f, indent=2, ensure_ascii=False)
         
-        # Print result
+        # Print result to stdout (API reads from stdout)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         
         # Exit with appropriate code

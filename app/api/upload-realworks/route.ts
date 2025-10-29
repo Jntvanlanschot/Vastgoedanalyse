@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdtemp } from 'fs/promises';
-import { rmSync } from 'fs';
+import { rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
@@ -73,75 +73,102 @@ async function runHouseAnalysisWithRealworks(
 
     pythonProcess.on('close', (code) => {
       console.log(`Python process exited with code ${code}`);
+      console.log('Python stdout length:', stdout.length);
+      console.log('Python stderr length:', stderr.length);
       
-      if (code === 0) {
-        try {
-          // Try to parse the JSON output from stdout
-          let resultJson = '';
-          
-          // Find the JSON object in the output
-          const jsonStart = stdout.indexOf('{');
-          const jsonEnd = stdout.lastIndexOf('}') + 1;
-          
+      // Try to parse JSON regardless of exit code - sometimes workflow prints errors to stderr but still outputs valid JSON
+      try {
+        // Try to parse the JSON output from stderr (logger.info goes to stderr)
+        let resultJson = '';
+        
+        // First try stderr (where Python logging goes)
+        const jsonMatches = stderr.match(/\{[^{}]*"status"[^{}]*\}/s);
+        if (jsonMatches && jsonMatches.length > 0) {
+          resultJson = jsonMatches[jsonMatches.length - 1];
+        }
+        
+        // Fallback: try stdout
+        if (!resultJson) {
+          const jsonMatchesStdout = stdout.match(/\{[^{}]*"status"[^{}]*\}/s);
+          if (jsonMatchesStdout && jsonMatchesStdout.length > 0) {
+            resultJson = jsonMatchesStdout[jsonMatchesStdout.length - 1];
+          }
+        }
+        
+        // Last resort: look for last complete JSON object
+        if (!resultJson) {
+          const jsonStart = stderr.lastIndexOf('{');
+          const jsonEnd = stderr.lastIndexOf('}') + 1;
           if (jsonStart !== -1 && jsonEnd > jsonStart) {
-            resultJson = stdout.substring(jsonStart, jsonEnd);
+            resultJson = stderr.substring(jsonStart, jsonEnd);
           }
-          
-          console.log('Extracted JSON:', resultJson.substring(0, 100) + '...');
-          
-          const result = JSON.parse(resultJson || '{}');
-          
-          // Check if workflow was successful
-          if (result.status === 'success') {
-            // Look for generated artifacts
-            const artifacts: any = {};
-            
-            if (result.summary?.pdf_file) {
-              artifacts.pdf = result.summary.pdf_file;
-            }
-            if (result.summary?.excel_file) {
-              artifacts.excel = result.summary.excel_file;
-            }
-            if (result.step3_result?.top15_file) {
-              artifacts.csv = result.step3_result.top15_file;
-            }
-
-            resolve({
-              status: 'success',
-              message: 'Workflow completed successfully',
-              step1_result: result.step1_result,
-              step2_result: result.step2_result,
-              step3_result: result.step3_result,
-              step4_result: result.step4_result,
-              summary: result.summary,
-              artifacts
-            });
+        }
+        
+        console.log('Extracted JSON length:', resultJson.length);
+        
+        // Try to read from saved file first (most reliable)
+        let result: any = {};
+        const resultFile = join(process.cwd(), 'apps', 'workflow-py', 'workflow', 'outputs', 'api_workflow_result.json');
+        try {
+          if (existsSync(resultFile)) {
+            const fileContent = readFileSync(resultFile, 'utf-8');
+            result = JSON.parse(fileContent);
+            console.log('Read result from file:', resultFile);
           } else {
-            resolve({
-              status: 'error',
-              message: result.message || 'Workflow failed',
-              step1_result: result.step1_result,
-              step2_result: result.step2_result,
-              step3_result: result.step3_result,
-              step4_result: result.step4_result
-            });
+            // Fallback to parsing from output
+            console.log('Result file not found, parsing from output');
+            result = JSON.parse(resultJson || '{}');
           }
-        } catch (e) {
-          console.error('Failed to parse Python workflow output:', stdout);
-          resolve({ 
-            status: 'error', 
-            message: 'Failed to parse workflow result', 
-            step1_result: null, 
-            step2_result: null, 
-            step3_result: null, 
-            step4_result: null 
+        } catch (fileError) {
+          console.error('Failed to read result file:', fileError);
+          result = JSON.parse(resultJson || '{}');
+        }
+        
+        console.log('Parsed result status:', result.status);
+        
+        // Check if workflow was successful
+        if (result.status === 'success') {
+          // Look for generated artifacts
+          const artifacts: any = {};
+          
+          if (result.summary?.pdf_file) {
+            artifacts.pdf = result.summary.pdf_file;
+          }
+          if (result.summary?.excel_file) {
+            artifacts.excel = result.summary.excel_file;
+          }
+          if (result.step4_result?.top15_file) {
+            artifacts.csv = result.step4_result.top15_file;
+          }
+
+          console.log('Returning success with summary:', result.summary);
+          resolve({
+            status: 'success',
+            message: 'Workflow completed successfully',
+            step1_result: result.step1_result,
+            step2_result: result.step2_result,
+            step3_result: result.step3_result,
+            step4_result: result.step4_result,
+            summary: result.summary,
+            artifacts
+          });
+        } else {
+          console.log('Workflow returned error status:', result.message);
+          resolve({
+            status: 'error',
+            message: result.message || 'Workflow failed',
+            step1_result: result.step1_result,
+            step2_result: result.step2_result,
+            step3_result: result.step3_result,
+            step4_result: result.step4_result
           });
         }
-      } else {
-        console.error(`Python workflow failed with exit code ${code}. Stderr: ${stderr}`);
+      } catch (e) {
+        console.error('Failed to parse Python workflow output:', e);
+        console.error('Stdout:', stdout);
         resolve({ 
           status: 'error', 
-          message: `Python workflow failed with exit code ${code}. Stderr: ${stderr}`, 
+          message: `Failed to parse workflow result: ${e instanceof Error ? e.message : 'Unknown error'}`, 
           step1_result: null, 
           step2_result: null, 
           step3_result: null, 

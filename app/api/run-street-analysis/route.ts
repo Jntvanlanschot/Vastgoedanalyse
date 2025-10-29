@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
-import { writeFileSync, mkdtempSync } from 'fs';
+import { writeFileSync, mkdtempSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { homedir } from 'os';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,16 @@ export async function POST(request: NextRequest) {
     // Write reference data to file
     const referenceFilePath = join(tempDir, 'reference_data.json');
     writeFileSync(referenceFilePath, JSON.stringify(referenceData, null, 2), 'utf8');
+
+    // Copy CSV to downloads folder
+    const downloadsDir = join(homedir(), 'Downloads');
+    const csvDownloadPath = join(downloadsDir, `funda_scraper_${Date.now()}.csv`);
+    try {
+      copyFileSync(csvFilePath, csvDownloadPath);
+      console.log('Funda CSV copied to:', csvDownloadPath);
+    } catch (err) {
+      console.warn('Could not copy CSV to Downloads:', err);
+    }
 
     console.log('Starting street analysis (Algorithm 1 only)...');
     console.log('Temp directory:', tempDir);

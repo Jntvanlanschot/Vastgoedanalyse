@@ -169,7 +169,7 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
     );
   }
 
-  // Build Funda search URL with buurt slugs (without buurt- prefix)
+  // Build Funda search URL with buurt slugs
   const citySlug = cityToSlug(city);
   const selectedAreas = buurtSlugs.map(slug => `${citySlug}/${slug}`);
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${JSON.stringify(selectedAreas)}&availability=${JSON.stringify(['negotiations', 'unavailable'])}`;

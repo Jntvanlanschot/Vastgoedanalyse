@@ -501,7 +501,12 @@ class OverpassStreetSimilarity:
         if ref_gracht == cand_gracht:
             scores['gracht'] = 1.0
         else:
+            # Heavy penalty for gracht vs straat mismatch (apply 0.3x multiplier)
             scores['gracht'] = 0.0
+            
+            # Apply additional penalty to the ENTIRE score for gracht mismatch
+            # This penalizes gracht vs straat mismatches much more heavily
+            scores['_gracht_penalty'] = 0.3
         
         # Length similarity (normalized)
         length_diff = abs(ref_profile.length - candidate_profile.length)
@@ -516,7 +521,16 @@ class OverpassStreetSimilarity:
         # Calculate weighted score
         total_score = 0.0
         for component, score in component_scores.items():
+            if component.startswith('_'):  # Skip internal penalty flags
+                continue
             total_score += self.weights[component] * score
+        
+        # Apply gracht penalty if there's a mismatch
+        if '_gracht_penalty' in component_scores:
+            penalty = component_scores['_gracht_penalty']
+            total_score_before = total_score
+            total_score = total_score * penalty
+            logger.info(f"Applied gracht penalty: {penalty}x | Score before: {total_score_before:.4f} | Score after: {total_score:.4f}")
         
         return total_score, component_scores
     

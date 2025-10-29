@@ -162,10 +162,10 @@ def parse_realworks_property(text: str) -> Dict[str, Any]:
         'notes': None
     }
     
-    # Extract address (first bold line)
-    address_match = re.search(r'([A-Za-zÀ-ÿ\.\-\' ]+)\s+(\d+\s?[A-Za-z\-\/]?),\s*(\d{4}\s?[A-Z]{2})\s+([A-Za-z ]+)', text)
+    # Extract address (first bold line) - FIXED to allow "11 1" style addresses
+    address_match = re.search(r'([A-Za-zÀ-ÿ\.\-\' ]+)\s+(\d+(\s+[A-Za-z0-9]+)?),\s*(\d{4}\s?[A-Z]{2})\s+([A-Za-z ]+)', text)
     if address_match:
-        street, house_num, postal, city = address_match.groups()
+        street, house_num, _, postal, city = address_match.groups()
         record['address_full'] = f"{street} {house_num}, {postal} {city}"
         record['street'] = street.strip()
         record['house_number'] = house_num.strip()
@@ -330,8 +330,10 @@ def parse_rtf_file(file_path: Path) -> List[Dict[str, Any]]:
     text = rtf_to_text(rtf_content)
     
     # Split into property sections (look for addresses)
-    # More robust address pattern
-    address_pattern = r'([A-Za-zÀ-ÿ\.\-\' ]+)\s+(\d+\s?[A-Za-z\-\/]?),\s*(\d{4}\s?[A-Z]{2})\s+([A-Za-z ]+)'
+    # More robust address pattern - FIXED to allow both "11 1" and "15 H" style addresses
+    # This matches: 11, 11 1, 11A, 15 H, etc.
+    # Pattern: straat + nummer (optioneel spatie + extra nummer/letter) + comma + postcode + stad
+    address_pattern = r'([A-Za-zÀ-ÿ\.\-\' ]+)\s+(\d+(\s+[A-Za-z0-9]+)?)\s*,\s*(\d{4}\s?[A-Z]{2})\s+([A-Za-z ]+)'
     
     # Find all address matches
     address_matches = list(re.finditer(address_pattern, text))

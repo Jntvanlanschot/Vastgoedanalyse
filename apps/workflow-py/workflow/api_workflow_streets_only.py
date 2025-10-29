@@ -10,6 +10,7 @@ import json
 import pandas as pd
 import logging
 from pathlib import Path
+import shutil
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -38,90 +39,185 @@ def calculate_string_similarity(str1: str, str2: str) -> float:
     
     return intersection / union if union > 0 else 0.0
 
+def calculate_osm_street_similarity(row, reference_data, street_similarity_cache=None):
+    """Calculate OSM-based street similarity using cached street profiles."""
+    try:
+        # Get street names (convert to string to handle NaN/float values)
+        # CRITICAL: Extract ref_street from address_full if needed
+        ref_street = str(reference_data.get('street_name', '') or '')
+        if not ref_street and 'address_full' in reference_data:
+            import re
+            address_parts = reference_data['address_full'].split(',')[0].strip()
+            ref_street = re.sub(r'\s+\d+.*$', '', address_parts).strip()
+        
+        # Get street name from row - can be in different columns
+        row_street = str(row.get('address/street_name', '') or '')
+        if not row_street:
+            row_street = str(row.get('street_name', '') or '')
+        
+        if not ref_street or not row_street:
+            logger.error(f"[DEBUG] Missing data - ref_street='{ref_street}', row_street='{row_street}'")
+            return 0.5  # Neutral score if missing data
+        
+        # Normalize street names to lowercase for comparison
+        ref_street = str(ref_street).lower().strip()
+        row_street = str(row_street).lower().strip()
+        
+        # Log what we're looking for
+        if not hasattr(calculate_osm_street_similarity, '_logged_keys'):
+            calculate_osm_street_similarity._logged_keys = set()
+        key_log = f"ref='{ref_street}' row='{row_street}'"
+        if key_log not in calculate_osm_street_similarity._logged_keys and len(calculate_osm_street_similarity._logged_keys) < 3:
+            logger.info(f"[LOOKUP] Searching for: {key_log}")
+            logger.info(f"[LOOKUP] Cache exists: {street_similarity_cache is not None}")
+            if street_similarity_cache:
+                logger.info(f"[LOOKUP] Cache keys available: {list(street_similarity_cache.keys())}")
+            calculate_osm_street_similarity._logged_keys.add(key_log)
+        
+        # Use cached similarity scores if available
+        if street_similarity_cache and ref_street in street_similarity_cache:
+            ref_similarities = street_similarity_cache[ref_street]
+            # Only log first few lookups to avoid spam
+            if not hasattr(calculate_osm_street_similarity, '_logged_cache_keys'):
+                calculate_osm_street_similarity._logged_cache_keys = set()
+            if len(calculate_osm_street_similarity._logged_cache_keys) < 5:
+                logger.info(f"[CACHE LOOKUP #{len(calculate_osm_street_similarity._logged_cache_keys)+1}] Looking for '{row_street}' with ref='{ref_street}' in cache with {len(ref_similarities)} entries")
+                calculate_osm_street_similarity._logged_cache_keys.add(row_street)
+            
+            for similarity_data in ref_similarities:
+                # Get street name from cache and normalize to lowercase for comparison
+                cached_name_raw = similarity_data.get('street_name', '')
+                cached_name = str(cached_name_raw).lower().strip()
+                if cached_name == row_street:
+                    cached_score = similarity_data['score']
+                    logger.info(f"[CACHE HIT] Found '{row_street}': score={cached_score}")
+                    return cached_score
+            
+            logger.warning(f"[CACHE MISS] Street '{row_street}' NOT FOUND. Cache entries: {[str(s.get('street_name', '')) for s in ref_similarities[:10]]}")
+        else:
+            logger.error(f"[NO CACHE] Cache missing! ref='{ref_street}', cache exists={street_similarity_cache is not None}, keys={list(street_similarity_cache.keys()) if street_similarity_cache else 'None'}")
+        
+        # Check if row_street is the reference street itself
+        if row_street == ref_street:
+            return 1.0
+        
+        # Check if street names contain "gracht" (canal/gracht)
+        ref_is_gracht = 'gracht' in ref_street
+        row_is_gracht = 'gracht' in row_street
+        
+        # Penalize gracht mismatches (street vs gracht = bad match!)
+        gracht_penalty = 1.0
+        if ref_is_gracht != row_is_gracht:
+            # Mismatch: one is gracht, other is not
+            gracht_penalty = 0.3  # Heavy penalty for street vs gracht mismatch
+        
+        # Fallback: simple name-based similarity (only used if not in OSM cache)
+        # Don't warn for reference street (it gets 1.0 above)
+        if row_street != ref_street:
+            logger.warning(f"Using FALLBACK name-based similarity for {row_street} (not in OSM cache)")
+        
+        if ref_street == row_street:
+            return 1.0 * gracht_penalty
+        else:
+            # Check for similar street names (gracht, straat, etc.)
+            ref_base = ref_street.replace('gracht', '').replace('straat', '').replace('weg', '').strip()
+            row_base = row_street.replace('gracht', '').replace('straat', '').replace('weg', '').strip()
+            
+            if ref_base == row_base:
+                fallback_score = 0.8 * gracht_penalty  # Same base name, different suffix
+                logger.warning(f"Fallback score for {row_street}: {fallback_score}")
+                return fallback_score
+            else:
+                fallback_score = calculate_string_similarity(ref_street, row_street) * gracht_penalty
+                logger.warning(f"Fallback score for {row_street}: {fallback_score}")
+                return fallback_score
+        
+    except Exception as e:
+        logger.error(f"Error calculating OSM street similarity: {e}")
+        return 0.5  # Neutral score on error
+
 def calculate_street_similarity_score(row, reference_data, street_similarity_cache=None):
-    """Calculate similarity score for street matching (Algorithm 1) - 4 best corresponding streets."""
+    """Calculate similarity score for street matching (Algorithm 1) - 4 best corresponding streets.
+    TEST MODE: Only OSM street similarity at 100%, all other weights at 0%."""
     try:
         score = 0.0
         
-        # 1. Street similarity (10% weight - higher for street matching)
-        ref_street = reference_data.get('street_name', '')
-        if not ref_street and 'address_full' in reference_data:
-            # Extract street name from full address
-            address_parts = reference_data['address_full'].split(',')[0].strip()
-            # Remove house number to get street name
-            import re
-            ref_street = re.sub(r'\s+\d+.*$', '', address_parts).strip()
+        # 1. Street name similarity (0% weight - DISABLED FOR TEST)
+        # ref_street = reference_data.get('street_name', '')
+        # if not ref_street and 'address_full' in reference_data:
+        #     # Extract street name from full address
+        #     address_parts = reference_data['address_full'].split(',')[0].strip()
+        #     # Remove house number to get street name
+        #     import re
+        #     ref_street = re.sub(r'\s+\d+.*$', '', address_parts).strip()
+        # 
+        # ref_street = ref_street.lower().strip()
+        # row_street = row.get('address/street_name', '').lower().strip()
+        # if ref_street and row_street:
+        #     if ref_street == row_street:
+        #         score += 0.00 * 1.0  # DISABLED
+        #     else:
+        #         # Calculate street name similarity (Levenshtein distance)
+        #         street_similarity = calculate_string_similarity(ref_street, row_street)
+        #         score += 0.00 * street_similarity  # DISABLED
         
-        ref_street = ref_street.lower().strip()
-        row_street = row.get('address/street_name', '').lower().strip()
-        if ref_street and row_street:
-            if ref_street == row_street:
-                score += 0.10 * 1.0  # Same street = perfect match
-            else:
-                # Calculate street name similarity (Levenshtein distance)
-                street_similarity = calculate_string_similarity(ref_street, row_street)
-                score += 0.10 * street_similarity
+        # 2. OSM-based street similarity (100% weight - ONLY ACTIVE)
+        # This represents the physical street similarity in OpenStreetMap
+        osm_street_score = calculate_osm_street_similarity(row, reference_data, street_similarity_cache)
+        score += 1.00 * osm_street_score
         
-        # 2. OSM-based street similarity (34% weight - highest weight)
-        # For now, we'll use a simplified version since Overpass API is failing
-        # This could be enhanced later with actual OSM data
-        osm_street_score = 0.5  # Default neutral score
-        score += 0.34 * osm_street_score
+        # 3. Living area (m²) proximity (0% weight - DISABLED FOR TEST)
+        # area_m2 = row.get('floor_area/0', 0)
+        # if pd.notna(area_m2) and area_m2 > 0:
+        #     area_diff = abs(area_m2 - reference_data.get('area_m2', 100))
+        #     area_score = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
+        #     score += 0.00 * area_score
         
-        # 3. Living area (m²) proximity (20% weight - lower for street matching)
-        area_m2 = row.get('floor_area/0', 0)
-        if pd.notna(area_m2) and area_m2 > 0:
-            area_diff = abs(area_m2 - reference_data.get('area_m2', 100))
-            area_score = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
-            score += 0.20 * area_score
+        # 4. Micro-location proximity (0% weight - DISABLED FOR TEST)
+        # ref_neighbourhood = reference_data.get('neighbourhood', '').lower().strip()
+        # row_neighbourhood = row.get('address/neighbourhood', '').lower().strip()
+        # if ref_neighbourhood and row_neighbourhood:
+        #     if ref_neighbourhood == row_neighbourhood:
+        #         score += 0.00 * 1.0
+        #     else:
+        #         neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
+        #         score += 0.00 * neighbourhood_similarity
         
-        # 4. Micro-location proximity (10% weight)
-        ref_neighbourhood = reference_data.get('neighbourhood', '').lower().strip()
-        row_neighbourhood = row.get('address/neighbourhood', '').lower().strip()
-        if ref_neighbourhood and row_neighbourhood:
-            if ref_neighbourhood == row_neighbourhood:
-                score += 0.10 * 1.0
-            else:
-                neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
-                score += 0.10 * neighbourhood_similarity
+        # 5. Garden match (0% weight - DISABLED FOR TEST)
+        # ref_garden = reference_data.get('has_garden', False)
+        # score += 0.00 * 0.5
         
-        # 5. Garden match (10% weight)
-        ref_garden = reference_data.get('has_garden', False)
-        # For Funda data, we don't have garden info, so use neutral score
-        score += 0.10 * 0.5
+        # 6. Rooms similarity (0% weight - DISABLED FOR TEST)
+        # rooms = row.get('number_of_rooms', 0)
+        # if pd.notna(rooms) and rooms > 0:
+        #     room_diff = abs(rooms - reference_data.get('rooms', 3))
+        #     room_score = max(0, 1 - (room_diff / max(reference_data.get('rooms', 3), 1)))
+        #     score += 0.00 * room_score
         
-        # 6. Rooms similarity (6% weight)
-        rooms = row.get('number_of_rooms', 0)
-        if pd.notna(rooms) and rooms > 0:
-            room_diff = abs(rooms - reference_data.get('rooms', 3))
-            room_score = max(0, 1 - (room_diff / max(reference_data.get('rooms', 3), 1)))
-            score += 0.06 * room_score
+        # 7. Bedrooms similarity (0% weight - DISABLED FOR TEST)
+        # bedrooms = row.get('number_of_bedrooms', 0)
+        # if pd.notna(bedrooms) and bedrooms > 0:
+        #     bedroom_diff = abs(bedrooms - reference_data.get('bedrooms', 2))
+        #     bedroom_score = max(0, 1 - (bedroom_diff / max(reference_data.get('bedrooms', 2), 1)))
+        #     score += 0.00 * bedroom_score
         
-        # 7. Bedrooms similarity (5% weight)
-        bedrooms = row.get('number_of_bedrooms', 0)
-        if pd.notna(bedrooms) and bedrooms > 0:
-            bedroom_diff = abs(bedrooms - reference_data.get('bedrooms', 2))
-            bedroom_score = max(0, 1 - (bedroom_diff / max(reference_data.get('bedrooms', 2), 1)))
-            score += 0.05 * bedroom_score
+        # 8. Balcony/Roof terrace (0% weight - DISABLED FOR TEST)
+        # ref_balcony = reference_data.get('has_balcony', False) or reference_data.get('has_terrace', False)
+        # score += 0.00 * 0.5
         
-        # 8. Balcony/Roof terrace (3% weight)
-        ref_balcony = reference_data.get('has_balcony', False) or reference_data.get('has_terrace', False)
-        # For Funda data, we don't have balcony info, so use neutral score
-        score += 0.03 * 0.5
-        
-        # 9. Energy label (2% weight)
-        energy_labels = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
-        ref_energy = reference_data.get('energy_label', 'B')
-        row_energy = row.get('energy_label', 'Unknown')
-        
-        if ref_energy in energy_labels and row_energy in energy_labels:
-            ref_index = energy_labels.index(ref_energy)
-            row_index = energy_labels.index(row_energy)
-            energy_diff = abs(ref_index - row_index)
-            energy_score = max(0, 1 - (energy_diff / len(energy_labels)))
-            score += 0.02 * energy_score
-        else:
-            score += 0.02 * 0.5
+        # 9. Energy label (0% weight - DISABLED FOR TEST)
+        # energy_labels = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+        # ref_energy = reference_data.get('energy_label', 'B')
+        # row_energy = row.get('energy_label', 'Unknown')
+        # 
+        # if ref_energy in energy_labels and row_energy in energy_labels:
+        #     ref_index = energy_labels.index(ref_energy)
+        #     row_index = energy_labels.index(row_energy)
+        #     energy_diff = abs(ref_index - row_index)
+        #     energy_score = max(0, 1 - (energy_diff / len(energy_labels)))
+        #     score += 0.00 * energy_score
+        # else:
+        #     score += 0.00 * 0.5
         
         return min(1.0, score)  # Cap at 1.0
         
@@ -129,7 +225,7 @@ def calculate_street_similarity_score(row, reference_data, street_similarity_cac
         logger.error(f"Error calculating street similarity score: {e}")
         return 0.0
 
-def process_csv_for_top_streets(csv_df, reference_data):
+def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=None):
     """Process CSV data to find top 4 streets using Algorithm 1."""
     try:
         # Find street name column
@@ -153,12 +249,18 @@ def process_csv_for_top_streets(csv_df, reference_data):
         unique_streets = csv_df[street_col].dropna().unique()
         street_scores = []
         
+        logger.info(f"[PROCESS CSV] Processing {len(unique_streets)} unique streets")
+        logger.info(f"[PROCESS CSV] Reference data keys: {reference_data.keys()}")
+        logger.info(f"[PROCESS CSV] Street similarity cache passed: {street_similarity_cache is not None}")
+        if street_similarity_cache:
+            logger.info(f"[PROCESS CSV] Cache keys: {list(street_similarity_cache.keys())}")
+        
         for street_name in unique_streets:
             # Get a sample property from this street for similarity calculation
             sample_property = csv_df[csv_df[street_col] == street_name].iloc[0]
             
             # Calculate similarity score using Algorithm 1 (street matching)
-            similarity_score = calculate_street_similarity_score(sample_property, reference_data)
+            similarity_score = calculate_street_similarity_score(sample_property, reference_data, street_similarity_cache)
             
             # Get statistics for this street
             street_data = csv_df[csv_df[street_col] == street_name]
@@ -187,6 +289,17 @@ def process_csv_for_top_streets(csv_df, reference_data):
         
         # Sort by similarity score (descending) and take top 4 OTHER streets (excluding reference street)
         street_scores.sort(key=lambda x: x['similarity_score'], reverse=True)
+        
+        # Log ALL streets with their scores for debugging
+        logger.info("=" * 100)
+        logger.info("COMPLETE RANKING - ALL STREETS BY OSM SIMILARITY SCORE:")
+        logger.info("=" * 100)
+        for i, street in enumerate(street_scores, 1):
+            is_gracht = 'gracht' in street['street_name'].lower()
+            gracht_indicator = " [GRACHT]" if is_gracht else " [STRAAT]"
+            in_top5_marker = " <-- TOP 5" if i <= 5 else ""
+            logger.info(f"{i:2}. {street['street_name']:40} | Score: {street['similarity_score']:.4f}{gracht_indicator}{in_top5_marker}")
+        logger.info("=" * 100)
         
         # Extract street name from reference data
         ref_street_name = reference_data.get('street_name', '')
@@ -276,9 +389,55 @@ def run_street_analysis(csv_file_path, reference_data):
         csv_df = pd.read_csv(csv_file_path)
         logger.info(f"Loaded {len(csv_df)} records from CSV")
         
+        # Try to use REAL OSM street similarity (fetch from Overpass API)
+        street_similarity_cache = None
+        try:
+            from overpass_street_similarity import OverpassStreetSimilarity
+            
+            # Get reference street name
+            ref_street = reference_data.get('street_name', '')
+            if not ref_street and 'address_full' in reference_data:
+                import re
+                address_parts = reference_data['address_full'].split(',')[0].strip()
+                ref_street = re.sub(r'\s+\d+.*$', '', address_parts).strip()
+            
+            if ref_street:
+                logger.info(f"Fetching REAL OSM similarity data for: {ref_street}")
+                
+                # Find unique candidate streets
+                street_col = None
+                for col in ['address/street_name', 'street_name', 'address_street_name']:
+                    if col in csv_df.columns:
+                        street_col = col
+                        break
+                
+                if street_col:
+                    candidate_streets = csv_df[street_col].dropna().unique().tolist()
+                    candidate_streets = [s for s in candidate_streets if s.strip()]
+                    
+                    logger.info(f"Fetching OSM data for {len(candidate_streets)} candidate streets")
+                    
+                    # Use Overpass API to get REAL street similarity for ALL streets
+                    similarity_calc = OverpassStreetSimilarity()
+                    # Use top_n=len(candidate_streets) to get ALL streets, not just top 5
+                    similar_streets = similarity_calc.find_similar_streets(ref_street, candidate_streets, top_n=len(candidate_streets))
+                    
+                    # Build cache - IMPORTANT: use normalized reference street name as key
+                    street_similarity_cache = {}
+                    cache_key = ref_street.lower().strip()
+                    street_similarity_cache[cache_key] = similar_streets
+                    
+                    logger.info(f"[CACHE CREATED] Successfully fetched OSM similarity data for {len(similar_streets)} streets")
+                    logger.info(f"[CACHE CREATED] Cache key: '{cache_key}'")
+                    logger.info(f"[CACHE CREATED] Cache entries: {[s.get('street_name', 'unknown') for s in similar_streets[:10]]}")
+                    logger.info(f"[CACHE CREATED] Reference street used: '{ref_street}' -> normalized to '{cache_key}'")
+        except Exception as e:
+            logger.warning(f"Could not fetch OSM similarity data (using name-based fallback): {e}")
+            street_similarity_cache = None
+        
         # Process the CSV data to find top streets using Algorithm 1
         logger.info("Processing reference address and selecting top streets from CSV...")
-        top_streets = process_csv_for_top_streets(csv_df, reference_data)
+        top_streets = process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache)
         
         logger.info(f"Found {len(top_streets)} streets")
         
@@ -308,6 +467,16 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         logger.error("Usage: python api_workflow_streets_only.py <reference_data_json_path> <funda_csv_path>")
         sys.exit(1)
+    
+    # Clear cache at the start
+    cache_dir = Path("cache")
+    if cache_dir.exists():
+        try:
+            for cache_file in cache_dir.glob("*.json"):
+                cache_file.unlink()
+            logger.info("Cache cleared successfully")
+        except Exception as e:
+            logger.warning(f"Could not clear cache: {e}")
     
     reference_data_path = sys.argv[1]
     csv_file_path = sys.argv[2]
