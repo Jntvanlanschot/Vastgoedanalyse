@@ -3,50 +3,50 @@
   "message": "API workflow executed successfully",
   "step1_result": {
     "status": "success",
-    "message": "Fetched similarity data for 18 streets"
+    "message": "Fetched similarity data for 28 streets"
   },
   "step2_result": {
     "status": "success",
     "message": "Found reference street + 4 other similar streets",
     "top_5_streets": [
       {
-        "street_name": "Gerard Doustraat",
-        "name": "Gerard Doustraat",
+        "street_name": "Churchill-laan",
+        "name": "Churchill-laan",
         "city": "Amsterdam",
-        "properties_count": 26,
-        "average_price": 547269,
+        "properties_count": 19,
+        "average_price": 935789,
         "is_reference": true
       },
       {
-        "street_name": "Stadhouderskade",
-        "name": "Stadhouderskade",
+        "street_name": "Europaplein",
+        "name": "Europaplein",
         "city": "Amsterdam",
-        "properties_count": 6,
-        "average_price": 737500,
+        "properties_count": 3,
+        "average_price": 765000,
         "is_reference": false
       },
       {
-        "street_name": "Tweede Jan Steenstraat",
-        "name": "Tweede Jan Steenstraat",
+        "street_name": "Dintelstraat",
+        "name": "Dintelstraat",
+        "city": "Amsterdam",
+        "properties_count": 8,
+        "average_price": 1057375,
+        "is_reference": false
+      },
+      {
+        "street_name": "Haringvlietstraat",
+        "name": "Haringvlietstraat",
         "city": "Amsterdam",
         "properties_count": 5,
-        "average_price": 1398800,
+        "average_price": 1552000,
         "is_reference": false
       },
       {
-        "street_name": "Tweede Jacob van Campenstraat",
-        "name": "Tweede Jacob van Campenstraat",
+        "street_name": "Deurloostraat",
+        "name": "Deurloostraat",
         "city": "Amsterdam",
-        "properties_count": 6,
-        "average_price": 492500,
-        "is_reference": false
-      },
-      {
-        "street_name": "Eerste Van der Helststraat",
-        "name": "Eerste Van der Helststraat",
-        "city": "Amsterdam",
-        "properties_count": 6,
-        "average_price": 812500,
+        "properties_count": 18,
+        "average_price": 784416,
         "is_reference": false
       }
     ],
@@ -54,21 +54,21 @@
   },
   "step3_result": {
     "status": "success",
-    "message": "Processed 70 Realworks records",
-    "processed_records": 70,
+    "message": "Processed 115 Realworks records",
+    "processed_records": 115,
     "realworks_file": "outputs/realworks_perfect_data.csv"
   },
   "step4_result": {
     "status": "success",
     "message": "Analysis completed",
-    "matched_records": 70,
+    "matched_records": 115,
     "top_15_count": 15,
     "top15_file": "outputs/top15_perfect_matches_final.csv"
   },
   "summary": {
     "total_funda_records": 150,
-    "realworks_records": 70,
-    "matched_records": 70,
+    "realworks_records": 115,
+    "matched_records": 115,
     "top_15_matches": 15,
     "pdf_file": "outputs/top15_perfect_report_final.pdf",
     "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx"

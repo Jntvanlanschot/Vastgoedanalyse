@@ -1,16 +1,16 @@
 address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_bathrooms,rw_year_built,rw_energy_label,rw_maintenance_inside,rw_maintenance_outside,rw_has_garden,rw_has_balcony,rw_has_terrace,similarity_score,final_score
-" Quellijnstraat 56 3, 1072 XT Amsterdam Verkocht Width",649000.0,67.0,0.0,3.0,2.0,1906.0,A,Uitstekend,Goed,False,False,False,0.6920833333333334,0.6920833333333334
-" Eerste Sweelinckstraat 5 3, 1073 CK Amsterdam Verkocht Width",0.0,70.0,0.0,3.0,0.0,1886.0,A,Goed,Goed,False,False,False,0.6833333333333333,0.6833333333333333
-" Quellijnstraat 19 A, 1072 XM Amsterdam Verkocht Width",725000.0,77.0,0.0,3.0,1.0,1879.0,C,Goed,Goed,False,True,True,0.6599621212121213,0.6599621212121213
-" Quellijnstraat 17 3, 1072 XM Amsterdam Verkocht Width",675000.0,76.0,0.0,3.0,1.0,1879.0,C,Goed,Goed,False,True,True,0.6566287878787879,0.6566287878787879
-" Quellijnstraat 41 B, 1072 XP Amsterdam Verkocht Width",785000.0,74.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,False,True,0.6554166666666668,0.6554166666666668
-" Quellijnstraat 37 B, 1072 XP Amsterdam Verkocht Width",725000.0,74.0,0.0,3.0,1.0,1879.0,B,Goed,Goed,False,True,True,0.652689393939394,0.652689393939394
-" Eerste Jan van der Heijdenstraat 32 3, 1072 TV Amsterdam Verkocht Width",750000.0,78.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.640625,0.640625
-" Eerste Jan van der Heijdenstraat 42 1, 1072 TV Amsterdam Verkocht Width",675000.0,77.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.6372916666666668,0.6372916666666668
-" Eerste Jan van der Heijdenstraat 42 5, 1072 TV Amsterdam Verkocht Width",725000.0,79.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.6372916666666668,0.6372916666666668
-" Eerste Jan van der Heijdenstraat 48 1, 1072 TW Amsterdam Verkocht Width",695000.0,77.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.6372916666666668,0.6372916666666668
-" Eerste Jan van der Heijdenstraat 44 1, 1072 TW Amsterdam Verkocht Width",675000.0,77.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.6372916666666668,0.6372916666666668
-" Eerste Jan van der Heijdenstraat 36 C, 1072 TV Amsterdam Verkocht Width",699000.0,76.0,0.0,3.0,1.0,1896.0,A,Goed,Goed,False,True,True,0.6339583333333334,0.6339583333333334
-" Quellijnstraat 82 H, 1072 XX Amsterdam Verkocht Width",425000.0,61.0,0.0,2.0,0.0,1879.0,C,Goed,Goed,False,False,False,0.6332954545454546,0.6332954545454546
-" Quellijnstraat 104 1, 1072 XZ Amsterdam Verkocht Width",675000.0,80.0,0.0,4.0,1.0,1879.0,C,Goed,Goed,False,True,True,0.6232954545454547,0.6232954545454547
-" Eerste Jan van der Heijdenstraat 36 F, 1072 TV Amsterdam Verkocht Width",875000.0,83.0,0.0,3.0,1.0,1896.0,B,Goed,Goed,False,False,True,0.6212310606060606,0.6212310606060606
+" Churchill-laan 290 2, 1078 GB Amsterdam Verkocht onder voorbehoud ",870000.0,98.0,0.0,4.0,2.0,1926.0,C,Goed,Goed,False,True,True,0.7941636363636363,0.7941636363636363
+" Churchill-laan 157 2, 1078 DV Amsterdam Verkocht Width",675000.0,94.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,True,True,0.7797636363636363,0.7797636363636363
+" Churchill-laan 153 4, 1078 DT Amsterdam Verkocht Width",795000.0,89.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,False,True,0.7617636363636363,0.7617636363636363
+" Scheldestraat 29 1, 1078 GE Amsterdam Verkocht Width",850000.0,95.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,True,True,0.7547922077922078,0.7547922077922078
+" Churchill-laan 119 4, 1078 DN Amsterdam Verkocht Width",675000.0,87.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,True,True,0.7545636363636363,0.7545636363636363
+" Churchill-laan 282 3, 1078 GB Amsterdam Verkocht Width",795000.0,97.0,0.0,5.0,1.0,1929.0,D,Goed,Goed,False,True,True,0.7537454545454545,0.7537454545454545
+" Scheldestraat 29 4, 1078 GE Amsterdam Verkocht Width",700000.0,90.0,0.0,4.0,1.0,1928.0,B,Goed,Goed,False,False,True,0.7486103896103896,0.7486103896103896
+" Rooseveltlaan 168 2, 1078 NT Amsterdam Verkocht Width",875000.0,101.0,0.0,4.0,1.0,1934.0,C,Goed,Goed,False,True,True,0.7477636363636363,0.7477636363636363
+" Rooseveltlaan 224 III, 1078 NX Amsterdam Verkocht Width",800000.0,98.0,0.0,4.0,1.0,1934.0,C,Uitstekend,Uitstekend,False,True,True,0.7441636363636364,0.7441636363636364
+" Rooseveltlaan 230 3, 1078 NX Amsterdam Verkocht Width",895000.0,98.0,0.0,3.0,1.0,1934.0,A,Goed,Goed,False,True,True,0.7428000000000001,0.7428000000000001
+" Churchill-laan 248 1, 1078 EZ Amsterdam Verkocht Width",750000.0,105.0,0.0,4.0,0.0,1928.0,Unknown,Matig,Matig,False,True,True,0.742,0.742
+" Churchill-laan 161 H, 1078 DV Amsterdam Verkocht Width",995000.0,110.0,0.0,4.0,1.0,1928.0,D,Goed,Goed,True,False,False,0.7385454545454547,0.7385454545454547
+" Churchill-laan 59 B, 1078 DH Amsterdam Verkocht Width",715000.0,87.0,0.0,3.0,1.0,1927.0,C,Uitstekend,Uitstekend,False,True,True,0.7295636363636364,0.7295636363636364
+" Rooseveltlaan 122 1, 1078 NP Amsterdam Verkocht Width",899000.0,101.0,0.0,3.0,2.0,1930.0,C,Uitstekend,Uitstekend,False,True,True,0.7227636363636363,0.7227636363636363
+" Amstelkade 168 2, 1078 AZ Amsterdam Verkocht Width",850000.0,102.0,0.0,4.0,1.0,1936.0,D,Goed,Goed,False,True,True,0.7180597402597403,0.7180597402597403

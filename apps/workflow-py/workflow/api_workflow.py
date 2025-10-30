@@ -28,6 +28,7 @@ import pandas as pd
 from io import StringIO
 import shutil
 import glob
+import math
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -433,15 +434,15 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         unique_streets = csv_df[street_col].dropna().unique()
         street_scores = []
         
-        # MINIMUM REQUIREMENT: Filter to only streets with at least 5 properties
+        # MINIMUM REQUIREMENT: Filter to only streets with at least 3 properties
         for street_name in unique_streets:
             # Get statistics for this street
             street_data = csv_df[csv_df[street_col] == street_name]
             properties_count = len(street_data)
             
-            # Skip streets with less than 5 properties
-            if properties_count < 5:
-                logger.info(f"Skipping street '{street_name}' - only {properties_count} properties (minimum: 5)")
+            # Skip streets with less than 3 properties
+            if properties_count < 3:
+                logger.info(f"Skipping street '{street_name}' - only {properties_count} properties (minimum: 3)")
                 continue
             
             # Get a sample property from this street for similarity calculation
@@ -471,7 +472,7 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
                 "similarity_score": similarity_score
             })
         
-        logger.info(f"Found {len(street_scores)} streets with at least 5 properties")
+        logger.info(f"Found {len(street_scores)} streets with at least 3 properties")
         
         # Sort by similarity score (descending) and take top 4 OTHER streets (excluding reference street)
         street_scores.sort(key=lambda x: x['similarity_score'], reverse=True)
@@ -479,7 +480,20 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         # Filter out the reference street and take top 4 other streets
         ref_street_name = reference_data.get('street_name', '').lower().strip()
         other_streets = [street for street in street_scores if street['street_name'].lower().strip() != ref_street_name]
+
+        # Special handling for Amsterdam's main canals: Prinsen/Keizers/Herengracht
+        canals = {'prinsengracht', 'keizersgracht', 'herengracht'}
         top_4_other_streets = other_streets[:4]
+        if ref_street_name in canals:
+            # Prefer the other canal streets in positions 2 and 3 when available
+            other_canal_names = [c for c in canals if c != ref_street_name]
+            other_map = {s['street_name'].lower().strip(): s for s in other_streets}
+            preferred = [other_map[name] for name in other_canal_names if name in other_map]
+            # Keep order of preferred by their similarity as already sorted in other_streets
+            seen_ids = set(id(s) for s in preferred)
+            remainder = [s for s in other_streets if id(s) not in seen_ids]
+            combined = preferred + remainder
+            top_4_other_streets = combined[:4]
         
         # Create final result: reference street first, then top 4 other streets
         final_streets = []
@@ -702,51 +716,100 @@ def calculate_simple_similarity_score(row, reference_data, street_similarity_cac
                 score += street_score
                 if debug: breakdown.append(f"  1. Straat naam (2%): {street_score:.4f} (similariteit: {street_similarity:.3f})")
         
-        # 2. OSM-based street similarity (8% weight - ChatGPT recommended)
+        # 2. OSM-based street similarity (8% weight)
         osm_street_score_raw = calculate_osm_street_similarity(row, reference_data, street_similarity_cache)
         osm_street_score = 0.08 * osm_street_score_raw
         score += osm_street_score
         if debug: breakdown.append(f"  2. OSM straat (8%): {osm_street_score:.4f} (raw: {osm_street_score_raw:.3f})")
         
-        # 3. Living area (m²) proximity (26% weight - ChatGPT recommended)
+        # 3. Living area (m²) proximity (36% weight)
         # Try both rw_area_m2 (from merged data) and floor_area/0 (from Funda data)
         area_m2 = row.get('rw_area_m2', 0) or row.get('floor_area/0', 0)
         area_score = 0
         if pd.notna(area_m2) and area_m2 > 0:
             area_diff = abs(area_m2 - reference_data.get('area_m2', 100))
             area_score_raw = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
-            area_score = 0.26 * area_score_raw
+            area_score = 0.36 * area_score_raw
             score += area_score
-            if debug: breakdown.append(f"  3. Oppervlakte (26%): {area_score:.4f} (ref: {reference_data.get('area_m2')}, row: {area_m2})")
+            if debug: breakdown.append(f"  3. Oppervlakte (36%): {area_score:.4f} (ref: {reference_data.get('area_m2')}, row: {area_m2})")
         
-        # 4. Micro-location proximity (14% weight - ChatGPT recommended)
-        # This uses neighbourhood similarity
-        ref_neighbourhood = str(reference_data.get('neighbourhood', '')).lower().strip()
-        row_neighbourhood = str(row.get('address/neighbourhood', '')).lower().strip()
-        neighbourhood_score = 0
-        if ref_neighbourhood and row_neighbourhood:
-            if ref_neighbourhood == row_neighbourhood:
-                neighbourhood_score = 0.14 * 1.0
-                score += neighbourhood_score
-                if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f}")
-            else:
-                neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
-                neighbourhood_score = 0.14 * neighbourhood_similarity
-                score += neighbourhood_score
-                if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f} (similariteit: {neighbourhood_similarity:.3f})")
+        # 4. Micro-location proximity by geographic distance (14% weight)
+        def _get_coords_from_row(r):
+            lat_keys = ['address/latitude', 'latitude', 'lat', 'geo_lat']
+            lon_keys = ['address/longitude', 'longitude', 'lon', 'lng', 'geo_lng']
+            lat_val, lon_val = None, None
+            for k in lat_keys:
+                v = r.get(k, None)
+                if pd.notna(v):
+                    try:
+                        lat_val = float(v)
+                        break
+                    except Exception:
+                        pass
+            for k in lon_keys:
+                v = r.get(k, None)
+                if pd.notna(v):
+                    try:
+                        lon_val = float(v)
+                        break
+                    except Exception:
+                        pass
+            return lat_val, lon_val
+
+        def _get_coords_from_ref(ref):
+            lat = ref.get('latitude', None) or ref.get('lat', None)
+            lon = ref.get('longitude', None) or ref.get('lon', None)
+            try:
+                lat = float(lat) if lat is not None else None
+                lon = float(lon) if lon is not None else None
+            except Exception:
+                lat, lon = None, None
+            return lat, lon
+
+        def _haversine_m(lat1, lon1, lat2, lon2):
+            R = 6371000.0
+            phi1 = math.radians(lat1)
+            phi2 = math.radians(lat2)
+            dphi = math.radians(lat2 - lat1)
+            dlambda = math.radians(lon2 - lon1)
+            a = math.sin(dphi/2.0)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2.0)**2
+            return 2*R*math.asin(math.sqrt(a))
+
+        ref_lat, ref_lon = _get_coords_from_ref(reference_data)
+        row_lat, row_lon = _get_coords_from_row(row)
+        if ref_lat is not None and ref_lon is not None and row_lat is not None and row_lon is not None:
+            dist_m = _haversine_m(ref_lat, ref_lon, row_lat, row_lon)
+            proximity = max(0.0, 1.0 - (dist_m / 2000.0))  # 0-2km linear decay
+            neighbourhood_score = 0.14 * proximity
+            score += neighbourhood_score
+            if debug: breakdown.append(f"  4. Afstand (14%): {neighbourhood_score:.4f} (afstand: {dist_m:.0f} m)")
+        else:
+            # Fallback to neighbourhood string similarity if coords missing
+            ref_neighbourhood = str(reference_data.get('neighbourhood', '')).lower().strip()
+            row_neighbourhood = str(row.get('address/neighbourhood', '')).lower().strip()
+            if ref_neighbourhood and row_neighbourhood:
+                if ref_neighbourhood == row_neighbourhood:
+                    neighbourhood_score = 0.14 * 1.0
+                    score += neighbourhood_score
+                    if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f}")
+                else:
+                    neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
+                    neighbourhood_score = 0.14 * neighbourhood_similarity
+                    score += neighbourhood_score
+                    if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f} (similariteit: {neighbourhood_similarity:.3f})")
         
-        # 5. Garden match (15% weight - ChatGPT recommended)
+        # 5. Garden match (10% weight)
         ref_garden = reference_data.get('has_garden', False)
         row_garden = row.get('rw_has_garden', False)
         garden_score = 0
         if ref_garden == row_garden:
-            garden_score = 0.15 * 1.0
+            garden_score = 0.10 * 1.0
             score += garden_score
-            if debug: breakdown.append(f"  5. Tuin (15%): {garden_score:.4f} MATCH!")
+            if debug: breakdown.append(f"  5. Tuin (10%): {garden_score:.4f} MATCH!")
         else:
-            garden_score = 0.15 * 0.5  # Partial score for mismatch
+            garden_score = 0.10 * 0.5  # Partial score for mismatch
             score += garden_score
-            if debug: breakdown.append(f"  5. Tuin (15%): {garden_score:.4f} (mismatch)")
+            if debug: breakdown.append(f"  5. Tuin (10%): {garden_score:.4f} (mismatch)")
         
         # 6. Rooms similarity (10% weight - ChatGPT recommended)
         # Try both rw_rooms (from merged data) and number_of_rooms (from Funda data)
@@ -759,31 +822,23 @@ def calculate_simple_similarity_score(row, reference_data, street_similarity_cac
             score += room_score
             if debug: breakdown.append(f"  6. Kamers (10%): {room_score:.4f} (ref: {reference_data.get('rooms')}, row: {rooms})")
         
-        # 7. Bedrooms similarity (10% weight - ChatGPT recommended)
-        # Try both rw_bedrooms (from merged data) and number_of_bedrooms (from Funda data)
-        bedrooms = row.get('rw_bedrooms', 0) or row.get('number_of_bedrooms', 0)
-        bedroom_score = 0
-        if pd.notna(bedrooms) and bedrooms > 0:
-            bedroom_diff = abs(bedrooms - reference_data.get('bedrooms', 2))
-            bedroom_score_raw = max(0, 1 - (bedroom_diff / max(reference_data.get('bedrooms', 2), 1)))
-            bedroom_score = 0.10 * bedroom_score_raw
-            score += bedroom_score
-            if debug: breakdown.append(f"  7. Slaapkamers (10%): {bedroom_score:.4f} (ref: {reference_data.get('bedrooms')}, row: {bedrooms})")
+        # 7. Bedrooms similarity (0% weight) — removed per requirement
+        # (kept as no-op for clarity)
         
-        # 8. Balcony/Roof terrace (12% weight - ChatGPT recommended)
+        # 8. Balcony/Roof terrace (7% weight)
         ref_balcony = reference_data.get('has_balcony', False) or reference_data.get('has_terrace', False)
         row_balcony = row.get('rw_has_balcony', False) or row.get('rw_has_terrace', False)
         balcony_score = 0
         if ref_balcony == row_balcony:
-            balcony_score = 0.12 * 1.0
+            balcony_score = 0.07 * 1.0
             score += balcony_score
-            if debug: breakdown.append(f"  8. Balkon/Terras (12%): {balcony_score:.4f} MATCH!")
+            if debug: breakdown.append(f"  8. Balkon/Terras (7%): {balcony_score:.4f} MATCH!")
         else:
-            balcony_score = 0.12 * 0.5
+            balcony_score = 0.07 * 0.5
             score += balcony_score
-            if debug: breakdown.append(f"  8. Balkon/Terras (12%): {balcony_score:.4f} (mismatch)")
+            if debug: breakdown.append(f"  8. Balkon/Terras (7%): {balcony_score:.4f} (mismatch)")
         
-        # 9. Energy label (3% weight - ChatGPT recommended)
+        # 9. Energy label (13% weight)
         energy_labels = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
         ref_energy = reference_data.get('energy_label', 'B')
         row_energy = row.get('rw_energy_label', 'Unknown')
@@ -793,13 +848,13 @@ def calculate_simple_similarity_score(row, reference_data, street_similarity_cac
             row_index = energy_labels.index(row_energy)
             energy_diff = abs(ref_index - row_index)
             energy_score_raw = max(0, 1 - (energy_diff / len(energy_labels)))
-            energy_score = 0.03 * energy_score_raw
+            energy_score = 0.13 * energy_score_raw
             score += energy_score
-            if debug: breakdown.append(f"  9. Energielabel (3%): {energy_score:.4f}")
+            if debug: breakdown.append(f"  9. Energielabel (13%): {energy_score:.4f}")
         else:
-            energy_score = 0.03 * 0.5  # Neutral score for unknown labels
+            energy_score = 0.13 * 0.5  # Neutral score for unknown labels
             score += energy_score
-            if debug: breakdown.append(f"  9. Energielabel (3%): {energy_score:.4f} (unknown)")
+            if debug: breakdown.append(f"  9. Energielabel (13%): {energy_score:.4f} (unknown)")
         
         # Apply gracht penalty to the ENTIRE score
         score_before_penalty = score
@@ -835,9 +890,9 @@ def calculate_street_similarity_score(row, reference_data, street_similarity_cac
                 street_similarity = calculate_string_similarity(ref_street, row_street)
                 score += 0.10 * street_similarity
         
-        # 2. OSM-based street similarity (34% weight - highest weight)
+        # 2. OSM-based street similarity (24% weight)
         osm_street_score = calculate_osm_street_similarity(row, reference_data, street_similarity_cache)
-        score += 0.34 * osm_street_score
+        score += 0.24 * osm_street_score
         
         # 3. Living area (m²) proximity (20% weight - lower for street matching)
         # Try both rw_area_m2 (from merged data) and floor_area/0 (from Funda data)
@@ -847,15 +902,63 @@ def calculate_street_similarity_score(row, reference_data, street_similarity_cac
             area_score = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
             score += 0.20 * area_score
         
-        # 4. Micro-location proximity (10% weight)
-        ref_neighbourhood = str(reference_data.get('neighbourhood', '')).lower().strip()
-        row_neighbourhood = str(row.get('address/neighbourhood', '')).lower().strip()
-        if ref_neighbourhood and row_neighbourhood:
-            if ref_neighbourhood == row_neighbourhood:
-                score += 0.10 * 1.0
-            else:
-                neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
-                score += 0.10 * neighbourhood_similarity
+        # 4. Micro-location proximity by geographic distance (20% weight)
+        def _get_coords_from_row(r):
+            lat_keys = ['address/latitude', 'latitude', 'lat', 'geo_lat']
+            lon_keys = ['address/longitude', 'longitude', 'lon', 'lng', 'geo_lng']
+            lat_val, lon_val = None, None
+            for k in lat_keys:
+                v = r.get(k, None)
+                if pd.notna(v):
+                    try:
+                        lat_val = float(v)
+                        break
+                    except Exception:
+                        pass
+            for k in lon_keys:
+                v = r.get(k, None)
+                if pd.notna(v):
+                    try:
+                        lon_val = float(v)
+                        break
+                    except Exception:
+                        pass
+            return lat_val, lon_val
+
+        def _get_coords_from_ref(ref):
+            lat = ref.get('latitude', None) or ref.get('lat', None)
+            lon = ref.get('longitude', None) or ref.get('lon', None)
+            try:
+                lat = float(lat) if lat is not None else None
+                lon = float(lon) if lon is not None else None
+            except Exception:
+                lat, lon = None, None
+            return lat, lon
+
+        def _haversine_m(lat1, lon1, lat2, lon2):
+            R = 6371000.0
+            phi1 = math.radians(lat1)
+            phi2 = math.radians(lat2)
+            dphi = math.radians(lat2 - lat1)
+            dlambda = math.radians(lon2 - lon1)
+            a = math.sin(dphi/2.0)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2.0)**2
+            return 2*R*math.asin(math.sqrt(a))
+
+        ref_lat, ref_lon = _get_coords_from_ref(reference_data)
+        row_lat, row_lon = _get_coords_from_row(row)
+        if ref_lat is not None and ref_lon is not None and row_lat is not None and row_lon is not None:
+            dist_m = _haversine_m(ref_lat, ref_lon, row_lat, row_lon)
+            proximity = max(0.0, 1.0 - (dist_m / 2000.0))
+            score += 0.20 * proximity
+        else:
+            ref_neighbourhood = str(reference_data.get('neighbourhood', '')).lower().strip()
+            row_neighbourhood = str(row.get('address/neighbourhood', '')).lower().strip()
+            if ref_neighbourhood and row_neighbourhood:
+                if ref_neighbourhood == row_neighbourhood:
+                    score += 0.20 * 1.0
+                else:
+                    neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
+                    score += 0.20 * neighbourhood_similarity
         
         # 5. Garden match (10% weight)
         ref_garden = reference_data.get('has_garden', False)

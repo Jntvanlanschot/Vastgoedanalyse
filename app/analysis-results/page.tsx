@@ -159,70 +159,10 @@ export default function AnalysisResultsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Top Matches</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {analysisResult?.step3_result?.top_15_count || 0}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Gemiddelde Prijs</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  €{analysisResult?.summary?.avg_price_per_m2 ? 
-                    (analysisResult.summary.avg_price_per_m2 * 100).toLocaleString() + 'k' : 
-                    '0k'}
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Removed Top Matches and Gemiddelde Prijs cards as requested */}
         </div>
 
-        {/* Top Streets */}
-        {analysisResult?.step1_result?.top_5_streets && analysisResult.step1_result.top_5_streets.length > 0 && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Top 5 Straten</h2>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {analysisResult.step1_result.top_5_streets.map((street, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                        <span className="text-sm font-medium text-blue-600">{index + 1}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{street.street_name}</p>
-                        <p className="text-sm text-gray-500">{street.city}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">{street.properties_count} woningen</p>
-                      <p className="text-sm text-gray-500">€{street.average_price.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Removed Top 5 Straten block as requested */}
 
         {/* Download Section */}
         <div className="bg-white rounded-lg shadow">
