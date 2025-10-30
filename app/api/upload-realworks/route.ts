@@ -214,8 +214,8 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    if (realworksFiles.length !== 5) {
-      return NextResponse.json({ error: 'Exactly 5 Realworks files are required' }, { status: 400 });
+    if (realworksFiles.length < 1) {
+      return NextResponse.json({ error: 'At least 1 Realworks file is required' }, { status: 400 });
     }
     
     // Create temporary directory

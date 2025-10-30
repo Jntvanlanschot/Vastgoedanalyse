@@ -54,21 +54,21 @@
   },
   "step3_result": {
     "status": "success",
-    "message": "Processed 123 Realworks records",
-    "processed_records": 123,
+    "message": "Processed 70 Realworks records",
+    "processed_records": 70,
     "realworks_file": "outputs/realworks_perfect_data.csv"
   },
   "step4_result": {
     "status": "success",
     "message": "Analysis completed",
-    "matched_records": 123,
+    "matched_records": 70,
     "top_15_count": 15,
     "top15_file": "outputs/top15_perfect_matches_final.csv"
   },
   "summary": {
     "total_funda_records": 150,
-    "realworks_records": 123,
-    "matched_records": 123,
+    "realworks_records": 70,
+    "matched_records": 70,
     "top_15_matches": 15,
     "pdf_file": "outputs/top15_perfect_report_final.pdf",
     "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx"
