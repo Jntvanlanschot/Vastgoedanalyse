@@ -3,16 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSubject } from '@/lib/hooks/useSubject';
 import { nearestBuurtenNL, BuurtWithDistance } from '@/lib/nearestBuurten';
-import { buildApifyInputFromBuurten, formatApifyInputAsJson } from '@/lib/fundaBuilder';
+import { buildApifyInputFromBuurten } from '@/lib/fundaBuilder';
 import BuurtenMap from '@/components/BuurtenMap';
 
 export default function NearestBuurtenNLPage() {
   const subject = useSubject();
   const [nearestBuurten, setNearestBuurten] = useState<BuurtWithDistance[]>([]);
-  const [apifyJson, setApifyJson] = useState<string>('');
+  const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copySuccess, setCopySuccess] = useState(false);
+  // const [copySuccess, setCopySuccess] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [replacementBuurt, setReplacementBuurt] = useState<string>('');
@@ -29,11 +29,8 @@ export default function NearestBuurtenNLPage() {
         const nearest = nearestBuurtenNL({ lat: subject.lat, lng: subject.lng }, 4);
         setNearestBuurten(nearest);
         
-        // Generate Apify JSON with top 2 buurten only
-        const top2Buurten = nearest.slice(0, 2);
-        const apifyInput = buildApifyInputFromBuurten(top2Buurten);
-        const jsonString = formatApifyInputAsJson(apifyInput);
-        setApifyJson(jsonString);
+        // Default-select the first 2 buurten
+        setSelectedIndexes(new Set([0, 1]));
         
         // Log for debugging
         console.log('Selected 4 nearest buurten:', nearest.map(b => ({
@@ -53,28 +50,25 @@ export default function NearestBuurtenNLPage() {
     }
   }, [subject]);
 
-  const copyToClipboard = useCallback(async () => {
-    if (!apifyJson) return;
-    
-    try {
-      await navigator.clipboard.writeText(apifyJson);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
-      setError('Failed to copy to clipboard');
-    }
-  }, [apifyJson]);
+  // removed copy functionality (no longer needed)
 
   const runAnalysis = useCallback(async () => {
-    if (!apifyJson) return;
-    
+    // Build Apify input from selected buurten (1-3 required)
+    const selected = Array.from(selectedIndexes)
+      .sort((a, b) => a - b)
+      .map(i => nearestBuurten[i])
+      .filter(Boolean);
+    if (selected.length < 1 || selected.length > 3) {
+      setError('Selecteer 1 tot 3 buurten.');
+      return;
+    }
+
     try {
       setIsScraping(true);
       setError(null);
 
-      // Parse the generated Apify JSON to send to the scraper
-      const apifyConfig = JSON.parse(apifyJson);
+      // Build Apify config dynamically based on selected buurten
+      const apifyConfig = buildApifyInputFromBuurten(selected);
 
       // Get reference data from sessionStorage
       const referenceDataStr = sessionStorage.getItem('referenceData');
@@ -205,7 +199,7 @@ export default function NearestBuurtenNLPage() {
     } finally {
       setIsScraping(false);
     }
-  }, [apifyJson]);
+  }, [nearestBuurten, selectedIndexes]);
 
   const handleReplaceBuurt = useCallback((index: number) => {
     setReplacingIndex(index);
@@ -233,13 +227,23 @@ export default function NearestBuurtenNLPage() {
     setReplacementBuurt('');
   }, []);
 
-  const generateApifyCode = useCallback(() => {
-    // Use top 2 buurten for Apify code generation
-    const top2Buurten = nearestBuurten.slice(0, 2);
-    const apifyInput = buildApifyInputFromBuurten(top2Buurten);
-    const jsonString = formatApifyInputAsJson(apifyInput);
-    setApifyJson(jsonString);
-  }, [nearestBuurten]);
+  // removed manual code generation (now automatic)
+
+  const toggleSelected = useCallback((index: number) => {
+    setSelectedIndexes(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+        return next;
+      }
+      // enforce max 3 selections
+      if (next.size >= 3) {
+        return next;
+      }
+      next.add(index);
+      return next;
+    });
+  }, []);
 
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
@@ -327,7 +331,7 @@ export default function NearestBuurtenNLPage() {
 
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">4 Dichtstbijzijnde Buurten</h2>
-              <p className="text-sm text-gray-600 mb-4">Klik op een buurt om deze te vervangen door een andere naam. Sleep buurten om ze te herordenen. De 2 bovenste buurten worden gebruikt voor de analyse.</p>
+              <p className="text-sm text-gray-600 mb-4">Vink 1–3 buurten aan om te gebruiken voor de analyse. Sleep om te ordenen. Klik op een item (niet de checkbox) om de naam te vervangen.</p>
               
               {isLoading ? (
                 <div className="text-center py-8">
@@ -399,8 +403,23 @@ export default function NearestBuurtenNLPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-sm text-blue-600 font-mono">
-                            {buurt.municipalitySlug}/{buurt.fundaSlug}
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm text-blue-600 font-mono">
+                              {buurt.municipalitySlug}/{buurt.fundaSlug}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleSelected(index); }}
+                              className={`w-5 h-5 rounded border flex items-center justify-center ${selectedIndexes.has(index) ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-400'}`}
+                              aria-pressed={selectedIndexes.has(index)}
+                              aria-label={`Selecteer ${buurt.name}`}
+                            >
+                              {selectedIndexes.has(index) && (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </button>
                           </div>
                         </div>
                       )}
@@ -414,55 +433,14 @@ export default function NearestBuurtenNLPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Apify JSON</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Kopieer deze JSON direct naar je Apify Funda scraper (gebruikt de top 2 buurten):
-            </p>
-            
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-gray-700">Apify input configuratie:</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={generateApifyCode}
-                  disabled={nearestBuurten.length < 2}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-                    nearestBuurten.length >= 2
-                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  Generate Code
-                </button>
-                <button
-                  onClick={copyToClipboard}
-                  disabled={!apifyJson}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-                    copySuccess
-                      ? 'bg-green-600 text-white'
-                      : apifyJson
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {copySuccess ? 'Gekopieerd!' : 'Kopieer JSON'}
-                </button>
-              </div>
-            </div>
-            
-            <pre className="bg-gray-100 text-gray-800 p-4 rounded-md overflow-x-auto text-sm max-h-96">
-              {apifyJson || 'Generating...'}
-            </pre>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Analyse Starten</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Start de Funda scraper met de geselecteerde buurten:
+              Start de Funda scraper met de aangevinkte buurten (1–3 toegestaan):
             </p>
             
             <button
               onClick={runAnalysis}
-              disabled={!apifyJson || isScraping}
+              disabled={isScraping || selectedIndexes.size < 1 || selectedIndexes.size > 3}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {isScraping ? 'Analyse Bezig...' : 'Start Funda Scraper'}
