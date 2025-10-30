@@ -1,16 +1,16 @@
-address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_energy_label,rw_has_garden,rw_has_balcony,rw_has_terrace,similarity_score,final_score,match_type,match_priority,object_detail_page_relative_url
-"Nieuwe Leliestraat 97, 1015SL, Amsterdam",925000.0,100.0,2.0,4.0,Unknown,,,,0.8052333333333335,0.8392333333333335,funda_only,2,/detail/koop/amsterdam/appartement-nieuwe-leliestraat-97/43943647/
-"Nieuwe Leliestraat 8H, 1015SP, Amsterdam",895000.0,98.0,2.0,3.0,Unknown,,,,0.7852333333333333,0.8192333333333334,funda_only,2,/detail/koop/amsterdam/appartement-nieuwe-leliestraat-8-h/43097753/
-"Oude Looiersstraat 382, 1016VJ, Amsterdam",795000.0,90.0,2.0,3.0,Unknown,,,,0.7762627450980394,0.8102627450980394,funda_only,2,/detail/koop/amsterdam/appartement-oude-looiersstraat-38-2/43427349/
-"Tweede Bloemdwarsstraat 34A, 1016LM, Amsterdam",750000.0,83.0,3.0,4.0,Unknown,,,,0.7638000000000001,0.7978000000000002,funda_only,2,/detail/koop/amsterdam/appartement-tweede-bloemdwarsstraat-34-a/43179850/
-"Akoleienstraat 81, 1016LN, Amsterdam",725000.0,105.0,3.0,4.0,Unknown,,,,0.7626000000000001,0.7966000000000001,funda_only,2,/detail/koop/amsterdam/appartement-akoleienstraat-8-1/43604976/
-"Laurierstraat 26H, 1016PM, Amsterdam",949000.0,96.0,2.0,3.0,Unknown,,,,0.7600627450980393,0.7940627450980393,funda_only,2,/detail/koop/amsterdam/appartement-laurierstraat-26-h/89305914/
-"Laurierstraat 11B, 1016PG, Amsterdam",1100000.0,96.0,2.0,3.0,Unknown,,,,0.7600627450980393,0.7940627450980393,funda_only,2,/detail/koop/amsterdam/appartement-laurierstraat-11-b/43711612/
-"Oude Looiersstraat 372, 1016VG, Amsterdam",660000.0,83.0,2.0,3.0,Unknown,,,,0.7587627450980393,0.7927627450980393,funda_only,2,/detail/koop/amsterdam/appartement-oude-looiersstraat-37-2/89512602/
-"Elandsgracht 103A, 1016TS, Amsterdam",950000.0,113.0,3.0,4.0,Unknown,,,,0.7536294117647061,0.7876294117647061,funda_only,2,/detail/koop/amsterdam/appartement-elandsgracht-103-a/43717919/
-"Tweede Bloemdwarsstraat 92, 1016LL, Amsterdam",799000.0,82.0,2.0,4.0,Unknown,,,,0.7446333333333335,0.7786333333333335,funda_only,2,/detail/koop/amsterdam/appartement-tweede-bloemdwarsstraat-9-2/43808176/
-"Nieuwe Leliestraat 168H, 1015HE, Amsterdam",745000.0,126.0,3.0,5.0,Unknown,,,,0.7419000000000001,0.7759000000000001,funda_only,2,/detail/koop/amsterdam/appartement-nieuwe-leliestraat-168-h/89238381/
-"Tweede Leliedwarsstraat 16, 1015TC, Amsterdam",775000.0,79.0,2.0,5.0,Unknown,,,,0.7377333333333335,0.7717333333333335,funda_only,2,/detail/koop/amsterdam/huis-tweede-leliedwarsstraat-16/43618232/
-"Bloemstraat 1211, 1016KZ, Amsterdam",950000.0,97.0,2.0,4.0,Unknown,,,,0.7353333333333334,0.7693333333333334,funda_only,2,/detail/koop/amsterdam/appartement-bloemstraat-121-1/89174200/
-"Egelantiersgracht 101A, 1015RG, Amsterdam",850000.0,89.0,3.0,5.0,Unknown,,,,0.7326000000000001,0.7666000000000002,funda_only,2,/detail/koop/amsterdam/huis-egelantiersgracht-101-a/43812001/
-"Lauriergracht 1142, 1016RR, Amsterdam",1250000.0,109.0,3.0,4.0,Unknown,,,,0.732429411764706,0.766429411764706,funda_only,2,/detail/koop/amsterdam/appartement-lauriergracht-114-2/43720049/
+address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_bathrooms,rw_year_built,rw_energy_label,rw_maintenance_inside,rw_maintenance_outside,rw_has_garden,rw_has_balcony,rw_has_terrace,similarity_score,final_score
+" Gerard Doustraat 168 3, 1073 VZ Amsterdam Verkocht Width",690000.0,84.0,0.0,3.0,1.0,1876.0,C,Goed,Goed,False,False,False,0.7345454545454545,0.7345454545454545
+" Gerard Doustraat 2 3, 1072 VP Amsterdam Verkocht Width",800000.0,87.0,0.0,3.0,1.0,1886.0,B,Goed,Goed,False,False,False,0.7272727272727272,0.7272727272727272
+" Quellijnstraat 56 3, 1072 XT Amsterdam Verkocht Width",649000.0,67.0,0.0,3.0,2.0,1906.0,A,Uitstekend,Goed,False,False,False,0.6920833333333334,0.6920833333333334
+" Gerard Doustraat 3 A3, 1072 VH Amsterdam Verkocht Width",640000.0,79.0,0.0,3.0,2.0,1880.0,C,Goed,Goed,False,True,True,0.6912121212121213,0.6912121212121213
+" Gerard Doustraat 234 2, 1073 XC Amsterdam Verkocht Width",475000.0,58.0,0.0,3.0,1.0,1892.0,C,Goed,Goed,False,False,False,0.6878787878787879,0.6878787878787879
+" Eerste Sweelinckstraat 5 3, 1073 CK Amsterdam Verkocht Width",0.0,70.0,0.0,3.0,0.0,1886.0,A,Goed,Goed,False,False,False,0.6833333333333333,0.6833333333333333
+" Quellijnstraat 19 A, 1072 XM Amsterdam Verkocht Width",725000.0,77.0,0.0,3.0,1.0,1879.0,C,Goed,Goed,False,True,True,0.6599621212121213,0.6599621212121213
+" Gerard Doustraat 192 2, 1073 XA Amsterdam Verkocht Width",450000.0,50.0,0.0,3.0,1.0,1906.0,D,Goed,Goed,False,False,False,0.6584848484848485,0.6584848484848485
+" Quellijnstraat 17 3, 1072 XM Amsterdam Verkocht Width",675000.0,76.0,0.0,3.0,1.0,1879.0,C,Goed,Goed,False,True,True,0.6566287878787879,0.6566287878787879
+" Quellijnstraat 41 B, 1072 XP Amsterdam Verkocht Width",785000.0,74.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,False,True,0.6554166666666668,0.6554166666666668
+" Gerard Doustraat 147 E, 1073 VV Amsterdam Verkocht Width",800000.0,87.0,0.0,3.0,1.0,2010.0,Unknown,Goed,Goed,False,True,True,0.6549999999999999,0.6549999999999999
+" Quellijnstraat 37 B, 1072 XP Amsterdam Verkocht Width",725000.0,74.0,0.0,3.0,1.0,1879.0,B,Goed,Goed,False,True,True,0.652689393939394,0.652689393939394
+" Gerard Doustraat 82 3, 1072 VW Amsterdam Verkocht Width",565000.0,79.0,0.0,2.0,0.0,1876.0,G,Goed,Goed,False,True,False,0.646969696969697,0.646969696969697
+" Eerste Jan van der Heijdenstraat 32 3, 1072 TV Amsterdam Verkocht Width",750000.0,78.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.640625,0.640625
+" Eerste Jan van der Heijdenstraat 42 1, 1072 TV Amsterdam Verkocht Width",675000.0,77.0,0.0,3.0,1.0,1906.0,A,Goed,Goed,False,True,True,0.6372916666666668,0.6372916666666668

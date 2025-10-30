@@ -1,0 +1,12 @@
+{
+  "status": "success",
+  "message": "Successfully generated reports for 15 properties",
+  "pdf_file": "outputs/top15_perfect_report_final.pdf",
+  "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx",
+  "total_properties": 15,
+  "avg_price_per_m2": 9645.0,
+  "score_range": {
+    "highest": 0.76,
+    "lowest": 0.645
+  }
+}

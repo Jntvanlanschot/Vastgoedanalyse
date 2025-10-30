@@ -29493,6 +29493,282 @@
     },
     {
       "type": "way",
+      "id": 338482008,
+      "bounds": {
+        "minlat": 52.352905,
+        "minlon": 4.8869954,
+        "maxlat": 52.3538826,
+        "maxlon": 4.8941112
+      },
+      "nodes": [
+        46308060,
+        4580277553,
+        3455613231,
+        5803972372,
+        1342112308,
+        4919832484,
+        5805453834,
+        4919832500,
+        5803972373,
+        12219561991,
+        12595969038,
+        5026442038,
+        46304951,
+        12572834364,
+        12595969061,
+        12595969039,
+        285703585,
+        46304169
+      ],
+      "geometry": [
+        {
+          "lat": 52.3538826,
+          "lon": 4.8941112
+        },
+        {
+          "lat": 52.3536383,
+          "lon": 4.892303
+        },
+        {
+          "lat": 52.3534688,
+          "lon": 4.8910531
+        },
+        {
+          "lat": 52.3534623,
+          "lon": 4.8910052
+        },
+        {
+          "lat": 52.3534593,
+          "lon": 4.8909914
+        },
+        {
+          "lat": 52.3534507,
+          "lon": 4.8909226
+        },
+        {
+          "lat": 52.3534521,
+          "lon": 4.8909031
+        },
+        {
+          "lat": 52.3534461,
+          "lon": 4.8908838
+        },
+        {
+          "lat": 52.3534385,
+          "lon": 4.890786
+        },
+        {
+          "lat": 52.3534039,
+          "lon": 4.8905007
+        },
+        {
+          "lat": 52.3532872,
+          "lon": 4.8897127
+        },
+        {
+          "lat": 52.3531995,
+          "lon": 4.8890782
+        },
+        {
+          "lat": 52.3531729,
+          "lon": 4.8889081
+        },
+        {
+          "lat": 52.3531559,
+          "lon": 4.8887767
+        },
+        {
+          "lat": 52.3530421,
+          "lon": 4.8880275
+        },
+        {
+          "lat": 52.3529566,
+          "lon": 4.8874231
+        },
+        {
+          "lat": 52.3529289,
+          "lon": 4.8871892
+        },
+        {
+          "lat": 52.352905,
+          "lon": 4.8869954
+        }
+      ],
+      "tags": {
+        "alt_name": "1e Jan van der Heijdenstraat",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Jan van der Heijdenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "smoothness": "good",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 376384560,
+      "bounds": {
+        "minlat": 52.3521873,
+        "minlon": 4.8865529,
+        "maxlat": 52.3527299,
+        "maxlon": 4.8911478
+      },
+      "nodes": [
+        6380531072,
+        284742286,
+        1108908793,
+        13144173844,
+        3295383139,
+        3295383145,
+        6380531415,
+        6932763575,
+        6380597147,
+        6380531416,
+        3295383155,
+        3295383156,
+        6380531429,
+        6659252458
+      ],
+      "geometry": [
+        {
+          "lat": 52.3521902,
+          "lon": 4.8865529
+        },
+        {
+          "lat": 52.3521873,
+          "lon": 4.8868144
+        },
+        {
+          "lat": 52.3521921,
+          "lon": 4.8869481
+        },
+        {
+          "lat": 52.352204,
+          "lon": 4.8870695
+        },
+        {
+          "lat": 52.3522378,
+          "lon": 4.8873235
+        },
+        {
+          "lat": 52.3524866,
+          "lon": 4.8891746
+        },
+        {
+          "lat": 52.3525393,
+          "lon": 4.889581
+        },
+        {
+          "lat": 52.3525464,
+          "lon": 4.8897701
+        },
+        {
+          "lat": 52.3526812,
+          "lon": 4.8908005
+        },
+        {
+          "lat": 52.352705,
+          "lon": 4.8909738
+        },
+        {
+          "lat": 52.3527118,
+          "lon": 4.8910243
+        },
+        {
+          "lat": 52.352723,
+          "lon": 4.8911005
+        },
+        {
+          "lat": 52.3527274,
+          "lon": 4.8911302
+        },
+        {
+          "lat": 52.3527299,
+          "lon": 4.8911478
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 376384561,
+      "bounds": {
+        "minlat": 52.3522961,
+        "minlon": 4.8870114,
+        "maxlat": 52.3526948,
+        "maxlon": 4.8899315
+      },
+      "nodes": [
+        6380531394,
+        6380531390,
+        6380531391,
+        46302397,
+        6380531392,
+        6380531075,
+        240485143,
+        1108908796
+      ],
+      "geometry": [
+        {
+          "lat": 52.3526948,
+          "lon": 4.8899315
+        },
+        {
+          "lat": 52.3526706,
+          "lon": 4.8897469
+        },
+        {
+          "lat": 52.3526313,
+          "lon": 4.8895894
+        },
+        {
+          "lat": 52.3525628,
+          "lon": 4.8891501
+        },
+        {
+          "lat": 52.3525369,
+          "lon": 4.888956
+        },
+        {
+          "lat": 52.3523264,
+          "lon": 4.8873767
+        },
+        {
+          "lat": 52.3523218,
+          "lon": 4.8873414
+        },
+        {
+          "lat": 52.3522961,
+          "lon": 4.8870114
+        }
+      ],
+      "tags": {
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
       "id": 1322637176,
       "bounds": {
         "minlat": 52.3533995,
@@ -29979,6 +30255,52 @@
     },
     {
       "type": "way",
+      "id": 740494660,
+      "bounds": {
+        "minlat": 52.3522929,
+        "minlon": 4.8865569,
+        "maxlat": 52.3522989,
+        "maxlon": 4.8870114
+      },
+      "nodes": [
+        1108908796,
+        13144173849,
+        46301016,
+        6380531063
+      ],
+      "geometry": [
+        {
+          "lat": 52.3522961,
+          "lon": 4.8870114
+        },
+        {
+          "lat": 52.3522929,
+          "lon": 4.8869029
+        },
+        {
+          "lat": 52.3522937,
+          "lon": 4.8867826
+        },
+        {
+          "lat": 52.3522989,
+          "lon": 4.8865569
+        }
+      ],
+      "tags": {
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|through;right"
+      }
+    },
+    {
+      "type": "way",
       "id": 1322637171,
       "bounds": {
         "minlat": 52.3496259,
@@ -30304,6 +30626,252 @@
     },
     {
       "type": "way",
+      "id": 7372037,
+      "bounds": {
+        "minlat": 52.3533105,
+        "minlon": 4.894392,
+        "maxlat": 52.3534661,
+        "maxlon": 4.8945303
+      },
+      "nodes": [
+        3297544666,
+        11268990643,
+        10742297133,
+        10742297132
+      ],
+      "geometry": [
+        {
+          "lat": 52.3533105,
+          "lon": 4.8945303
+        },
+        {
+          "lat": 52.3533954,
+          "lon": 4.8944666
+        },
+        {
+          "lat": 52.3534313,
+          "lon": 4.8944396
+        },
+        {
+          "lat": 52.3534661,
+          "lon": 4.894392
+        }
+      ],
+      "tags": {
+        "bicycle": "yes",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "sidewalk:left": "separate",
+        "sidewalk:right": "yes",
+        "sidewalk:right:surface": "paving_stones",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 357535577,
+      "bounds": {
+        "minlat": 52.3534343,
+        "minlon": 4.8951762,
+        "maxlat": 52.3534963,
+        "maxlon": 4.8954901
+      },
+      "nodes": [
+        1333504598,
+        6932827624
+      ],
+      "geometry": [
+        {
+          "lat": 52.3534963,
+          "lon": 4.8954901
+        },
+        {
+          "lat": 52.3534343,
+          "lon": 4.8951762
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "cycleway:right:width": "1.40",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740500736,
+      "bounds": {
+        "minlat": 52.3532046,
+        "minlon": 4.8945925,
+        "maxlat": 52.3541209,
+        "maxlon": 4.8990487
+      },
+      "nodes": [
+        2134273875,
+        6932828945,
+        10739284006,
+        6932828946,
+        6932828956,
+        6932828957,
+        6932828947,
+        6932882545,
+        6932882544
+      ],
+      "geometry": [
+        {
+          "lat": 52.3532046,
+          "lon": 4.8945925
+        },
+        {
+          "lat": 52.3532383,
+          "lon": 4.8947881
+        },
+        {
+          "lat": 52.3532406,
+          "lon": 4.894796
+        },
+        {
+          "lat": 52.3532894,
+          "lon": 4.8949838
+        },
+        {
+          "lat": 52.3533742,
+          "lon": 4.8954106
+        },
+        {
+          "lat": 52.3534765,
+          "lon": 4.895811
+        },
+        {
+          "lat": 52.3536542,
+          "lon": 4.8966915
+        },
+        {
+          "lat": 52.3540783,
+          "lon": 4.8988266
+        },
+        {
+          "lat": 52.3541209,
+          "lon": 4.8990487
+        }
+      ],
+      "tags": {
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740509801,
+      "bounds": {
+        "minlat": 52.3521668,
+        "minlon": 4.9016735,
+        "maxlat": 52.3542679,
+        "maxlon": 4.9030311
+      },
+      "nodes": [
+        6932962785,
+        10739156218,
+        6932962790,
+        7026677617,
+        7026677616,
+        7026677615,
+        7026677614,
+        12526989613,
+        7026677610,
+        7026677611,
+        7026677612,
+        7026677613,
+        7026677592
+      ],
+      "geometry": [
+        {
+          "lat": 52.3542679,
+          "lon": 4.9016735
+        },
+        {
+          "lat": 52.3540656,
+          "lon": 4.901864
+        },
+        {
+          "lat": 52.3538627,
+          "lon": 4.9020375
+        },
+        {
+          "lat": 52.3536594,
+          "lon": 4.9022095
+        },
+        {
+          "lat": 52.353469,
+          "lon": 4.9023691
+        },
+        {
+          "lat": 52.3532711,
+          "lon": 4.9025316
+        },
+        {
+          "lat": 52.3531381,
+          "lon": 4.9026187
+        },
+        {
+          "lat": 52.3529763,
+          "lon": 4.9027077
+        },
+        {
+          "lat": 52.3528712,
+          "lon": 4.9027655
+        },
+        {
+          "lat": 52.3527968,
+          "lon": 4.9028068
+        },
+        {
+          "lat": 52.3527489,
+          "lon": 4.902831
+        },
+        {
+          "lat": 52.3526771,
+          "lon": 4.9028559
+        },
+        {
+          "lat": 52.3521668,
+          "lon": 4.9030311
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "red",
+        "cycleway:width": "1.50",
+        "embedded_rails": "tram",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
       "id": 1334808583,
       "bounds": {
         "minlat": 52.3484696,
@@ -30367,6 +30935,488 @@
         "name": "Amstelkanaal",
         "waterway": "canal",
         "wikidata": "Q2371875"
+      }
+    },
+    {
+      "type": "way",
+      "id": 421039882,
+      "bounds": {
+        "minlat": 52.3528161,
+        "minlon": 4.8916309,
+        "maxlat": 52.3531083,
+        "maxlon": 4.8939383
+      },
+      "nodes": [
+        6380531425,
+        6932828954,
+        2134273872
+      ],
+      "geometry": [
+        {
+          "lat": 52.3528161,
+          "lon": 4.8916309
+        },
+        {
+          "lat": 52.3530774,
+          "lon": 4.8935831
+        },
+        {
+          "lat": 52.3531083,
+          "lon": 4.8939383
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:lane": "advisory",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "cycleway:right:width": "1.40",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 446647458,
+      "bounds": {
+        "minlat": 52.352849,
+        "minlon": 4.8911118,
+        "maxlat": 52.3529102,
+        "maxlon": 4.8916834
+      },
+      "nodes": [
+        3297544664,
+        12531352786,
+        4759257232,
+        6380531430,
+        3867367533,
+        4759257229
+      ],
+      "geometry": [
+        {
+          "lat": 52.3529102,
+          "lon": 4.8916834
+        },
+        {
+          "lat": 52.3528832,
+          "lon": 4.8914207
+        },
+        {
+          "lat": 52.352866,
+          "lon": 4.8912533
+        },
+        {
+          "lat": 52.3528561,
+          "lon": 4.8911646
+        },
+        {
+          "lat": 52.3528513,
+          "lon": 4.8911309
+        },
+        {
+          "lat": 52.352849,
+          "lon": 4.8911118
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 599305476,
+      "bounds": {
+        "minlat": 52.3532534,
+        "minlon": 4.8945303,
+        "maxlat": 52.3533105,
+        "maxlon": 4.894563
+      },
+      "nodes": [
+        6932828962,
+        46305830,
+        3297544666
+      ],
+      "geometry": [
+        {
+          "lat": 52.3532534,
+          "lon": 4.894563
+        },
+        {
+          "lat": 52.3532658,
+          "lon": 4.8945559
+        },
+        {
+          "lat": 52.3533105,
+          "lon": 4.8945303
+        }
+      ],
+      "tags": {
+        "bicycle": "yes",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "smoothness": "intermediate",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 599305482,
+      "bounds": {
+        "minlat": 52.3532046,
+        "minlon": 4.894563,
+        "maxlat": 52.3532534,
+        "maxlon": 4.8945925
+      },
+      "nodes": [
+        6932828962,
+        3295385676,
+        2134273875
+      ],
+      "geometry": [
+        {
+          "lat": 52.3532534,
+          "lon": 4.894563
+        },
+        {
+          "lat": 52.3532413,
+          "lon": 4.8945698
+        },
+        {
+          "lat": 52.3532046,
+          "lon": 4.8945925
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 688575416,
+      "bounds": {
+        "minlat": 52.3527299,
+        "minlon": 4.8911478,
+        "maxlat": 52.3528161,
+        "maxlon": 4.8916309
+      },
+      "nodes": [
+        6659252458,
+        6380531428,
+        5919147555,
+        3867367515,
+        12531352784,
+        6380531425
+      ],
+      "geometry": [
+        {
+          "lat": 52.3527299,
+          "lon": 4.8911478
+        },
+        {
+          "lat": 52.3527353,
+          "lon": 4.8911696
+        },
+        {
+          "lat": 52.3527419,
+          "lon": 4.8911947
+        },
+        {
+          "lat": 52.3527627,
+          "lon": 4.8912968
+        },
+        {
+          "lat": 52.352787,
+          "lon": 4.8914485
+        },
+        {
+          "lat": 52.3528161,
+          "lon": 4.8916309
+        }
+      ],
+      "tags": {
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 688575417,
+      "bounds": {
+        "minlat": 52.3527858,
+        "minlon": 4.8906275,
+        "maxlat": 52.352849,
+        "maxlon": 4.8911118
+      },
+      "nodes": [
+        4759257229,
+        4759257222,
+        6380531426,
+        4759257228,
+        6380597142,
+        6380531408
+      ],
+      "geometry": [
+        {
+          "lat": 52.352849,
+          "lon": 4.8911118
+        },
+        {
+          "lat": 52.3528466,
+          "lon": 4.8910926
+        },
+        {
+          "lat": 52.3528446,
+          "lon": 4.8910727
+        },
+        {
+          "lat": 52.3528323,
+          "lon": 4.8909823
+        },
+        {
+          "lat": 52.3528029,
+          "lon": 4.8907589
+        },
+        {
+          "lat": 52.3527858,
+          "lon": 4.8906275
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740497845,
+      "bounds": {
+        "minlat": 52.3531083,
+        "minlon": 4.8939383,
+        "maxlat": 52.3532046,
+        "maxlon": 4.8945925
+      },
+      "nodes": [
+        2134273872,
+        10739283997,
+        11268978167,
+        10742297129,
+        2134273875
+      ],
+      "geometry": [
+        {
+          "lat": 52.3531083,
+          "lon": 4.8939383
+        },
+        {
+          "lat": 52.3531532,
+          "lon": 4.894302
+        },
+        {
+          "lat": 52.3531644,
+          "lon": 4.8943655
+        },
+        {
+          "lat": 52.3531897,
+          "lon": 4.8945086
+        },
+        {
+          "lat": 52.3532046,
+          "lon": 4.8945925
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:lane": "exclusive",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "cycleway:right:width": "1.40",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "sidewalk": "right",
+        "surface": "asphalt",
+        "turn:lanes": "left|through;right"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740497849,
+      "bounds": {
+        "minlat": 52.3526948,
+        "minlon": 4.8899315,
+        "maxlat": 52.3527858,
+        "maxlon": 4.8906275
+      },
+      "nodes": [
+        6380531408,
+        6380531394
+      ],
+      "geometry": [
+        {
+          "lat": 52.3527858,
+          "lon": 4.8906275
+        },
+        {
+          "lat": 52.3526948,
+          "lon": 4.8899315
+        }
+      ],
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "lane",
+        "cycleway:right:lane": "advisory",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "cycleway:right:width": "1.40",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740497850,
+      "bounds": {
+        "minlat": 52.3529102,
+        "minlon": 4.8916834,
+        "maxlat": 52.3533105,
+        "maxlon": 4.8945303
+      },
+      "nodes": [
+        3297544666,
+        10742297130,
+        6932828952,
+        11268978166,
+        6932828953,
+        3297544664
+      ],
+      "geometry": [
+        {
+          "lat": 52.3533105,
+          "lon": 4.8945303
+        },
+        {
+          "lat": 52.3532969,
+          "lon": 4.8944537
+        },
+        {
+          "lat": 52.3532815,
+          "lon": 4.8943673
+        },
+        {
+          "lat": 52.3532721,
+          "lon": 4.8943151
+        },
+        {
+          "lat": 52.3532175,
+          "lon": 4.8940109
+        },
+        {
+          "lat": 52.3529102,
+          "lon": 4.8916834
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "cycleway:right:width": "1.40",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "sidewalk": "both",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740498336,
+      "bounds": {
+        "minlat": 52.3533105,
+        "minlon": 4.8945303,
+        "maxlat": 52.3534343,
+        "maxlon": 4.8951762
+      },
+      "nodes": [
+        6932827624,
+        10739283996,
+        10739284008,
+        3297544666
+      ],
+      "geometry": [
+        {
+          "lat": 52.3534343,
+          "lon": 4.8951762
+        },
+        {
+          "lat": 52.3533587,
+          "lon": 4.8947937
+        },
+        {
+          "lat": 52.3533481,
+          "lon": 4.8947404
+        },
+        {
+          "lat": 52.3533105,
+          "lon": 4.8945303
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "cycleway:right:width": "1.40",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|through;right"
       }
     },
     {
@@ -30513,6 +31563,304 @@
     },
     {
       "type": "way",
+      "id": 7372296,
+      "bounds": {
+        "minlat": 52.3562852,
+        "minlon": 4.8869242,
+        "maxlat": 52.356402,
+        "maxlon": 4.8886933
+      },
+      "nodes": [
+        46319065,
+        5076631149,
+        12595985617,
+        5076631148,
+        46319526
+      ],
+      "geometry": [
+        {
+          "lat": 52.3562852,
+          "lon": 4.8886933
+        },
+        {
+          "lat": 52.356304,
+          "lon": 4.8885354
+        },
+        {
+          "lat": 52.3563445,
+          "lon": 4.8879902
+        },
+        {
+          "lat": 52.3563965,
+          "lon": 4.8871472
+        },
+        {
+          "lat": 52.356402,
+          "lon": 4.8869242
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Daniël Stalpertstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7372432,
+      "bounds": {
+        "minlat": 52.3551805,
+        "minlon": 4.8870163,
+        "maxlat": 52.355275,
+        "maxlon": 4.8885202
+      },
+      "nodes": [
+        46313942,
+        12574208282,
+        5076631155,
+        5076631154,
+        46314424
+      ],
+      "geometry": [
+        {
+          "lat": 52.3551805,
+          "lon": 4.8885202
+        },
+        {
+          "lat": 52.3551993,
+          "lon": 4.8884867
+        },
+        {
+          "lat": 52.3552079,
+          "lon": 4.8884348
+        },
+        {
+          "lat": 52.355275,
+          "lon": 4.8871294
+        },
+        {
+          "lat": 52.3552639,
+          "lon": 4.8870163
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Doustraat",
+        "oneway": "yes",
+        "sidewalk": "both",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 542218935,
+      "bounds": {
+        "minlat": 52.3568736,
+        "minlon": 4.8868891,
+        "maxlat": 52.3569916,
+        "maxlon": 4.8887616
+      },
+      "nodes": [
+        46322267,
+        12616266151,
+        4593943127,
+        46321619
+      ],
+      "geometry": [
+        {
+          "lat": 52.3569916,
+          "lon": 4.8868891
+        },
+        {
+          "lat": 52.3569294,
+          "lon": 4.88817
+        },
+        {
+          "lat": 52.3568953,
+          "lon": 4.8886662
+        },
+        {
+          "lat": 52.3568736,
+          "lon": 4.8887616
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Quellijnstraat",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 708089522,
+      "bounds": {
+        "minlat": 52.3546188,
+        "minlon": 4.8866888,
+        "maxlat": 52.3546218,
+        "maxlon": 4.8868232
+      },
+      "nodes": [
+        6653544409,
+        6653544408
+      ],
+      "geometry": [
+        {
+          "lat": 52.3546188,
+          "lon": 4.8866888
+        },
+        {
+          "lat": 52.3546218,
+          "lon": 4.8868232
+        }
+      ],
+      "tags": {
+        "bridge": "yes",
+        "cycleway": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "black",
+        "cycleway:width": "1.50",
+        "highway": "residential",
+        "lanes": "2",
+        "layer": "1",
+        "lit": "yes",
+        "maxlength": "9",
+        "maxspeed": "30",
+        "name": "Albert Cuypstraat",
+        "sidewalk": "both",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 708089523,
+      "bounds": {
+        "minlat": 52.3545869,
+        "minlon": 4.8868232,
+        "maxlat": 52.3546299,
+        "maxlon": 4.8885233
+      },
+      "nodes": [
+        6653544408,
+        6653544407,
+        6653544392,
+        6653544391,
+        6653544390,
+        6653544389,
+        6653544388,
+        6653544402
+      ],
+      "geometry": [
+        {
+          "lat": 52.3546218,
+          "lon": 4.8868232
+        },
+        {
+          "lat": 52.3546276,
+          "lon": 4.8870438
+        },
+        {
+          "lat": 52.3546299,
+          "lon": 4.8875016
+        },
+        {
+          "lat": 52.3546234,
+          "lon": 4.8876859
+        },
+        {
+          "lat": 52.3545869,
+          "lon": 4.8882103
+        },
+        {
+          "lat": 52.3545904,
+          "lon": 4.8883374
+        },
+        {
+          "lat": 52.3546102,
+          "lon": 4.888411
+        },
+        {
+          "lat": 52.3546291,
+          "lon": 4.8885233
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "black",
+        "cycleway:width": "1.50",
+        "embedded_rails": "tram",
+        "highway": "residential",
+        "lit": "yes",
+        "maxlength": "9",
+        "maxspeed": "30",
+        "name": "Albert Cuypstraat",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 708089524,
+      "bounds": {
+        "minlat": 52.3546072,
+        "minlon": 4.886403,
+        "maxlat": 52.3546188,
+        "maxlon": 4.8866888
+      },
+      "nodes": [
+        6653544422,
+        6653544421,
+        6653544420,
+        6653544419,
+        6653544409
+      ],
+      "geometry": [
+        {
+          "lat": 52.3546072,
+          "lon": 4.886403
+        },
+        {
+          "lat": 52.3546126,
+          "lon": 4.8865141
+        },
+        {
+          "lat": 52.3546138,
+          "lon": 4.8865603
+        },
+        {
+          "lat": 52.354616,
+          "lon": 4.8866018
+        },
+        {
+          "lat": 52.3546188,
+          "lon": 4.8866888
+        }
+      ],
+      "tags": {
+        "bicycle:backward": "use_sidepath",
+        "highway": "residential",
+        "lanes": "2",
+        "lit": "yes",
+        "maxlength": "9",
+        "maxspeed": "30",
+        "name": "Albert Cuypstraat",
+        "sidewalk": "both",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
       "id": 1322637177,
       "bounds": {
         "minlat": 52.3545358,
@@ -30645,6 +31993,204 @@
     },
     {
       "type": "way",
+      "id": 7371825,
+      "bounds": {
+        "minlat": 52.3534836,
+        "minlon": 4.8869581,
+        "maxlat": 52.3540549,
+        "maxlon": 4.8906544
+      },
+      "nodes": [
+        300154912,
+        46306367,
+        46307581,
+        12219332491,
+        12219332493,
+        12219332492,
+        1342112310,
+        4919832496,
+        5805453835
+      ],
+      "geometry": [
+        {
+          "lat": 52.3534836,
+          "lon": 4.8869581
+        },
+        {
+          "lat": 52.3534896,
+          "lon": 4.8870181
+        },
+        {
+          "lat": 52.3537238,
+          "lon": 4.8886806
+        },
+        {
+          "lat": 52.3537603,
+          "lon": 4.8887607
+        },
+        {
+          "lat": 52.3538224,
+          "lon": 4.8891225
+        },
+        {
+          "lat": 52.3539032,
+          "lon": 4.8896271
+        },
+        {
+          "lat": 52.3540399,
+          "lon": 4.8905483
+        },
+        {
+          "lat": 52.3540517,
+          "lon": 4.8906311
+        },
+        {
+          "lat": 52.3540549,
+          "lon": 4.8906544
+        }
+      ],
+      "tags": {
+        "alt_name": "1e Jan Steenstraat",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Jan Steenstraat",
+        "oneway": "yes",
+        "sidewalk": "both",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371871,
+      "bounds": {
+        "minlat": 52.3567813,
+        "minlon": 4.8887616,
+        "maxlat": 52.3568736,
+        "maxlon": 4.8906849
+      },
+      "nodes": [
+        46321108,
+        5805314268,
+        4593943130,
+        5805314269,
+        4593943129,
+        4593943128,
+        46321619
+      ],
+      "geometry": [
+        {
+          "lat": 52.3567813,
+          "lon": 4.8906849
+        },
+        {
+          "lat": 52.3567829,
+          "lon": 4.8906561
+        },
+        {
+          "lat": 52.3567855,
+          "lon": 4.8906029
+        },
+        {
+          "lat": 52.3567879,
+          "lon": 4.8905668
+        },
+        {
+          "lat": 52.3568098,
+          "lon": 4.8900236
+        },
+        {
+          "lat": 52.3568252,
+          "lon": 4.8896813
+        },
+        {
+          "lat": 52.3568736,
+          "lon": 4.8887616
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Quellijnstraat",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371920,
+      "bounds": {
+        "minlat": 52.3560706,
+        "minlon": 4.8886933,
+        "maxlat": 52.3562852,
+        "maxlon": 4.8925465
+      },
+      "nodes": [
+        46319065,
+        5076631150,
+        5805314270,
+        46318613,
+        6659451596,
+        5805314273,
+        12596659406,
+        12596659405,
+        46318165
+      ],
+      "geometry": [
+        {
+          "lat": 52.3562852,
+          "lon": 4.8886933
+        },
+        {
+          "lat": 52.356272,
+          "lon": 4.8888531
+        },
+        {
+          "lat": 52.3561814,
+          "lon": 4.8904743
+        },
+        {
+          "lat": 52.3561768,
+          "lon": 4.8905434
+        },
+        {
+          "lat": 52.3561765,
+          "lon": 4.8905493
+        },
+        {
+          "lat": 52.3561807,
+          "lon": 4.8906178
+        },
+        {
+          "lat": 52.3561722,
+          "lon": 4.8907541
+        },
+        {
+          "lat": 52.3560792,
+          "lon": 4.8923998
+        },
+        {
+          "lat": 52.3560706,
+          "lon": 4.8925465
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Daniël Stalpertstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "sidewalk": "both",
+        "surface": "paving_stones",
+        "width": "3"
+      }
+    },
+    {
+      "type": "way",
       "id": 29410858,
       "bounds": {
         "minlat": 52.3600169,
@@ -30739,6 +32285,113 @@
     },
     {
       "type": "way",
+      "id": 328143926,
+      "bounds": {
+        "minlat": 52.3540568,
+        "minlon": 4.8870401,
+        "maxlat": 52.3566988,
+        "maxlon": 4.899751
+      },
+      "nodes": [
+        46320806,
+        46318091,
+        46317328,
+        46314774,
+        371254541,
+        46313577,
+        371254545,
+        11235723152,
+        46311087,
+        4919832508,
+        5805453836,
+        4919832510,
+        1342112320,
+        10197981334,
+        46309238,
+        4494673557,
+        46308734
+      ],
+      "geometry": [
+        {
+          "lat": 52.3566988,
+          "lon": 4.899751
+        },
+        {
+          "lat": 52.3560927,
+          "lon": 4.8977051
+        },
+        {
+          "lat": 52.3557302,
+          "lon": 4.8964498
+        },
+        {
+          "lat": 52.3552524,
+          "lon": 4.8944668
+        },
+        {
+          "lat": 52.355072,
+          "lon": 4.8934219
+        },
+        {
+          "lat": 52.3550579,
+          "lon": 4.8933464
+        },
+        {
+          "lat": 52.3550453,
+          "lon": 4.893275
+        },
+        {
+          "lat": 52.3546437,
+          "lon": 4.8910083
+        },
+        {
+          "lat": 52.3545657,
+          "lon": 4.8905539
+        },
+        {
+          "lat": 52.3545462,
+          "lon": 4.8904694
+        },
+        {
+          "lat": 52.3545436,
+          "lon": 4.8904508
+        },
+        {
+          "lat": 52.3545375,
+          "lon": 4.8904255
+        },
+        {
+          "lat": 52.3545197,
+          "lon": 4.8903342
+        },
+        {
+          "lat": 52.354184,
+          "lon": 4.8885582
+        },
+        {
+          "lat": 52.3541649,
+          "lon": 4.8884295
+        },
+        {
+          "lat": 52.3541297,
+          "lon": 4.887979
+        },
+        {
+          "lat": 52.3540568,
+          "lon": 4.8870401
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "30",
+        "name": "Govert Flinckstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "smoothness": "good"
+      }
+    },
+    {
+      "type": "way",
       "id": 479495084,
       "bounds": {
         "minlat": 52.3660427,
@@ -30772,6 +32425,124 @@
         "name:nl": "Keizersgracht",
         "name:uk": "Кейзерсграхт",
         "waterway": "canal"
+      }
+    },
+    {
+      "type": "way",
+      "id": 562508716,
+      "bounds": {
+        "minlat": 52.3551569,
+        "minlon": 4.8885202,
+        "maxlat": 52.3554289,
+        "maxlon": 4.890427
+      },
+      "nodes": [
+        5805314256,
+        46315031,
+        5805314262,
+        5805314255,
+        12219347847,
+        46313943,
+        46313942
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554289,
+          "lon": 4.890427
+        },
+        {
+          "lat": 52.3554231,
+          "lon": 4.8904059
+        },
+        {
+          "lat": 52.3554181,
+          "lon": 4.8903754
+        },
+        {
+          "lat": 52.3554114,
+          "lon": 4.8903445
+        },
+        {
+          "lat": 52.3552149,
+          "lon": 4.8893317
+        },
+        {
+          "lat": 52.3551569,
+          "lon": 4.8890466
+        },
+        {
+          "lat": 52.3551805,
+          "lon": 4.8885202
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Doustraat",
+        "oneway": "yes",
+        "sidewalk": "both",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 598123853,
+      "bounds": {
+        "minlat": 52.3546291,
+        "minlon": 4.8885233,
+        "maxlat": 52.3549254,
+        "maxlon": 4.890112
+      },
+      "nodes": [
+        6653544393,
+        3307343605,
+        6653544399,
+        46311656,
+        6653544402
+      ],
+      "geometry": [
+        {
+          "lat": 52.3549254,
+          "lon": 4.890112
+        },
+        {
+          "lat": 52.3548125,
+          "lon": 4.8895138
+        },
+        {
+          "lat": 52.3547454,
+          "lon": 4.8890783
+        },
+        {
+          "lat": 52.3546748,
+          "lon": 4.8887501
+        },
+        {
+          "lat": 52.3546291,
+          "lon": 4.8885233
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "cycleway:left:width": "1.50",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "red",
+        "embedded_rails": "tram",
+        "fixme": "Hoe moet ik de oneway goed taggen? Op het aangegeven tijdstip mag er wel gelaadt en gelost worden.",
+        "highway": "residential",
+        "lit": "yes",
+        "maxlength": "9",
+        "maxspeed": "30",
+        "name": "Albert Cuypstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "oneway:conditional": "no @ delivery @ (Mo-Sa 08:00-12:00, Mo-Sa 16:30-18:00)",
+        "oneway:mofa": "no",
+        "sidewalk": "both",
+        "surface": "asphalt",
+        "taxi": "no"
       }
     },
     {
@@ -31301,6 +33072,131 @@
         "name:uk": "Сінгелграхт",
         "note": "(Buiten)singelgracht",
         "waterway": "canal"
+      }
+    },
+    {
+      "type": "way",
+      "id": 501718947,
+      "bounds": {
+        "minlat": 52.362737,
+        "minlon": 4.8802273,
+        "maxlat": 52.3628734,
+        "maxlon": 4.8802664
+      },
+      "nodes": [
+        4924402828,
+        5064968243,
+        4924402822,
+        5064968241
+      ],
+      "geometry": [
+        {
+          "lat": 52.3628734,
+          "lon": 4.8802664
+        },
+        {
+          "lat": 52.3628472,
+          "lon": 4.8802522
+        },
+        {
+          "lat": 52.3627888,
+          "lon": 4.8802369
+        },
+        {
+          "lat": 52.362737,
+          "lon": 4.8802273
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Stadhouderskade",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 531772129,
+      "bounds": {
+        "minlat": 52.3630033,
+        "minlon": 4.8801159,
+        "maxlat": 52.3630112,
+        "maxlon": 4.8802276
+      },
+      "nodes": [
+        437244319,
+        4924401920,
+        2993668859
+      ],
+      "geometry": [
+        {
+          "lat": 52.3630033,
+          "lon": 4.8802276
+        },
+        {
+          "lat": 52.3630074,
+          "lon": 4.8801751
+        },
+        {
+          "lat": 52.3630112,
+          "lon": 4.8801159
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Stadhouderskade",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 585005991,
+      "bounds": {
+        "minlat": 52.3628734,
+        "minlon": 4.8802664,
+        "maxlat": 52.3629251,
+        "maxlon": 4.8803316
+      },
+      "nodes": [
+        4924402829,
+        6948769926,
+        4924402826,
+        4924402828
+      ],
+      "geometry": [
+        {
+          "lat": 52.3629251,
+          "lon": 4.8803316
+        },
+        {
+          "lat": 52.3629051,
+          "lon": 4.8803052
+        },
+        {
+          "lat": 52.3628901,
+          "lon": 4.8802872
+        },
+        {
+          "lat": 52.3628734,
+          "lon": 4.8802664
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Stadhouderskade",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
       }
     },
     {
@@ -32537,6 +34433,564 @@
     },
     {
       "type": "way",
+      "id": 7371776,
+      "bounds": {
+        "minlat": 52.3549254,
+        "minlon": 4.890112,
+        "maxlat": 52.3549659,
+        "maxlon": 4.8903466
+      },
+      "nodes": [
+        6653544393,
+        6653510565,
+        1367770902,
+        289068528,
+        4919832474,
+        5805314261
+      ],
+      "geometry": [
+        {
+          "lat": 52.3549254,
+          "lon": 4.890112
+        },
+        {
+          "lat": 52.3549368,
+          "lon": 4.8901713
+        },
+        {
+          "lat": 52.3549486,
+          "lon": 4.8902327
+        },
+        {
+          "lat": 52.3549567,
+          "lon": 4.8902923
+        },
+        {
+          "lat": 52.3549625,
+          "lon": 4.8903262
+        },
+        {
+          "lat": 52.3549659,
+          "lon": 4.8903466
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "black",
+        "cycleway:width": "1.50",
+        "embedded_rails": "tram",
+        "highway": "residential",
+        "lit": "yes",
+        "maxlength": "9",
+        "maxspeed": "30",
+        "name": "Albert Cuypstraat",
+        "sidewalk": "both",
+        "smoothness": "good",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371849,
+      "bounds": {
+        "minlat": 52.3572434,
+        "minlon": 4.8927305,
+        "maxlat": 52.3579105,
+        "maxlon": 4.8928434
+      },
+      "nodes": [
+        46325757,
+        3404634800,
+        46323176
+      ],
+      "geometry": [
+        {
+          "lat": 52.3579105,
+          "lon": 4.8928434
+        },
+        {
+          "lat": 52.3578495,
+          "lon": 4.8928381
+        },
+        {
+          "lat": 52.3572434,
+          "lon": 4.8927305
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Van der Helststraat",
+        "oneway": "no",
+        "oneway:bicycle": "no",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371853,
+      "bounds": {
+        "minlat": 52.3558633,
+        "minlon": 4.8925271,
+        "maxlat": 52.3560706,
+        "maxlon": 4.8925473
+      },
+      "nodes": [
+        46318165,
+        5076631151,
+        46317209
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560706,
+          "lon": 4.8925465
+        },
+        {
+          "lat": 52.3559161,
+          "lon": 4.8925271
+        },
+        {
+          "lat": 52.3558633,
+          "lon": 4.8925473
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Douplein",
+        "oneway": "yes",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371862,
+      "bounds": {
+        "minlat": 52.3554289,
+        "minlon": 4.890427,
+        "maxlat": 52.3558633,
+        "maxlon": 4.8925473
+      },
+      "nodes": [
+        46317209,
+        5805314272,
+        5802428898,
+        5448264364,
+        5805314256
+      ],
+      "geometry": [
+        {
+          "lat": 52.3558633,
+          "lon": 4.8925473
+        },
+        {
+          "lat": 52.3554429,
+          "lon": 4.8904993
+        },
+        {
+          "lat": 52.3554371,
+          "lon": 4.8904709
+        },
+        {
+          "lat": 52.355431,
+          "lon": 4.8904443
+        },
+        {
+          "lat": 52.3554289,
+          "lon": 4.890427
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Doustraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "sidewalk": "both",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371878,
+      "bounds": {
+        "minlat": 52.3564136,
+        "minlon": 4.8926416,
+        "maxlat": 52.3566718,
+        "maxlon": 4.8951916
+      },
+      "nodes": [
+        46320660,
+        3844847591,
+        46320205,
+        46319842
+      ],
+      "geometry": [
+        {
+          "lat": 52.3566718,
+          "lon": 4.8926416
+        },
+        {
+          "lat": 52.356547,
+          "lon": 4.8950456
+        },
+        {
+          "lat": 52.3565196,
+          "lon": 4.8951161
+        },
+        {
+          "lat": 52.3564136,
+          "lon": 4.8951916
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Quellijnstraat",
+        "oneway": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 27758213,
+      "bounds": {
+        "minlat": 52.3558633,
+        "minlon": 4.8925473,
+        "maxlat": 52.3559355,
+        "maxlon": 4.8928976
+      },
+      "nodes": [
+        46317209,
+        46317486
+      ],
+      "geometry": [
+        {
+          "lat": 52.3558633,
+          "lon": 4.8925473
+        },
+        {
+          "lat": 52.3559355,
+          "lon": 4.8928976
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Douplein",
+        "oneway": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 320784472,
+      "bounds": {
+        "minlat": 52.3560706,
+        "minlon": 4.8925465,
+        "maxlat": 52.3572434,
+        "maxlon": 4.8927305
+      },
+      "nodes": [
+        46323176,
+        46320660,
+        46318165
+      ],
+      "geometry": [
+        {
+          "lat": 52.3572434,
+          "lon": 4.8927305
+        },
+        {
+          "lat": 52.3566718,
+          "lon": 4.8926416
+        },
+        {
+          "lat": 52.3560706,
+          "lon": 4.8925465
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Van der Helststraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 560495000,
+      "bounds": {
+        "minlat": 52.3566718,
+        "minlon": 4.8915579,
+        "maxlat": 52.3567225,
+        "maxlon": 4.8926416
+      },
+      "nodes": [
+        46320660,
+        5076631152,
+        3844847349
+      ],
+      "geometry": [
+        {
+          "lat": 52.3566718,
+          "lon": 4.8926416
+        },
+        {
+          "lat": 52.3567204,
+          "lon": 4.8917211
+        },
+        {
+          "lat": 52.3567225,
+          "lon": 4.8915579
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Quellijnstraat",
+        "oneway": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 560495001,
+      "bounds": {
+        "minlat": 52.3567225,
+        "minlon": 4.8906849,
+        "maxlat": 52.3567813,
+        "maxlon": 4.8915579
+      },
+      "nodes": [
+        3844847349,
+        12343831170,
+        12343831171,
+        2508042204,
+        5802428873,
+        3307343664,
+        46321108
+      ],
+      "geometry": [
+        {
+          "lat": 52.3567225,
+          "lon": 4.8915579
+        },
+        {
+          "lat": 52.3567441,
+          "lon": 4.8910739
+        },
+        {
+          "lat": 52.3567733,
+          "lon": 4.8908871
+        },
+        {
+          "lat": 52.3567753,
+          "lon": 4.890793
+        },
+        {
+          "lat": 52.3567772,
+          "lon": 4.8907442
+        },
+        {
+          "lat": 52.35678,
+          "lon": 4.8907033
+        },
+        {
+          "lat": 52.3567813,
+          "lon": 4.8906849
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Quellijnstraat",
+        "oneway": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 562451294,
+      "bounds": {
+        "minlat": 52.3559355,
+        "minlon": 4.8928976,
+        "maxlat": 52.3560434,
+        "maxlon": 4.8934445
+      },
+      "nodes": [
+        46317486,
+        1282626763
+      ],
+      "geometry": [
+        {
+          "lat": 52.3559355,
+          "lon": 4.8928976
+        },
+        {
+          "lat": 52.3560434,
+          "lon": 4.8934445
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Douplein",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "oneway:mofa": "no",
+        "oneway:moped": "no",
+        "oneway:motor_vehicle": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 800958530,
+      "bounds": {
+        "minlat": 52.3540549,
+        "minlon": 4.8906544,
+        "maxlat": 52.3540821,
+        "maxlon": 4.8909249
+      },
+      "nodes": [
+        5805453835,
+        4919832491,
+        5803986617,
+        7491573358
+      ],
+      "geometry": [
+        {
+          "lat": 52.3540549,
+          "lon": 4.8906544
+        },
+        {
+          "lat": 52.3540582,
+          "lon": 4.8906767
+        },
+        {
+          "lat": 52.3540607,
+          "lon": 4.8907767
+        },
+        {
+          "lat": 52.3540821,
+          "lon": 4.8909249
+        }
+      ],
+      "tags": {
+        "alt_name": "1e Jan Steenstraat",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Jan Steenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 800958531,
+      "bounds": {
+        "minlat": 52.3540821,
+        "minlon": 4.8909249,
+        "maxlat": 52.3544948,
+        "maxlon": 4.893679
+      },
+      "nodes": [
+        7491573358,
+        11235805578,
+        11235805577,
+        46310873
+      ],
+      "geometry": [
+        {
+          "lat": 52.3540821,
+          "lon": 4.8909249
+        },
+        {
+          "lat": 52.3541675,
+          "lon": 4.8914695
+        },
+        {
+          "lat": 52.3544835,
+          "lon": 4.8935403
+        },
+        {
+          "lat": 52.3544948,
+          "lon": 4.893679
+        }
+      ],
+      "tags": {
+        "alt_name": "1e Jan Steenstraat",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Jan Steenstraat",
+        "oneway": "yes",
+        "sidewalk": "both",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1215988764,
+      "bounds": {
+        "minlat": 52.3534661,
+        "minlon": 4.893679,
+        "maxlat": 52.3544948,
+        "maxlon": 4.894392
+      },
+      "nodes": [
+        10742297132,
+        46308060,
+        46310873
+      ],
+      "geometry": [
+        {
+          "lat": 52.3534661,
+          "lon": 4.894392
+        },
+        {
+          "lat": 52.3538826,
+          "lon": 4.8941112
+        },
+        {
+          "lat": 52.3544948,
+          "lon": 4.893679
+        }
+      ],
+      "tags": {
+        "bicycle": "yes",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "sidewalk": "both",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
       "id": 1322637165,
       "bounds": {
         "minlat": 52.3583454,
@@ -32573,6 +35027,1470 @@
         "oneway": "yes",
         "seamark:bridge:category": "yes",
         "waterway": "canal"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7370177,
+      "bounds": {
+        "minlat": 52.3554769,
+        "minlon": 4.900742,
+        "maxlat": 52.3554824,
+        "maxlon": 4.9007625
+      },
+      "nodes": [
+        6932957827,
+        2673087273
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554769,
+          "lon": 4.900742
+        },
+        {
+          "lat": 52.3554824,
+          "lon": 4.9007625
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "30",
+        "name": "Tweede Jan van der Heijdenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371832,
+      "bounds": {
+        "minlat": 52.3548616,
+        "minlon": 4.900722,
+        "maxlat": 52.3554769,
+        "maxlon": 4.9011509
+      },
+      "nodes": [
+        6932957827,
+        6932957824,
+        6932957828,
+        6932992262,
+        12526989625,
+        6932947304,
+        2134273883,
+        6932947315
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554769,
+          "lon": 4.900742
+        },
+        {
+          "lat": 52.3554586,
+          "lon": 4.9007376
+        },
+        {
+          "lat": 52.3554027,
+          "lon": 4.900722
+        },
+        {
+          "lat": 52.3549913,
+          "lon": 4.9010458
+        },
+        {
+          "lat": 52.3549665,
+          "lon": 4.9010665
+        },
+        {
+          "lat": 52.3548996,
+          "lon": 4.9011204
+        },
+        {
+          "lat": 52.3548931,
+          "lon": 4.9011257
+        },
+        {
+          "lat": 52.3548616,
+          "lon": 4.9011509
+        }
+      ],
+      "tags": {
+        "cycleway:right": "no",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "black",
+        "cycleway:right:width": "1.25",
+        "highway": "residential",
+        "lane_markings": "no",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371837,
+      "bounds": {
+        "minlat": 52.3542363,
+        "minlon": 4.8981747,
+        "maxlat": 52.3554944,
+        "maxlon": 4.8991346
+      },
+      "nodes": [
+        46315406,
+        46312728,
+        10581981627,
+        10742128721,
+        2134273879,
+        3297544670
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554944,
+          "lon": 4.8981747
+        },
+        {
+          "lat": 52.3548461,
+          "lon": 4.8986627
+        },
+        {
+          "lat": 52.354325,
+          "lon": 4.8990636
+        },
+        {
+          "lat": 52.3542989,
+          "lon": 4.8990846
+        },
+        {
+          "lat": 52.3542679,
+          "lon": 4.8991096
+        },
+        {
+          "lat": 52.3542363,
+          "lon": 4.8991346
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371855,
+      "bounds": {
+        "minlat": 52.3554944,
+        "minlon": 4.8977051,
+        "maxlat": 52.3560927,
+        "maxlon": 4.8981747
+      },
+      "nodes": [
+        46318091,
+        7491573364,
+        46315406
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560927,
+          "lon": 4.8977051
+        },
+        {
+          "lat": 52.3555268,
+          "lon": 4.8981493
+        },
+        {
+          "lat": 52.3554944,
+          "lon": 4.8981747
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Eerste Sweelinckstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "sidewalk": "both",
+        "sidewalk:both:surface": "paving_stones",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371881,
+      "bounds": {
+        "minlat": 52.3573657,
+        "minlon": 4.8984535,
+        "maxlat": 52.3576216,
+        "maxlon": 4.8985451
+      },
+      "nodes": [
+        46323391,
+        10905847780,
+        10905847781,
+        10905847775,
+        3404634797,
+        10905847768,
+        10905847767
+      ],
+      "geometry": [
+        {
+          "lat": 52.3573657,
+          "lon": 4.89849
+        },
+        {
+          "lat": 52.3573858,
+          "lon": 4.8984978
+        },
+        {
+          "lat": 52.3574026,
+          "lon": 4.8984964
+        },
+        {
+          "lat": 52.3575039,
+          "lon": 4.8984535
+        },
+        {
+          "lat": 52.3575484,
+          "lon": 4.8984592
+        },
+        {
+          "lat": 52.3575969,
+          "lon": 4.8985024
+        },
+        {
+          "lat": 52.3576216,
+          "lon": 4.8985451
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Nicolaas Berchemstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "oneway:mofa": "no",
+        "oneway:moped": "no",
+        "oneway:motor_vehicle": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 26143663,
+      "bounds": {
+        "minlat": 52.3544618,
+        "minlon": 4.9002756,
+        "maxlat": 52.3547612,
+        "maxlon": 4.9012855
+      },
+      "nodes": [
+        6932856216,
+        10739130883,
+        13174899403,
+        12526989619,
+        3349684213,
+        6932905636,
+        3297544675,
+        6932944582
+      ],
+      "geometry": [
+        {
+          "lat": 52.3544618,
+          "lon": 4.9002756
+        },
+        {
+          "lat": 52.3545667,
+          "lon": 4.9006697
+        },
+        {
+          "lat": 52.3546437,
+          "lon": 4.9009187
+        },
+        {
+          "lat": 52.3546578,
+          "lon": 4.9009642
+        },
+        {
+          "lat": 52.3547298,
+          "lon": 4.901197
+        },
+        {
+          "lat": 52.3547514,
+          "lon": 4.9012593
+        },
+        {
+          "lat": 52.354755,
+          "lon": 4.9012691
+        },
+        {
+          "lat": 52.3547612,
+          "lon": 4.9012855
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "2",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|through;right"
+      }
+    },
+    {
+      "type": "way",
+      "id": 328144000,
+      "bounds": {
+        "minlat": 52.3554719,
+        "minlon": 4.9007255,
+        "maxlat": 52.3554769,
+        "maxlon": 4.900742
+      },
+      "nodes": [
+        6932957827,
+        46315577
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554769,
+          "lon": 4.900742
+        },
+        {
+          "lat": 52.3554719,
+          "lon": 4.9007255
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "30",
+        "name": "Tweede Jan van der Heijdenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 328144030,
+      "bounds": {
+        "minlat": 52.3542679,
+        "minlon": 4.9013505,
+        "maxlat": 52.3547857,
+        "maxlon": 4.9016841
+      },
+      "nodes": [
+        6932962785,
+        6932944584,
+        6932962786,
+        13174899402,
+        12526989615,
+        3349684216,
+        6932905651,
+        3349684219
+      ],
+      "geometry": [
+        {
+          "lat": 52.3542679,
+          "lon": 4.9016735
+        },
+        {
+          "lat": 52.3542856,
+          "lon": 4.9016814
+        },
+        {
+          "lat": 52.3543675,
+          "lon": 4.9016841
+        },
+        {
+          "lat": 52.3546589,
+          "lon": 4.9014524
+        },
+        {
+          "lat": 52.3546934,
+          "lon": 4.901425
+        },
+        {
+          "lat": 52.3547466,
+          "lon": 4.9013827
+        },
+        {
+          "lat": 52.3547626,
+          "lon": 4.9013695
+        },
+        {
+          "lat": 52.3547857,
+          "lon": 4.9013505
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "highway": "tertiary",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 421035141,
+      "bounds": {
+        "minlat": 52.3542938,
+        "minlon": 4.8993742,
+        "maxlat": 52.3547342,
+        "maxlon": 4.9008097
+      },
+      "nodes": [
+        3297544673,
+        10739283940,
+        10739283941,
+        3297544672
+      ],
+      "geometry": [
+        {
+          "lat": 52.3547342,
+          "lon": 4.9008097
+        },
+        {
+          "lat": 52.3543563,
+          "lon": 4.8996016
+        },
+        {
+          "lat": 52.3543256,
+          "lon": 4.8994959
+        },
+        {
+          "lat": 52.3542938,
+          "lon": 4.8993742
+        }
+      ],
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "yes",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740500732,
+      "bounds": {
+        "minlat": 52.3542363,
+        "minlon": 4.8991346,
+        "maxlat": 52.3542938,
+        "maxlon": 4.8993742
+      },
+      "nodes": [
+        3297544672,
+        12531352791,
+        3297544670
+      ],
+      "geometry": [
+        {
+          "lat": 52.3542938,
+          "lon": 4.8993742
+        },
+        {
+          "lat": 52.3542612,
+          "lon": 4.8992384
+        },
+        {
+          "lat": 52.3542363,
+          "lon": 4.8991346
+        }
+      ],
+      "tags": {
+        "access:lanes": "no|yes",
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "psv:lanes": "yes|",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740500735,
+      "bounds": {
+        "minlat": 52.3541209,
+        "minlon": 4.8990487,
+        "maxlat": 52.3541513,
+        "maxlon": 4.8992027
+      },
+      "nodes": [
+        6932882544,
+        1333504602
+      ],
+      "geometry": [
+        {
+          "lat": 52.3541209,
+          "lon": 4.8990487
+        },
+        {
+          "lat": 52.3541513,
+          "lon": 4.8992027
+        }
+      ],
+      "tags": {
+        "access:lanes": "no|yes",
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "psv:lanes": "yes|",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740501703,
+      "bounds": {
+        "minlat": 52.3541894,
+        "minlon": 4.8993845,
+        "maxlat": 52.3544618,
+        "maxlon": 4.9002756
+      },
+      "nodes": [
+        6932882543,
+        3297544671,
+        6932856216
+      ],
+      "geometry": [
+        {
+          "lat": 52.3541894,
+          "lon": 4.8993845
+        },
+        {
+          "lat": 52.3542478,
+          "lon": 4.8995901
+        },
+        {
+          "lat": 52.3544618,
+          "lon": 4.9002756
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740507560,
+      "bounds": {
+        "minlat": 52.3547342,
+        "minlon": 4.9008097,
+        "maxlat": 52.3548616,
+        "maxlon": 4.9011509
+      },
+      "nodes": [
+        6932947315,
+        3332545000,
+        10739283939,
+        12526989617,
+        3297544673
+      ],
+      "geometry": [
+        {
+          "lat": 52.3548616,
+          "lon": 4.9011509
+        },
+        {
+          "lat": 52.354844,
+          "lon": 4.901097
+        },
+        {
+          "lat": 52.3547885,
+          "lon": 4.9009355
+        },
+        {
+          "lat": 52.3547643,
+          "lon": 4.9008794
+        },
+        {
+          "lat": 52.3547342,
+          "lon": 4.9008097
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740509802,
+      "bounds": {
+        "minlat": 52.3548768,
+        "minlon": 4.900742,
+        "maxlat": 52.3554769,
+        "maxlon": 4.9012037
+      },
+      "nodes": [
+        6932944580,
+        6932944567,
+        4858591635,
+        12526989624,
+        6932944568,
+        6932957819,
+        6932957827
+      ],
+      "geometry": [
+        {
+          "lat": 52.3548768,
+          "lon": 4.9012037
+        },
+        {
+          "lat": 52.3549138,
+          "lon": 4.9011806
+        },
+        {
+          "lat": 52.3549213,
+          "lon": 4.9011756
+        },
+        {
+          "lat": 52.3549849,
+          "lon": 4.9011261
+        },
+        {
+          "lat": 52.3550383,
+          "lon": 4.9010846
+        },
+        {
+          "lat": 52.3552477,
+          "lon": 4.900929
+        },
+        {
+          "lat": 52.3554769,
+          "lon": 4.900742
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "embedded_rails": "tram",
+        "highway": "residential",
+        "lanes": "2",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "oneway:bus": "no",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740509804,
+      "bounds": {
+        "minlat": 52.3547612,
+        "minlon": 4.9011509,
+        "maxlat": 52.3548616,
+        "maxlon": 4.9012855
+      },
+      "nodes": [
+        6932947315,
+        6952774916,
+        6932944572,
+        6932944571,
+        6932944570,
+        6932944569,
+        6932944582
+      ],
+      "geometry": [
+        {
+          "lat": 52.3548616,
+          "lon": 4.9011509
+        },
+        {
+          "lat": 52.3548467,
+          "lon": 4.9011643
+        },
+        {
+          "lat": 52.3548236,
+          "lon": 4.901197
+        },
+        {
+          "lat": 52.3548138,
+          "lon": 4.9012109
+        },
+        {
+          "lat": 52.3548039,
+          "lon": 4.901225
+        },
+        {
+          "lat": 52.3547931,
+          "lon": 4.9012403
+        },
+        {
+          "lat": 52.3547612,
+          "lon": 4.9012855
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "highway": "tertiary",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740509805,
+      "bounds": {
+        "minlat": 52.3547857,
+        "minlon": 4.9012037,
+        "maxlat": 52.3548768,
+        "maxlon": 4.9013505
+      },
+      "nodes": [
+        3349684219,
+        9354124317,
+        6932992263,
+        6932944577,
+        6932944578,
+        6932944579,
+        6932944580
+      ],
+      "geometry": [
+        {
+          "lat": 52.3547857,
+          "lon": 4.9013505
+        },
+        {
+          "lat": 52.3548039,
+          "lon": 4.9013212
+        },
+        {
+          "lat": 52.3548237,
+          "lon": 4.9012894
+        },
+        {
+          "lat": 52.3548336,
+          "lon": 4.9012733
+        },
+        {
+          "lat": 52.354843,
+          "lon": 4.9012582
+        },
+        {
+          "lat": 52.3548521,
+          "lon": 4.9012435
+        },
+        {
+          "lat": 52.3548768,
+          "lon": 4.9012037
+        }
+      ],
+      "tags": {
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "highway": "tertiary",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "concrete"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740509806,
+      "bounds": {
+        "minlat": 52.3542679,
+        "minlon": 4.9012855,
+        "maxlat": 52.3547612,
+        "maxlon": 4.9016735
+      },
+      "nodes": [
+        6932944582,
+        4858591636,
+        6932944581,
+        12526989616,
+        6932944583,
+        6932992258,
+        6932962785
+      ],
+      "geometry": [
+        {
+          "lat": 52.3547612,
+          "lon": 4.9012855
+        },
+        {
+          "lat": 52.3547274,
+          "lon": 4.9013095
+        },
+        {
+          "lat": 52.3547245,
+          "lon": 4.9013117
+        },
+        {
+          "lat": 52.3546718,
+          "lon": 4.9013518
+        },
+        {
+          "lat": 52.3545744,
+          "lon": 4.9014261
+        },
+        {
+          "lat": 52.3544614,
+          "lon": 4.9015157
+        },
+        {
+          "lat": 52.3542679,
+          "lon": 4.9016735
+        }
+      ],
+      "tags": {
+        "access:lanes:backward": "no",
+        "bus:lanes:backward": "yes",
+        "cycleway:right": "lane",
+        "cycleway:right:surface": "asphalt",
+        "cycleway:right:surface:colour": "red",
+        "embedded_rails": "tram",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lanes:backward": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "oneway:bus": "no",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740514506,
+      "bounds": {
+        "minlat": 52.3548768,
+        "minlon": 4.9012037,
+        "maxlat": 52.3551449,
+        "maxlon": 4.9020632
+      },
+      "nodes": [
+        3297544685,
+        13174899401,
+        12526989622,
+        6932947290,
+        3350180189,
+        3297544683,
+        6932944580
+      ],
+      "geometry": [
+        {
+          "lat": 52.3551449,
+          "lon": 4.9020632
+        },
+        {
+          "lat": 52.3549801,
+          "lon": 4.9015346
+        },
+        {
+          "lat": 52.3549659,
+          "lon": 4.9014892
+        },
+        {
+          "lat": 52.3549128,
+          "lon": 4.9013191
+        },
+        {
+          "lat": 52.3548899,
+          "lon": 4.9012465
+        },
+        {
+          "lat": 52.3548818,
+          "lon": 4.9012208
+        },
+        {
+          "lat": 52.3548768,
+          "lon": 4.9012037
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|through;right"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740514507,
+      "bounds": {
+        "minlat": 52.3548616,
+        "minlon": 4.9011509,
+        "maxlat": 52.3548768,
+        "maxlon": 4.9012037
+      },
+      "nodes": [
+        6932944580,
+        3297544682,
+        6932947314,
+        6932947315
+      ],
+      "geometry": [
+        {
+          "lat": 52.3548768,
+          "lon": 4.9012037
+        },
+        {
+          "lat": 52.3548716,
+          "lon": 4.9011857
+        },
+        {
+          "lat": 52.3548677,
+          "lon": 4.9011727
+        },
+        {
+          "lat": 52.3548616,
+          "lon": 4.9011509
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|through"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740514508,
+      "bounds": {
+        "minlat": 52.3547612,
+        "minlon": 4.9012855,
+        "maxlat": 52.3547857,
+        "maxlon": 4.9013505
+      },
+      "nodes": [
+        6932944582,
+        3297544676,
+        6932905645,
+        3349684219
+      ],
+      "geometry": [
+        {
+          "lat": 52.3547612,
+          "lon": 4.9012855
+        },
+        {
+          "lat": 52.3547681,
+          "lon": 4.9013038
+        },
+        {
+          "lat": 52.3547699,
+          "lon": 4.9013078
+        },
+        {
+          "lat": 52.3547857,
+          "lon": 4.9013505
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|through"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740515584,
+      "bounds": {
+        "minlat": 52.3554769,
+        "minlon": 4.899564,
+        "maxlat": 52.3571666,
+        "maxlon": 4.900742
+      },
+      "nodes": [
+        7191426874,
+        12526989630,
+        7191426873,
+        7191426872,
+        7191426855,
+        7191426871,
+        12526989626,
+        7491573366,
+        6932957826,
+        6933013302,
+        6932957827
+      ],
+      "geometry": [
+        {
+          "lat": 52.3571666,
+          "lon": 4.899564
+        },
+        {
+          "lat": 52.357068,
+          "lon": 4.8996084
+        },
+        {
+          "lat": 52.3567749,
+          "lon": 4.8997405
+        },
+        {
+          "lat": 52.3567038,
+          "lon": 4.8997691
+        },
+        {
+          "lat": 52.3566332,
+          "lon": 4.8998155
+        },
+        {
+          "lat": 52.3565503,
+          "lon": 4.899875
+        },
+        {
+          "lat": 52.3561937,
+          "lon": 4.9001558
+        },
+        {
+          "lat": 52.3561204,
+          "lon": 4.9002136
+        },
+        {
+          "lat": 52.3560879,
+          "lon": 4.9002392
+        },
+        {
+          "lat": 52.3556729,
+          "lon": 4.9005729
+        },
+        {
+          "lat": 52.3554769,
+          "lon": 4.900742
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "embedded_rails": "tram",
+        "highway": "residential",
+        "lanes": "2",
+        "lanes:backward": "1",
+        "lanes:forward": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 772136359,
+      "bounds": {
+        "minlat": 52.3541513,
+        "minlon": 4.8992027,
+        "maxlat": 52.3541894,
+        "maxlon": 4.8993845
+      },
+      "nodes": [
+        1333504602,
+        12531352788,
+        6932882543
+      ],
+      "geometry": [
+        {
+          "lat": 52.3541513,
+          "lon": 4.8992027
+        },
+        {
+          "lat": 52.3541701,
+          "lon": 4.8992922
+        },
+        {
+          "lat": 52.3541894,
+          "lon": 4.8993845
+        }
+      ],
+      "tags": {
+        "access:lanes": "no|yes",
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "psv:lanes": "yes|",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 772136360,
+      "bounds": {
+        "minlat": 52.3542028,
+        "minlon": 4.8989881,
+        "maxlat": 52.3542363,
+        "maxlon": 4.8991346
+      },
+      "nodes": [
+        3297544670,
+        6932882536
+      ],
+      "geometry": [
+        {
+          "lat": 52.3542363,
+          "lon": 4.8991346
+        },
+        {
+          "lat": 52.3542028,
+          "lon": 4.8989881
+        }
+      ],
+      "tags": {
+        "access:lanes": "no|yes",
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "psv:lanes": "yes|",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 868449424,
+      "bounds": {
+        "minlat": 52.3569982,
+        "minlon": 4.897303,
+        "maxlat": 52.3573657,
+        "maxlon": 4.89849
+      },
+      "nodes": [
+        8094757516,
+        10905847782,
+        10905847778,
+        46323391
+      ],
+      "geometry": [
+        {
+          "lat": 52.3569982,
+          "lon": 4.897303
+        },
+        {
+          "lat": 52.3573437,
+          "lon": 4.898455
+        },
+        {
+          "lat": 52.357353,
+          "lon": 4.8984754
+        },
+        {
+          "lat": 52.3573657,
+          "lon": 4.89849
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Doustraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "oneway:mofa": "no",
+        "oneway:moped": "no",
+        "oneway:motor_vehicle": "yes",
+        "sidewalk": "both",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 868449425,
+      "bounds": {
+        "minlat": 52.3568667,
+        "minlon": 4.8968526,
+        "maxlat": 52.3569982,
+        "maxlon": 4.897303
+      },
+      "nodes": [
+        8094892517,
+        46321646,
+        8094757516
+      ],
+      "geometry": [
+        {
+          "lat": 52.3568667,
+          "lon": 4.8968526
+        },
+        {
+          "lat": 52.3569213,
+          "lon": 4.8970278
+        },
+        {
+          "lat": 52.3569982,
+          "lon": 4.897303
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Doustraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "oneway:mofa": "no",
+        "oneway:moped": "no",
+        "oneway:motor_vehicle": "yes",
+        "sidewalk": "both",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1173761171,
+      "bounds": {
+        "minlat": 52.3577795,
+        "minlon": 4.8992824,
+        "maxlat": 52.3578654,
+        "maxlon": 4.8993022
+      },
+      "nodes": [
+        295693437,
+        10905847758,
+        10905847753
+      ],
+      "geometry": [
+        {
+          "lat": 52.3578654,
+          "lon": 4.8992824
+        },
+        {
+          "lat": 52.3577885,
+          "lon": 4.8992991
+        },
+        {
+          "lat": 52.3577795,
+          "lon": 4.8993022
+        }
+      ],
+      "tags": {
+        "embedded_rails": "tram",
+        "highway": "tertiary",
+        "lanes": "4",
+        "lanes:backward": "2",
+        "lanes:forward": "2",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "smoothness": "good",
+        "surface": "asphalt",
+        "turn:lanes:backward": "left|through"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1193287817,
+      "bounds": {
+        "minlat": 52.3566988,
+        "minlon": 4.899751,
+        "maxlat": 52.3567088,
+        "maxlon": 4.8997895
+      },
+      "nodes": [
+        2673087282,
+        7191426872,
+        46320806
+      ],
+      "geometry": [
+        {
+          "lat": 52.3567088,
+          "lon": 4.8997895
+        },
+        {
+          "lat": 52.3567038,
+          "lon": 4.8997691
+        },
+        {
+          "lat": 52.3566988,
+          "lon": 4.899751
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "30",
+        "name": "Govert Flinckstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1193287819,
+      "bounds": {
+        "minlat": 52.3560831,
+        "minlon": 4.9002215,
+        "maxlat": 52.3560932,
+        "maxlon": 4.9002565
+      },
+      "nodes": [
+        46318023,
+        6932957826,
+        2673087276
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560831,
+          "lon": 4.9002215
+        },
+        {
+          "lat": 52.3560879,
+          "lon": 4.9002392
+        },
+        {
+          "lat": 52.3560932,
+          "lon": 4.9002565
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Tweede Jan Steenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1193287820,
+      "bounds": {
+        "minlat": 52.3554944,
+        "minlon": 4.8981747,
+        "maxlat": 52.3560831,
+        "maxlon": 4.9002215
+      },
+      "nodes": [
+        46315406,
+        46318023
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554944,
+          "lon": 4.8981747
+        },
+        {
+          "lat": 52.3560831,
+          "lon": 4.9002215
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Tweede Jan Steenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "sidewalk:left": "separate",
+        "sidewalk:right": "yes"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1193287822,
+      "bounds": {
+        "minlat": 52.3548461,
+        "minlon": 4.8986627,
+        "maxlat": 52.3554719,
+        "maxlon": 4.9007255
+      },
+      "nodes": [
+        46315577,
+        46312728
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554719,
+          "lon": 4.9007255
+        },
+        {
+          "lat": 52.3548461,
+          "lon": 4.8986627
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Tweede Jan van der Heijdenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
       }
     },
     {
@@ -32722,6 +36640,325 @@
     },
     {
       "type": "way",
+      "id": 7370280,
+      "bounds": {
+        "minlat": 52.3551449,
+        "minlon": 4.9020632,
+        "maxlat": 52.3560359,
+        "maxlon": 4.9050105
+      },
+      "nodes": [
+        46317676,
+        675884650,
+        12531367706,
+        46317583,
+        4521218413,
+        286304766,
+        3297544688,
+        6933063402,
+        3297544685
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560359,
+          "lon": 4.9050105
+        },
+        {
+          "lat": 52.3560133,
+          "lon": 4.9048775
+        },
+        {
+          "lat": 52.3560011,
+          "lon": 4.9048175
+        },
+        {
+          "lat": 52.3559789,
+          "lon": 4.9047078
+        },
+        {
+          "lat": 52.3558597,
+          "lon": 4.9043155
+        },
+        {
+          "lat": 52.3556452,
+          "lon": 4.9036935
+        },
+        {
+          "lat": 52.3555691,
+          "lon": 4.9034555
+        },
+        {
+          "lat": 52.3552328,
+          "lon": 4.9023783
+        },
+        {
+          "lat": 52.3551449,
+          "lon": 4.9020632
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371794,
+      "bounds": {
+        "minlat": 52.3549659,
+        "minlon": 4.8903466,
+        "maxlat": 52.3571616,
+        "maxlon": 4.8995443
+      },
+      "nodes": [
+        5805314261,
+        4919832492,
+        4919832481,
+        5805311942,
+        4919832499,
+        371254546,
+        46315547,
+        371254547,
+        46318720,
+        4622616857,
+        304808920,
+        46320043,
+        46321710,
+        11494398543,
+        46322644
+      ],
+      "geometry": [
+        {
+          "lat": 52.3549659,
+          "lon": 4.8903466
+        },
+        {
+          "lat": 52.3549713,
+          "lon": 4.8903725
+        },
+        {
+          "lat": 52.3549825,
+          "lon": 4.8904423
+        },
+        {
+          "lat": 52.3549842,
+          "lon": 4.890451
+        },
+        {
+          "lat": 52.3550684,
+          "lon": 4.8909005
+        },
+        {
+          "lat": 52.3554711,
+          "lon": 4.8930715
+        },
+        {
+          "lat": 52.3554843,
+          "lon": 4.8931426
+        },
+        {
+          "lat": 52.355502,
+          "lon": 4.8932264
+        },
+        {
+          "lat": 52.35572,
+          "lon": 4.8943289
+        },
+        {
+          "lat": 52.3559386,
+          "lon": 4.8952927
+        },
+        {
+          "lat": 52.3561155,
+          "lon": 4.8959947
+        },
+        {
+          "lat": 52.3565154,
+          "lon": 4.8973758
+        },
+        {
+          "lat": 52.3569402,
+          "lon": 4.8988086
+        },
+        {
+          "lat": 52.3571299,
+          "lon": 4.8994276
+        },
+        {
+          "lat": 52.3571616,
+          "lon": 4.8995443
+        }
+      ],
+      "tags": {
+        "area": "no",
+        "foot": "yes",
+        "highway": "residential",
+        "maxspeed": "30",
+        "motor_vehicle:conditional": "delivery @ (Mo-Sa 06:30-11:00)",
+        "name": "Albert Cuypstraat",
+        "note": "marketplace",
+        "opening_hours": "Mo-Sa 06:00-18:00",
+        "vehicle:conditional": "no @ (Mo-Sa 06:30-20:30)"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371810,
+      "bounds": {
+        "minlat": 52.3544948,
+        "minlon": 4.893679,
+        "maxlat": 52.3554944,
+        "maxlon": 4.8981747
+      },
+      "nodes": [
+        46310873,
+        10080249612,
+        272491710,
+        272491825,
+        46315406
+      ],
+      "geometry": [
+        {
+          "lat": 52.3544948,
+          "lon": 4.893679
+        },
+        {
+          "lat": 52.3545836,
+          "lon": 4.8940786
+        },
+        {
+          "lat": 52.3547232,
+          "lon": 4.8947064
+        },
+        {
+          "lat": 52.3549835,
+          "lon": 4.8959054
+        },
+        {
+          "lat": 52.3554944,
+          "lon": 4.8981747
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "sidewalk:left": "separate",
+        "sidewalk:right": "yes",
+        "sidewalk:right:surface": "paving_stones",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371850,
+      "bounds": {
+        "minlat": 52.3569213,
+        "minlon": 4.8927305,
+        "maxlat": 52.3572434,
+        "maxlon": 4.8970278
+      },
+      "nodes": [
+        46321646,
+        12174511695,
+        3844847572,
+        12174511693,
+        46322087,
+        46323176
+      ],
+      "geometry": [
+        {
+          "lat": 52.3569213,
+          "lon": 4.8970278
+        },
+        {
+          "lat": 52.3569431,
+          "lon": 4.8969647
+        },
+        {
+          "lat": 52.3569958,
+          "lon": 4.8969142
+        },
+        {
+          "lat": 52.3570111,
+          "lon": 4.8968714
+        },
+        {
+          "lat": 52.3570172,
+          "lon": 4.8968204
+        },
+        {
+          "lat": 52.3572434,
+          "lon": 4.8927305
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Tweede Jacob van Campenstraat",
+        "oneway": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7371925,
+      "bounds": {
+        "minlat": 52.3560434,
+        "minlon": 4.8934445,
+        "maxlat": 52.3568667,
+        "maxlon": 4.8968526
+      },
+      "nodes": [
+        1282626763,
+        46319842,
+        5076631153,
+        8094892517
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560434,
+          "lon": 4.8934445
+        },
+        {
+          "lat": 52.3564136,
+          "lon": 4.8951916
+        },
+        {
+          "lat": 52.3564729,
+          "lon": 4.8954802
+        },
+        {
+          "lat": 52.3568667,
+          "lon": 4.8968526
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Gerard Doustraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "oneway:mofa": "no",
+        "oneway:moped": "no",
+        "oneway:motor_vehicle": "yes",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
       "id": 17162469,
       "bounds": {
         "minlat": 52.3598794,
@@ -32858,6 +37095,272 @@
         "waterway": "river",
         "wikidata": "Q185405",
         "wikipedia": "nl:Amstel (rivier)"
+      }
+    },
+    {
+      "type": "way",
+      "id": 328143997,
+      "bounds": {
+        "minlat": 52.3560932,
+        "minlon": 4.9002565,
+        "maxlat": 52.3573064,
+        "maxlon": 4.9044167
+      },
+      "nodes": [
+        2673087276,
+        12531722017,
+        46321276,
+        12625762394,
+        12531722016,
+        675883482,
+        46323267
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560932,
+          "lon": 4.9002565
+        },
+        {
+          "lat": 52.3567573,
+          "lon": 4.9025606
+        },
+        {
+          "lat": 52.356795,
+          "lon": 4.9026429
+        },
+        {
+          "lat": 52.3568055,
+          "lon": 4.9026845
+        },
+        {
+          "lat": 52.356832,
+          "lon": 4.9027298
+        },
+        {
+          "lat": 52.3572824,
+          "lon": 4.9043377
+        },
+        {
+          "lat": 52.3573064,
+          "lon": 4.9044167
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Tweede Jan Steenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 421035133,
+      "bounds": {
+        "minlat": 52.3534963,
+        "minlon": 4.8954901,
+        "maxlat": 52.3542028,
+        "maxlon": 4.8989881
+      },
+      "nodes": [
+        6932882536,
+        6932882534,
+        10739283976,
+        6932828951,
+        1333504598
+      ],
+      "geometry": [
+        {
+          "lat": 52.3542028,
+          "lon": 4.8989881
+        },
+        {
+          "lat": 52.3541589,
+          "lon": 4.8987978
+        },
+        {
+          "lat": 52.3541003,
+          "lon": 4.8985226
+        },
+        {
+          "lat": 52.3535558,
+          "lon": 4.8957795
+        },
+        {
+          "lat": 52.3534963,
+          "lon": 4.8954901
+        }
+      ],
+      "tags": {
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Sarphatipark",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740507561,
+      "bounds": {
+        "minlat": 52.3547857,
+        "minlon": 4.9013505,
+        "maxlat": 52.3557451,
+        "maxlon": 4.9044004
+      },
+      "nodes": [
+        3349684219,
+        4858591629,
+        12526989620,
+        6932992260,
+        6932992261,
+        3297544686,
+        3297544687,
+        6933063400,
+        286304707,
+        286304807
+      ],
+      "geometry": [
+        {
+          "lat": 52.3547857,
+          "lon": 4.9013505
+        },
+        {
+          "lat": 52.3547982,
+          "lon": 4.9013854
+        },
+        {
+          "lat": 52.3548624,
+          "lon": 4.9015702
+        },
+        {
+          "lat": 52.3548669,
+          "lon": 4.9015831
+        },
+        {
+          "lat": 52.354957,
+          "lon": 4.9018281
+        },
+        {
+          "lat": 52.3553661,
+          "lon": 4.9031147
+        },
+        {
+          "lat": 52.3554865,
+          "lon": 4.9035162
+        },
+        {
+          "lat": 52.3555381,
+          "lon": 4.9037196
+        },
+        {
+          "lat": 52.3555527,
+          "lon": 4.9037719
+        },
+        {
+          "lat": 52.3557451,
+          "lon": 4.9044004
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1193287818,
+      "bounds": {
+        "minlat": 52.3567088,
+        "minlon": 4.8997895,
+        "maxlat": 52.3579247,
+        "maxlon": 4.9041403
+      },
+      "nodes": [
+        46326231,
+        675882832,
+        46325880,
+        12625761062,
+        46323920,
+        2673087282
+      ],
+      "geometry": [
+        {
+          "lat": 52.3579247,
+          "lon": 4.9041403
+        },
+        {
+          "lat": 52.3579136,
+          "lon": 4.9040337
+        },
+        {
+          "lat": 52.357902,
+          "lon": 4.9039783
+        },
+        {
+          "lat": 52.3578264,
+          "lon": 4.9037075
+        },
+        {
+          "lat": 52.3574204,
+          "lon": 4.902268
+        },
+        {
+          "lat": 52.3567088,
+          "lon": 4.8997895
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "30",
+        "name": "Govert Flinckstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "smoothness": "good"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1193287821,
+      "bounds": {
+        "minlat": 52.3554824,
+        "minlon": 4.9007625,
+        "maxlat": 52.3561856,
+        "maxlon": 4.9030111
+      },
+      "nodes": [
+        2673087273,
+        46318496
+      ],
+      "geometry": [
+        {
+          "lat": 52.3554824,
+          "lon": 4.9007625
+        },
+        {
+          "lat": 52.3561856,
+          "lon": 4.9030111
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Tweede Jan van der Heijdenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "surface": "paving_stones"
       }
     },
     {
@@ -34729,6 +39232,324 @@
     },
     {
       "type": "way",
+      "id": 7369060,
+      "bounds": {
+        "minlat": 52.3516687,
+        "minlon": 4.9029903,
+        "maxlat": 52.3521668,
+        "maxlon": 4.9031317
+      },
+      "nodes": [
+        7026677592,
+        7026677591,
+        10742297056,
+        7026677593,
+        10742297053,
+        12526989612,
+        1083575318,
+        3294630430
+      ],
+      "geometry": [
+        {
+          "lat": 52.3521668,
+          "lon": 4.9030311
+        },
+        {
+          "lat": 52.3521451,
+          "lon": 4.9030175
+        },
+        {
+          "lat": 52.3521012,
+          "lon": 4.9029903
+        },
+        {
+          "lat": 52.3520411,
+          "lon": 4.9029923
+        },
+        {
+          "lat": 52.3518114,
+          "lon": 4.9030775
+        },
+        {
+          "lat": 52.3517809,
+          "lon": 4.9030888
+        },
+        {
+          "lat": 52.3517136,
+          "lon": 4.9031137
+        },
+        {
+          "lat": 52.3516687,
+          "lon": 4.9031317
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "black",
+        "cycleway:width": "1.50",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 30953179,
+      "bounds": {
+        "minlat": 52.3497749,
+        "minlon": 4.9031317,
+        "maxlat": 52.3516687,
+        "maxlon": 4.9038567
+      },
+      "nodes": [
+        3294630430,
+        3294630426,
+        3294630425,
+        3294630424
+      ],
+      "geometry": [
+        {
+          "lat": 52.3516687,
+          "lon": 4.9031317
+        },
+        {
+          "lat": 52.351541,
+          "lon": 4.9031971
+        },
+        {
+          "lat": 52.3504613,
+          "lon": 4.903609
+        },
+        {
+          "lat": 52.3497749,
+          "lon": 4.9038567
+        }
+      ],
+      "tags": {
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 73343378,
+      "bounds": {
+        "minlat": 52.3491957,
+        "minlon": 4.904084,
+        "maxlat": 52.3495605,
+        "maxlon": 4.9042362
+      },
+      "nodes": [
+        295677798,
+        295677789,
+        10742297021,
+        1324664195
+      ],
+      "geometry": [
+        {
+          "lat": 52.3491957,
+          "lon": 4.9042362
+        },
+        {
+          "lat": 52.3492921,
+          "lon": 4.9041995
+        },
+        {
+          "lat": 52.3494643,
+          "lon": 4.9041113
+        },
+        {
+          "lat": 52.3495605,
+          "lon": 4.904084
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 117617508,
+      "bounds": {
+        "minlat": 52.3495605,
+        "minlon": 4.9032129,
+        "maxlat": 52.35168,
+        "maxlon": 4.904084
+      },
+      "nodes": [
+        1324664195,
+        46293339,
+        10742297023,
+        10742297022,
+        3294630427,
+        12526989610,
+        10742297052,
+        7026677594,
+        7026677595
+      ],
+      "geometry": [
+        {
+          "lat": 52.3495605,
+          "lon": 4.904084
+        },
+        {
+          "lat": 52.3504818,
+          "lon": 4.9037299
+        },
+        {
+          "lat": 52.3511429,
+          "lon": 4.9034814
+        },
+        {
+          "lat": 52.3512921,
+          "lon": 4.9034517
+        },
+        {
+          "lat": 52.3515309,
+          "lon": 4.903363
+        },
+        {
+          "lat": 52.3515641,
+          "lon": 4.9033441
+        },
+        {
+          "lat": 52.3515932,
+          "lon": 4.9033277
+        },
+        {
+          "lat": 52.3516584,
+          "lon": 4.9032414
+        },
+        {
+          "lat": 52.35168,
+          "lon": 4.9032129
+        }
+      ],
+      "tags": {
+        "cycleway": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "black",
+        "cycleway:width": "1.50",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 442899705,
+      "bounds": {
+        "minlat": 52.3491706,
+        "minlon": 4.9038567,
+        "maxlat": 52.3497749,
+        "maxlon": 4.9040595
+      },
+      "nodes": [
+        3294630424,
+        3294630423,
+        875615193
+      ],
+      "geometry": [
+        {
+          "lat": 52.3497749,
+          "lon": 4.9038567
+        },
+        {
+          "lat": 52.3492679,
+          "lon": 4.9040266
+        },
+        {
+          "lat": 52.3491706,
+          "lon": 4.9040595
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 751648120,
+      "bounds": {
+        "minlat": 52.35168,
+        "minlon": 4.9030311,
+        "maxlat": 52.3521668,
+        "maxlon": 4.9032129
+      },
+      "nodes": [
+        7026677595,
+        7026721050,
+        12526989611,
+        7026677592
+      ],
+      "geometry": [
+        {
+          "lat": 52.35168,
+          "lon": 4.9032129
+        },
+        {
+          "lat": 52.3517764,
+          "lon": 4.9031793
+        },
+        {
+          "lat": 52.3517916,
+          "lon": 4.9031735
+        },
+        {
+          "lat": 52.3521668,
+          "lon": 4.9030311
+        }
+      ],
+      "tags": {
+        "access:lanes:backward": "no",
+        "bus:lanes:backward": "yes",
+        "embedded_rails": "tram",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lanes:backward": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Van Woustraat",
+        "oneway": "yes",
+        "oneway:bus": "no",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
       "id": 1334808582,
       "bounds": {
         "minlat": 52.3490331,
@@ -35264,6 +40085,267 @@
         "name": "Weespertrekvaart",
         "waterway": "canal",
         "wikidata": "Q2358028"
+      }
+    },
+    {
+      "type": "way",
+      "id": 7370284,
+      "bounds": {
+        "minlat": 52.3560359,
+        "minlon": 4.9050105,
+        "maxlat": 52.3560727,
+        "maxlon": 4.9052442
+      },
+      "nodes": [
+        382030014,
+        6933063429,
+        46317676
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560727,
+          "lon": 4.9052442
+        },
+        {
+          "lat": 52.3560528,
+          "lon": 4.905126
+        },
+        {
+          "lat": 52.3560359,
+          "lon": 4.9050105
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 38531183,
+      "bounds": {
+        "minlat": 52.3563126,
+        "minlon": 4.906701,
+        "maxlat": 52.3563721,
+        "maxlon": 4.9068011
+      },
+      "nodes": [
+        1069638489,
+        12431867036,
+        7014194485,
+        455971589
+      ],
+      "geometry": [
+        {
+          "lat": 52.3563721,
+          "lon": 4.9068011
+        },
+        {
+          "lat": 52.3563482,
+          "lon": 4.9067743
+        },
+        {
+          "lat": 52.3563331,
+          "lon": 4.9067491
+        },
+        {
+          "lat": 52.3563126,
+          "lon": 4.906701
+        }
+      ],
+      "tags": {
+        "cycleway:left": "no",
+        "cycleway:right": "lane",
+        "cycleway:surface": "asphalt",
+        "cycleway:surface:colour": "red",
+        "cycleway:width": "1.25",
+        "highway": "tertiary",
+        "lane_markings": "no",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "noref": "yes",
+        "oneway": "yes",
+        "smoothness": "good",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 94848142,
+      "bounds": {
+        "minlat": 52.3561856,
+        "minlon": 4.9030111,
+        "maxlat": 52.3567007,
+        "maxlon": 4.9047225
+      },
+      "nodes": [
+        46320807,
+        675883452,
+        46318496
+      ],
+      "geometry": [
+        {
+          "lat": 52.3567007,
+          "lon": 4.9047225
+        },
+        {
+          "lat": 52.3566733,
+          "lon": 4.9046104
+        },
+        {
+          "lat": 52.3561856,
+          "lon": 4.9030111
+        }
+      ],
+      "tags": {
+        "highway": "residential",
+        "maxspeed": "30",
+        "name": "Tweede Jan van der Heijdenstraat",
+        "oneway": "yes",
+        "oneway:bicycle": "no",
+        "smoothness": "intermediate",
+        "surface": "paving_stones"
+      }
+    },
+    {
+      "type": "way",
+      "id": 118591539,
+      "bounds": {
+        "minlat": 52.3557451,
+        "minlon": 4.9044004,
+        "maxlat": 52.3559376,
+        "maxlon": 4.9050814
+      },
+      "nodes": [
+        286304807,
+        6933063437,
+        12531367704,
+        675884624,
+        3298957627
+      ],
+      "geometry": [
+        {
+          "lat": 52.3557451,
+          "lon": 4.9044004
+        },
+        {
+          "lat": 52.3558731,
+          "lon": 4.9048684
+        },
+        {
+          "lat": 52.3558843,
+          "lon": 4.9049077
+        },
+        {
+          "lat": 52.3559019,
+          "lon": 4.9049691
+        },
+        {
+          "lat": 52.3559376,
+          "lon": 4.9050814
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "2",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left|right"
+      }
+    },
+    {
+      "type": "way",
+      "id": 455764090,
+      "bounds": {
+        "minlat": 52.3560727,
+        "minlon": 4.9052442,
+        "maxlat": 52.3560943,
+        "maxlon": 4.9053678
+      },
+      "nodes": [
+        46317742,
+        6933063424,
+        12531352797,
+        382030014
+      ],
+      "geometry": [
+        {
+          "lat": 52.3560943,
+          "lon": 4.9053678
+        },
+        {
+          "lat": 52.356089,
+          "lon": 4.9053369
+        },
+        {
+          "lat": 52.3560823,
+          "lon": 4.9052986
+        },
+        {
+          "lat": 52.3560727,
+          "lon": 4.9052442
+        }
+      ],
+      "tags": {
+        "bicycle": "no",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt"
+      }
+    },
+    {
+      "type": "way",
+      "id": 740521256,
+      "bounds": {
+        "minlat": 52.3559376,
+        "minlon": 4.9050814,
+        "maxlat": 52.3559915,
+        "maxlon": 4.9051725
+      },
+      "nodes": [
+        3298957627,
+        6933063422
+      ],
+      "geometry": [
+        {
+          "lat": 52.3559376,
+          "lon": 4.9050814
+        },
+        {
+          "lat": 52.3559915,
+          "lon": 4.9051725
+        }
+      ],
+      "tags": {
+        "bicycle": "use_sidepath",
+        "foot": "use_sidepath",
+        "highway": "tertiary",
+        "lanes": "1",
+        "lit": "yes",
+        "lit:indirect": "yes",
+        "maxspeed": "30",
+        "name": "Ceintuurbaan",
+        "oneway": "yes",
+        "surface": "asphalt",
+        "turn:lanes": "left"
       }
     },
     {
@@ -38144,39 +43226,6 @@
     },
     {
       "type": "way",
-      "id": 7372719,
-      "bounds": {
-        "minlat": 52.3710087,
-        "minlon": 4.8796447,
-        "maxlat": 52.3710433,
-        "maxlon": 4.8796685
-      },
-      "nodes": [
-        46383464,
-        451946387
-      ],
-      "geometry": [
-        {
-          "lat": 52.3710087,
-          "lon": 4.8796685
-        },
-        {
-          "lat": 52.3710433,
-          "lon": 4.8796447
-        }
-      ],
-      "tags": {
-        "cycleway:both": "no",
-        "highway": "residential",
-        "lane_markings": "no",
-        "maxspeed": "30",
-        "name": "Lauriergracht",
-        "smoothness": "intermediate",
-        "surface": "paving_stones"
-      }
-    },
-    {
-      "type": "way",
       "id": 15498366,
       "bounds": {
         "minlat": 52.3703464,
@@ -38387,363 +43436,6 @@
         "motorboat": "yes",
         "name": "Lauriergracht",
         "waterway": "canal"
-      }
-    },
-    {
-      "type": "way",
-      "id": 38297088,
-      "bounds": {
-        "minlat": 52.3710433,
-        "minlon": 4.8795702,
-        "maxlat": 52.3711516,
-        "maxlon": 4.8796447
-      },
-      "nodes": [
-        451946387,
-        451946386
-      ],
-      "geometry": [
-        {
-          "lat": 52.3710433,
-          "lon": 4.8796447
-        },
-        {
-          "lat": 52.3711516,
-          "lon": 4.8795702
-        }
-      ],
-      "tags": {
-        "bridge": "yes",
-        "bridge:name": "Batavus Droogstoppelbrug",
-        "highway": "residential",
-        "layer": "1",
-        "lit": "yes",
-        "loc_ref": "111",
-        "maxspeed": "30",
-        "maxweight": "3.5",
-        "name": "Lauriergracht",
-        "sidewalk": "both",
-        "smoothness": "intermediate",
-        "surface": "paving_stones",
-        "wikidata": "Q37298501",
-        "wikimedia_commons": "Category:Brug 111, Batavus Droogstoppelbrug",
-        "wikipedia": "nl:Batavus Droogstoppelbrug"
-      }
-    },
-    {
-      "type": "way",
-      "id": 222141844,
-      "bounds": {
-        "minlat": 52.3688095,
-        "minlon": 4.8781235,
-        "maxlat": 52.3688367,
-        "maxlon": 4.8782427
-      },
-      "nodes": [
-        3301116267,
-        5830440708
-      ],
-      "geometry": [
-        {
-          "lat": 52.3688367,
-          "lon": 4.8782427
-        },
-        {
-          "lat": 52.3688095,
-          "lon": 4.8781235
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lanes": "2",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Elandsgracht",
-        "smoothness": "intermediate",
-        "surface": "paving_stones",
-        "traffic_sign": "NL:A01-30-ZB"
-      }
-    },
-    {
-      "type": "way",
-      "id": 295433959,
-      "bounds": {
-        "minlat": 52.3688095,
-        "minlon": 4.8779509,
-        "maxlat": 52.368859,
-        "maxlon": 4.8781235
-      },
-      "nodes": [
-        5830440708,
-        3301087367,
-        5830440711,
-        5830440691,
-        2303692258
-      ],
-      "geometry": [
-        {
-          "lat": 52.3688095,
-          "lon": 4.8781235
-        },
-        {
-          "lat": 52.3688276,
-          "lon": 4.8780606
-        },
-        {
-          "lat": 52.3688393,
-          "lon": 4.8780202
-        },
-        {
-          "lat": 52.3688497,
-          "lon": 4.8779848
-        },
-        {
-          "lat": 52.368859,
-          "lon": 4.8779509
-        }
-      ],
-      "tags": {
-        "cycleway:right": "shared_lane",
-        "highway": "residential",
-        "lanes": "1",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Elandsgracht",
-        "oneway": "yes",
-        "smoothness": "good",
-        "surface": "asphalt",
-        "traffic_sign": "NL:A01-30-ZB"
-      }
-    },
-    {
-      "type": "way",
-      "id": 616811043,
-      "bounds": {
-        "minlat": 52.3688406,
-        "minlon": 4.8778694,
-        "maxlat": 52.368859,
-        "maxlon": 4.8779509
-      },
-      "nodes": [
-        2303692258,
-        5830440690,
-        2311168469
-      ],
-      "geometry": [
-        {
-          "lat": 52.368859,
-          "lon": 4.8779509
-        },
-        {
-          "lat": 52.3688524,
-          "lon": 4.8779224
-        },
-        {
-          "lat": 52.3688406,
-          "lon": 4.8778694
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lanes": "1",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Elandsgracht",
-        "oneway": "yes",
-        "smoothness": "good",
-        "surface": "asphalt",
-        "traffic_sign": "NL:A01-30-ZB"
-      }
-    },
-    {
-      "type": "way",
-      "id": 672919487,
-      "bounds": {
-        "minlat": 52.3705875,
-        "minlon": 4.8772886,
-        "maxlat": 52.37118,
-        "maxlon": 4.8795497
-      },
-      "nodes": [
-        46381685,
-        46384251
-      ],
-      "geometry": [
-        {
-          "lat": 52.3705875,
-          "lon": 4.8772886
-        },
-        {
-          "lat": 52.37118,
-          "lon": 4.8795497
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Lauriergracht",
-        "oneway": "yes",
-        "oneway:bicycle": "yes",
-        "sidewalk": "left",
-        "surface": "paving_stones",
-        "width": "2.5"
-      }
-    },
-    {
-      "type": "way",
-      "id": 846948166,
-      "bounds": {
-        "minlat": 52.3704415,
-        "minlon": 4.8775279,
-        "maxlat": 52.3704937,
-        "maxlon": 4.8777236
-      },
-      "nodes": [
-        7903143016,
-        7903143014
-      ],
-      "geometry": [
-        {
-          "lat": 52.3704415,
-          "lon": 4.8775279
-        },
-        {
-          "lat": 52.3704937,
-          "lon": 4.8777236
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lit": "yes",
-        "maxspeed": "30",
-        "maxweight": "3.5",
-        "name": "Lauriergracht",
-        "oneway": "no",
-        "sidewalk": "right",
-        "surface": "paving_stones",
-        "width": "2.75"
-      }
-    },
-    {
-      "type": "way",
-      "id": 1115176507,
-      "bounds": {
-        "minlat": 52.3704937,
-        "minlon": 4.8777236,
-        "maxlat": 52.3710087,
-        "maxlon": 4.8796685
-      },
-      "nodes": [
-        7903143014,
-        7903143015,
-        7903143013,
-        7903143011,
-        7903143012,
-        7903117847,
-        46383464
-      ],
-      "geometry": [
-        {
-          "lat": 52.3704937,
-          "lon": 4.8777236
-        },
-        {
-          "lat": 52.3705527,
-          "lon": 4.8779303
-        },
-        {
-          "lat": 52.3706341,
-          "lon": 4.8782436
-        },
-        {
-          "lat": 52.3706405,
-          "lon": 4.8782618
-        },
-        {
-          "lat": 52.3707143,
-          "lon": 4.8785451
-        },
-        {
-          "lat": 52.3709976,
-          "lon": 4.8796308
-        },
-        {
-          "lat": 52.3710087,
-          "lon": 4.8796685
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lit": "yes",
-        "maxspeed": "30",
-        "maxweight": "3.5",
-        "name": "Lauriergracht",
-        "oneway": "no",
-        "sidewalk": "right",
-        "surface": "paving_stones",
-        "width": "2.5"
-      }
-    },
-    {
-      "type": "way",
-      "id": 1268207857,
-      "bounds": {
-        "minlat": 52.3687286,
-        "minlon": 4.877954,
-        "maxlat": 52.3688095,
-        "maxlon": 4.8781235
-      },
-      "nodes": [
-        3301087365,
-        7476579097,
-        5830440692,
-        2311168459,
-        5830440712,
-        5830440717,
-        5830440708
-      ],
-      "geometry": [
-        {
-          "lat": 52.3687286,
-          "lon": 4.877954
-        },
-        {
-          "lat": 52.3687341,
-          "lon": 4.8779749
-        },
-        {
-          "lat": 52.3687458,
-          "lon": 4.8780192
-        },
-        {
-          "lat": 52.3687541,
-          "lon": 4.878052
-        },
-        {
-          "lat": 52.3687606,
-          "lon": 4.8780753
-        },
-        {
-          "lat": 52.3687793,
-          "lon": 4.8780938
-        },
-        {
-          "lat": 52.3688095,
-          "lon": 4.8781235
-        }
-      ],
-      "tags": {
-        "cycleway:right": "shared_lane",
-        "highway": "residential",
-        "lanes": "1",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Elandsgracht",
-        "oneway": "yes",
-        "smoothness": "good",
-        "surface": "asphalt",
-        "traffic_sign": "NL:A01-30-ZB"
       }
     },
     {
@@ -40753,403 +45445,6 @@
         "waterway": "canal",
         "wikidata": "Q2623129",
         "wikipedia": "nl:Herengracht (Amsterdam)"
-      }
-    },
-    {
-      "type": "way",
-      "id": 7372618,
-      "bounds": {
-        "minlat": 52.36885,
-        "minlon": 4.8783468,
-        "maxlat": 52.3700923,
-        "maxlon": 4.8824497
-      },
-      "nodes": [
-        3301117463,
-        2311168473,
-        5830440689,
-        46373371,
-        46374243,
-        46375985,
-        10863737618,
-        10863737615,
-        1069444550,
-        11778780899,
-        46379144
-      ],
-      "geometry": [
-        {
-          "lat": 52.3688641,
-          "lon": 4.8783468
-        },
-        {
-          "lat": 52.3688534,
-          "lon": 4.8784759
-        },
-        {
-          "lat": 52.36885,
-          "lon": 4.8785611
-        },
-        {
-          "lat": 52.3689972,
-          "lon": 4.8790199
-        },
-        {
-          "lat": 52.3691597,
-          "lon": 4.8795343
-        },
-        {
-          "lat": 52.3695316,
-          "lon": 4.8806748
-        },
-        {
-          "lat": 52.3697642,
-          "lon": 4.881385
-        },
-        {
-          "lat": 52.369813,
-          "lon": 4.8815336
-        },
-        {
-          "lat": 52.3700834,
-          "lon": 4.8823383
-        },
-        {
-          "lat": 52.3700923,
-          "lon": 4.8824008
-        },
-        {
-          "lat": 52.3700913,
-          "lon": 4.8824497
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lane_markings": "no",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Elandsgracht",
-        "oneway": "yes",
-        "surface": "paving_stones",
-        "traffic_sign": "NL:A01-30-ZB"
-      }
-    },
-    {
-      "type": "way",
-      "id": 7372628,
-      "bounds": {
-        "minlat": 52.3688641,
-        "minlon": 4.8783468,
-        "maxlat": 52.3702527,
-        "maxlon": 4.882463
-      },
-      "nodes": [
-        46380093,
-        1069444493,
-        46376972,
-        251769534,
-        1724414489,
-        5830440688,
-        2311168475,
-        3301117463
-      ],
-      "geometry": [
-        {
-          "lat": 52.3702527,
-          "lon": 4.882463
-        },
-        {
-          "lat": 52.37023,
-          "lon": 4.8823293
-        },
-        {
-          "lat": 52.369657,
-          "lon": 4.8805935
-        },
-        {
-          "lat": 52.3694877,
-          "lon": 4.8800603
-        },
-        {
-          "lat": 52.3694844,
-          "lon": 4.8800505
-        },
-        {
-          "lat": 52.3689703,
-          "lon": 4.8784772
-        },
-        {
-          "lat": 52.3689313,
-          "lon": 4.8784248
-        },
-        {
-          "lat": 52.3688641,
-          "lon": 4.8783468
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lane_markings": "no",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Elandsgracht",
-        "oneway": "yes",
-        "smoothness": "intermediate",
-        "surface": "paving_stones",
-        "traffic_sign": "NL:A01-30-ZB"
-      }
-    },
-    {
-      "type": "way",
-      "id": 7372658,
-      "bounds": {
-        "minlat": 52.3739662,
-        "minlon": 4.8770553,
-        "maxlat": 52.3753439,
-        "maxlon": 4.8833716
-      },
-      "nodes": [
-        46404331,
-        11492013304,
-        368544186,
-        46403916,
-        46401914,
-        46399891,
-        1256558558,
-        7904377346,
-        46397480
-      ],
-      "geometry": [
-        {
-          "lat": 52.3753284,
-          "lon": 4.8833716
-        },
-        {
-          "lat": 52.3753439,
-          "lon": 4.8832991
-        },
-        {
-          "lat": 52.3753431,
-          "lon": 4.8832094
-        },
-        {
-          "lat": 52.3753003,
-          "lon": 4.8829651
-        },
-        {
-          "lat": 52.3748818,
-          "lon": 4.8811063
-        },
-        {
-          "lat": 52.3744499,
-          "lon": 4.8792074
-        },
-        {
-          "lat": 52.3739859,
-          "lon": 4.8771745
-        },
-        {
-          "lat": 52.3739716,
-          "lon": 4.8770988
-        },
-        {
-          "lat": 52.3739662,
-          "lon": 4.8770553
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lane_markings": "no",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Bloemgracht",
-        "oneway": "yes",
-        "sidewalk": "right",
-        "surface": "paving_stones",
-        "zone:maxspeed": "NL:30"
-      }
-    },
-    {
-      "type": "way",
-      "id": 7372732,
-      "bounds": {
-        "minlat": 52.3710087,
-        "minlon": 4.8796685,
-        "maxlat": 52.3717496,
-        "maxlon": 4.8825992
-      },
-      "nodes": [
-        46383464,
-        7903117848,
-        46385483,
-        331098437,
-        451946454
-      ],
-      "geometry": [
-        {
-          "lat": 52.3710087,
-          "lon": 4.8796685
-        },
-        {
-          "lat": 52.3710271,
-          "lon": 4.8797317
-        },
-        {
-          "lat": 52.3714745,
-          "lon": 4.8814488
-        },
-        {
-          "lat": 52.3717487,
-          "lon": 4.8825022
-        },
-        {
-          "lat": 52.3717496,
-          "lon": 4.8825992
-        }
-      ],
-      "tags": {
-        "highway": "residential",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Lauriergracht",
-        "oneway": "yes",
-        "oneway:bicycle": "yes",
-        "sidewalk": "right",
-        "surface": "paving_stones",
-        "width": "2.5",
-        "zone:maxspeed": "NL:30"
-      }
-    },
-    {
-      "type": "way",
-      "id": 7372751,
-      "bounds": {
-        "minlat": 52.37118,
-        "minlon": 4.8795497,
-        "maxlat": 52.3719627,
-        "maxlon": 4.8826244
-      },
-      "nodes": [
-        46387813,
-        7903117816,
-        10863657198,
-        10863657197,
-        46386454,
-        46384251
-      ],
-      "geometry": [
-        {
-          "lat": 52.3719627,
-          "lon": 4.8826244
-        },
-        {
-          "lat": 52.3719567,
-          "lon": 4.8825442
-        },
-        {
-          "lat": 52.3717473,
-          "lon": 4.8817288
-        },
-        {
-          "lat": 52.3716969,
-          "lon": 4.8815414
-        },
-        {
-          "lat": 52.3716429,
-          "lon": 4.8813344
-        },
-        {
-          "lat": 52.37118,
-          "lon": 4.8795497
-        }
-      ],
-      "tags": {
-        "cycleway:right": "no",
-        "highway": "residential",
-        "lane_markings": "no",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Lauriergracht",
-        "oneway": "yes",
-        "oneway:bicycle": "yes",
-        "surface": "paving_stones",
-        "zone:maxspeed": "NL:30"
-      }
-    },
-    {
-      "type": "way",
-      "id": 7373005,
-      "bounds": {
-        "minlat": 52.3737765,
-        "minlon": 4.8770103,
-        "maxlat": 52.3751272,
-        "maxlon": 4.8831752
-      },
-      "nodes": [
-        46396601,
-        1318860561,
-        7904377348,
-        1594731635,
-        1594731646,
-        46398982,
-        46401214,
-        368542169,
-        11492013293,
-        46402974
-      ],
-      "geometry": [
-        {
-          "lat": 52.3737765,
-          "lon": 4.8770103
-        },
-        {
-          "lat": 52.3737765,
-          "lon": 4.8770567
-        },
-        {
-          "lat": 52.3737804,
-          "lon": 4.8771128
-        },
-        {
-          "lat": 52.3739005,
-          "lon": 4.8776702
-        },
-        {
-          "lat": 52.3739761,
-          "lon": 4.87801
-        },
-        {
-          "lat": 52.3742668,
-          "lon": 4.8793156
-        },
-        {
-          "lat": 52.3747078,
-          "lon": 4.8812081
-        },
-        {
-          "lat": 52.3751272,
-          "lon": 4.8830633
-        },
-        {
-          "lat": 52.3751256,
-          "lon": 4.8831175
-        },
-        {
-          "lat": 52.3751095,
-          "lon": 4.8831752
-        }
-      ],
-      "tags": {
-        "cycleway:both": "no",
-        "highway": "residential",
-        "lane_markings": "no",
-        "lit": "yes",
-        "maxspeed": "30",
-        "name": "Bloemgracht",
-        "oneway": "yes",
-        "sidewalk": "right",
-        "surface": "paving_stones",
-        "zone:maxspeed": "NL:30"
       }
     },
     {

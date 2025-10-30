@@ -1169,11 +1169,20 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
     try:
         logger.info(f"Processing {len(realworks_df)} Realworks records for top 15 matches")
         
-        # CRITICAL: Fill missing sale_price with ask_price
+        # CRITICAL: Fill missing/zero sale_price with ask_price when available
         if 'sale_price' in realworks_df.columns and 'ask_price' in realworks_df.columns:
             missing_count = realworks_df['sale_price'].isna().sum()
             realworks_df['sale_price'] = realworks_df['sale_price'].fillna(realworks_df['ask_price'])
-            logger.info(f"Filled {missing_count} missing sale_price values with ask_price")
+            # Also replace non-positive sale prices with ask_price if ask_price > 0
+            try:
+                mask_non_positive = (realworks_df['sale_price'].fillna(0) <= 0) & (realworks_df['ask_price'].fillna(0) > 0)
+                replaced_count = int(mask_non_positive.sum())
+                realworks_df.loc[mask_non_positive, 'sale_price'] = realworks_df.loc[mask_non_positive, 'ask_price']
+                if replaced_count > 0:
+                    logger.info(f"Replaced {replaced_count} non-positive sale_price values with ask_price")
+            except Exception as _:
+                # Be tolerant if columns are not numeric yet
+                pass
         
         # CRITICAL: Remove duplicates by normalizing addresses (case-insensitive, strip whitespace)
         realworks_df['address_normalized'] = realworks_df['address_full'].str.lower().str.strip()
@@ -1219,7 +1228,7 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
         realworks_df['match_priority'] = 2  # Consistent score for all
         realworks_df['final_score'] = realworks_df['similarity_score']
         
-        # Filter out reference property (address with same house number)
+        # Filter out reference property (exact same unit incl. suffix, e.g., "364-3" vs "364-1")
         before_ref_filter = len(realworks_df)
         if 'address_full' in realworks_df.columns:
             ref_address = reference_data.get('address_full', '').strip()
@@ -1227,21 +1236,23 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
                 realworks_df['address_normalized'] = realworks_df['address_full'].str.lower().str.strip()
                 ref_address_normalized = ref_address.lower().strip()
                 
-                # Extract street name and house number (e.g., "eerste laurierdwarsstraat 18")
+                # Extract street and full house token (number + optional suffix like "-3", " III", "A", "hs") from the first part before comma
                 import re
-                ref_match = re.match(r'^(.+?)\s+(\d+)', ref_address_normalized)
+                ref_first_part = ref_address_normalized.split(',')[0].strip()
+                ref_match = re.match(r'^(.+?)\s+(\d[^,]*)$', ref_first_part)
                 if ref_match:
-                    ref_street = ref_match.group(1).strip()
-                    ref_number = ref_match.group(2).strip()
-                    
-                    # Filter out any property on the same street with the same house number
-                    # This catches "18 B" when reference is "18"
+                    ref_street = re.sub(r'\s+', ' ', ref_match.group(1).strip())
+                    ref_house_token = re.sub(r'\s+', ' ', ref_match.group(2).strip())
+                    street_esc = re.escape(ref_street)
+                    house_esc = re.escape(ref_house_token)
+                    pattern = re.compile(rf'^{street_esc}\s+{house_esc}(?:\s|,|$)')
+                    # Mark only exact same unit as reference
                     realworks_df['is_ref_property'] = realworks_df['address_normalized'].apply(
-                        lambda addr: bool(re.match(rf'^{re.escape(ref_street)}\s+{ref_number}', addr))
+                        lambda addr: bool(pattern.match(addr.split(',')[0].strip()))
                     )
                     realworks_df = realworks_df[~realworks_df['is_ref_property']]
                     after_ref_filter = len(realworks_df)
-                    logger.info(f"After reference filter: {after_ref_filter} records (removed {before_ref_filter - after_ref_filter} properties on '{ref_street}' with house number '{ref_number}')")
+                    logger.info(f"After reference filter: {after_ref_filter} records (removed {before_ref_filter - after_ref_filter} properties matching exact unit '{ref_street} {ref_house_token}')")
                 else:
                     # Fallback: exact match only
                     realworks_df = realworks_df[realworks_df['address_normalized'] != ref_address_normalized]

@@ -64,7 +64,8 @@ def create_comparison_table(house_data: dict, reference_data: dict = None) -> Ta
     # Prepare data
     data = [
         ['Eigenschap', 'Referentie', 'Huidig pand'],
-        ['Adres', ref_data.get('address_full', 'Onbekend'), house_data['address']],
+        ['Adres', extract_street_and_number(ref_data.get('address_full', 'Onbekend')),
+         extract_street_and_number(house_data['address'])],
         ['Verkoopprijs', 'Onbekend', f"€{house_data['sale_price']:,.0f}" if house_data['sale_price'] > 0 else 'Onbekend'],
         ['Oppervlakte (m²)', f"{ref_data.get('area_m2', 0)}", f"{int(house_data['area_m2'])}" if house_data['area_m2'] > 0 else 'Onbekend'],
         ['Kamers', f"{ref_data.get('rooms', 0)}", f"{int(house_data['rooms'])}" if house_data['rooms'] > 0 else 'Onbekend'],
@@ -228,21 +229,30 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             story.append(Spacer(1, 20))
             
             # Calculate and show advice price (ONLY using TOP 10!)
-            valid_prices = []
+            # Compute weighted average price per m² using match score as weight
+            price_weights = []  # list of tuples (price_per_m2, weight)
             top10_df = top15_df.head(10)  # Only use top 10 for price calculation
             for i, row in top10_df.iterrows():
                 sale_price = row.get('rw_sale_price', 0)
                 area_m2 = row.get('rw_area_m2', 0)
-                if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0:
-                    valid_prices.append(sale_price / area_m2)
+                score = row.get('final_score', 0)
+                if pd.notna(sale_price) and sale_price > 0 and pd.notna(area_m2) and area_m2 > 0 and pd.notna(score) and score > 0:
+                    price_per_m2 = sale_price / area_m2
+                    price_weights.append((price_per_m2, float(score)))
             
-            if valid_prices:
-                avg_price = sum(valid_prices) / len(valid_prices)
+            avg_price = 0
+            if price_weights:
+                total_weight = sum(w for _, w in price_weights)
+                if total_weight > 0:
+                    avg_price = sum(p * w for p, w in price_weights) / total_weight
+                else:
+                    # Fallback to simple mean if weights sum to zero
+                    avg_price = sum(p for p, _ in price_weights) / len(price_weights)
                 area_m2_ref = reference_data.get('area_m2', 100) if isinstance(reference_data, dict) else 100
                 if isinstance(area_m2_ref, (int, float)) and area_m2_ref > 0:
                     advice_price = avg_price * area_m2_ref
                     story.append(Paragraph(f"<b>BEREKENDE ADVIESPRIJS: €{advice_price:,.0f}</b>", subtitle_style))
-                    story.append(Paragraph(f"(Gebaseerd op TOP 10: Gem. prijs per m²: €{avg_price:,.0f} × {area_m2_ref:.0f}m²)", styles['Normal']))
+                    story.append(Paragraph(f"(Gebaseerd op TOP 10, gewogen op match score: Gem. prijs per m²: €{avg_price:,.0f} × {area_m2_ref:.0f}m²)", styles['Normal']))
                     story.append(Spacer(1, 20))
         
         # Overview table

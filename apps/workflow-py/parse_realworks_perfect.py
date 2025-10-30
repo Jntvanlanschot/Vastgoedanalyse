@@ -176,14 +176,28 @@ def parse_realworks_property(text: str) -> Dict[str, Any]:
     if 'Elandsgracht 103 A' in record['address_full']:
         print(f"DEBUG: Parsing {record['address_full']}")
     
-    # Financial information
-    sale_price_match = re.search(r'Transactieprijs.*?€\s?([\d\.\,]+)', text, re.IGNORECASE)
-    if sale_price_match:
-        record['sale_price'] = parse_currency(sale_price_match.group(1))
+    # Financial information: ONLY use Transactieprijs (final sold price)
+    sale_price = None
+    # Accept forms like: "Transactieprijs: € 525.000,-" or "Transactie prijs €525.000"
+    m = re.search(r'Transactie\s*prijs\s*:?[\s\-–]*€?\s*([\d\.\,]+)', text, re.IGNORECASE)
+    if m:
+        sale_price = parse_currency(m.group(1))
+    if sale_price is not None:
+        record['sale_price'] = sale_price
     
-    ask_price_match = re.search(r'Vraagprijs.*?€\s?([\d\.\,]+)', text, re.IGNORECASE)
-    if ask_price_match:
-        record['ask_price'] = parse_currency(ask_price_match.group(1))
+    # Ask price variants (Vraagprijs / bieden vanaf)
+    ask_labels = [
+        r'Vraag\s*prijs', r'Vraagprijs', r'Bieden\s*va?n?af', r'Vraagprijs\s*bieden\s*va?n?af'
+    ]
+    ask_price = None
+    for label in ask_labels:
+        m = re.search(fr'{label}[^\d€]*€?\s*([\d\.\,]+)', text, re.IGNORECASE)
+        if m:
+            ask_price = parse_currency(m.group(1))
+            if ask_price:
+                break
+    if ask_price is not None:
+        record['ask_price'] = ask_price
     
     # Dates
     transport_match = re.search(r'Transport\s+datum.*?(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', text, re.IGNORECASE)

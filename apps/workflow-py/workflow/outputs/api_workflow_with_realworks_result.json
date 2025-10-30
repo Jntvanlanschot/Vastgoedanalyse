@@ -1,6 +1,6 @@
 {
   "status": "error",
-  "message": "local variable 'pdf_file' referenced before assignment",
+  "message": "[Errno 2] No such file or directory: 'dataset_funda-nl-scraper_2025-10-21_11-18-05-402.csv'",
   "step1_result": null,
   "step2_result": null,
   "step3_result": null,

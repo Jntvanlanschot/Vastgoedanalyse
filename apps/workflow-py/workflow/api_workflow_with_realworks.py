@@ -451,13 +451,13 @@ def analyze_csv_data(csv_df, reference_data):
 
 def main():
     """Main function for command line usage."""
-    if len(sys.argv) < 8:
-        print("Usage: python api_workflow_with_realworks.py <reference_data.json> <csv_file_path> <realworks_file_1> <realworks_file_2> <realworks_file_3> <realworks_file_4> <realworks_file_5>")
+    if len(sys.argv) < 4:
+        print("Usage: python api_workflow_with_realworks.py <reference_data.json> <csv_file_path> <realworks_file_1> [<realworks_file_2> ...]")
         sys.exit(1)
     
     reference_file = sys.argv[1]
     csv_file_path = sys.argv[2]
-    realworks_files = sys.argv[3:8]  # Get 5 Realworks files
+    realworks_files = sys.argv[3:]  # Accept 1 or more Realworks files
     
     try:
         # Load reference data
