@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { cityToSlug, slugifyStreetName } from '@/lib/funda/slug';
 
+// Increase max duration for long-running Funda scraper (5 minutes)
+// Funda scraper can take 1-2 minutes, so we need Pro plan timeout
+export const maxDuration = 300;
+
 interface ApifyRunResponse {
   data: {
     id: string;
