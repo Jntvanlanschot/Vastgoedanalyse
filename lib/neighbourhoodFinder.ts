@@ -99,7 +99,8 @@ export function generateFundaConfig(closestWijken: string[]) {
  */
 export async function processAddressForFunda(address: string): Promise<any> {
   try {
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    // Support both NEXT_PUBLIC_ (for client-side) and server-side versions
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
       throw new Error('Google Maps API key not configured');

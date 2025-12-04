@@ -53,8 +53,9 @@ async function runHouseAnalysisWithRealworks(
     console.log('Realworks files:', realworksFiles);
 
     // Spawn Python process with all file paths
-    // Use 'python' on Windows, 'python3' on Unix
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    // Use 'python' on Windows locally, 'python3' on Unix/Vercel
+    // On Vercel, always use python3
+    const pythonCmd = process.env.VERCEL ? 'python3' : (process.platform === 'win32' ? 'python' : 'python3');
     
     // Build command arguments - use absolute paths for file arguments
     const args = [

@@ -61,7 +61,7 @@ def process_realworks_files_from_args(realworks_files):
             if file_path_obj.exists():
                 if file_path.endswith('.rtf'):
                     properties = parse_rtf_file(file_path_obj)
-                    all_properties.extend(properties)
+                all_properties.extend(properties)
                     logger.info(f"Parsed RTF {file_path}: {len(properties)} properties")
                 elif file_path.endswith('.pdf'):
                     try:
@@ -193,27 +193,27 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
         has_csv_data = len(csv_df) > 0 and not (len(csv_df.columns) == 2 and len(csv_df) == 0)
         
         if has_csv_data and len(csv_df) > 0:
-            # Step 1: Fetch street similarity data using Overpass API FIRST
-            logger.info("STEP 1: Fetching street similarity data from Overpass API...")
-            street_similarity_cache = fetch_street_similarity_data(reference_data, csv_df)
-            # Don't include street_similarity_cache in result - contains non-serializable StreetProfile objects
-            step1_result = {
-                "status": "success",
-                "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets"
-            }
-            
-            # Step 2: Process the CSV data to find top streets using Algorithm 1
+        # Step 1: Fetch street similarity data using Overpass API FIRST
+        logger.info("STEP 1: Fetching street similarity data from Overpass API...")
+        street_similarity_cache = fetch_street_similarity_data(reference_data, csv_df)
+        # Don't include street_similarity_cache in result - contains non-serializable StreetProfile objects
+        step1_result = {
+            "status": "success",
+            "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets"
+        }
+        
+        # Step 2: Process the CSV data to find top streets using Algorithm 1
             # NOTE: These top streets are calculated for display purposes, but Realworks data is NOT filtered by them
-            logger.info("STEP 2: Processing reference address and selecting top streets from CSV...")
+        logger.info("STEP 2: Processing reference address and selecting top streets from CSV...")
             top_streets = process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache)
-            
-            step2_result = {
-                "status": "success",
+        
+        step2_result = {
+            "status": "success",
                 "message": f"Found reference street + {len(top_streets)-1} other similar streets",
                 "top_5_streets": top_streets,  # Keep the same key name for compatibility (but now contains 10 streets)
-                "total_funda_records": len(csv_df)
-            }
-            
+            "total_funda_records": len(csv_df)
+        }
+        
             logger.info(f"Step 2 completed: Found reference street + {len(top_streets)-1} other streets (Total: {len(top_streets)} streets)")
             logger.info(f"NOTE: Top streets are for display only - Realworks data will NOT be filtered by these streets")
         else:
