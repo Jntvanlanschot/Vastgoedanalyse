@@ -98,7 +98,7 @@ def create_comparison_table(house_data: dict, reference_data: dict = None) -> Ta
         ['Eigenschap', 'Referentie', 'Huidig pand'],
         ['Adres', extract_street_and_number(ref_data.get('address_full', 'Onbekend')),
          extract_street_and_number(house_data['address'])],
-        ['Verkoopprijs', 'Onbekend', f"€{house_data['sale_price']:,.0f}" if house_data['sale_price'] > 0 else 'Onbekend'],
+        ['Verkoopprijs', 'Onbekend', f"€ {house_data['sale_price']:,.0f}" if house_data['sale_price'] > 0 else 'Onbekend'],
         ['Verkoopdatum', 'Onbekend', house_data.get('sale_date', 'Onbekend') if house_data.get('sale_date') and str(house_data.get('sale_date')) != 'nan' else 'Onbekend'],
         ['Oppervlakte (m²)', f"{ref_data.get('area_m2', 0)}", f"{int(house_data['area_m2'])}" if house_data['area_m2'] > 0 else 'Onbekend'],
         ['Kamers', f"{ref_data.get('rooms', 0)}", f"{int(house_data['rooms'])}" if house_data['rooms'] > 0 else 'Onbekend'],
@@ -529,19 +529,19 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
                             Paragraph("<b>Optimistisch</b>", ParagraphStyle('PriceHeader', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER))
                         ],
                         [
-                            Paragraph(f"€{conservative_price:,.0f}", 
+                            Paragraph(f"€ {conservative_price:,.0f}", 
                                      ParagraphStyle('PriceValue', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#1F2937'), alignment=TA_CENTER)),
-                            Paragraph(f"€{neutral_price:,.0f}", 
+                            Paragraph(f"€ {neutral_price:,.0f}", 
                                      ParagraphStyle('PriceValue', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#1F2937'), alignment=TA_CENTER)),
-                            Paragraph(f"€{optimistic_price:,.0f}", 
+                            Paragraph(f"€ {optimistic_price:,.0f}", 
                                      ParagraphStyle('PriceValue', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#1F2937'), alignment=TA_CENTER))
                         ],
                         [
-                            Paragraph(f"€{conservative_price_per_m2:,.0f}/m²", 
+                            Paragraph(f"€ {conservative_price_per_m2:,.0f}/m²", 
                                      ParagraphStyle('PricePerM2', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#6B7280'), alignment=TA_CENTER)),
-                            Paragraph(f"€{avg_price:,.0f}/m²", 
+                            Paragraph(f"€ {avg_price:,.0f}/m²", 
                                      ParagraphStyle('PricePerM2', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#6B7280'), alignment=TA_CENTER)),
-                            Paragraph(f"€{optimistic_price_per_m2:,.0f}/m²", 
+                            Paragraph(f"€ {optimistic_price_per_m2:,.0f}/m²", 
                                      ParagraphStyle('PricePerM2', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#6B7280'), alignment=TA_CENTER))
                         ]
                     ]
@@ -590,7 +590,7 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
                 comp_label = row.get('rw_energy_label', 'Unknown')
                 corrected_price = correct_price_for_energy_label(sale_price, comp_label, ref_label)
                 price_per_m2 = corrected_price / area_m2
-                price_display = f"€{price_per_m2:,.0f}"
+                price_display = f"€ {price_per_m2:,.0f}"
             else:
                 price_display = 'Onbekend'
             
@@ -760,14 +760,14 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             # Price per m² analysis
             if house_data['sale_price'] > 0 and house_data['area_m2'] > 0:
                 price_per_m2 = house_data['sale_price'] / house_data['area_m2']
-                story.append(Paragraph(f"<b>Prijs per m²:</b> €{price_per_m2:,.0f}", styles['Normal']))
+                story.append(Paragraph(f"<b>Prijs per m²:</b> € {price_per_m2:,.0f}", styles['Normal']))
                 
                 # Compare with reference property
                 if reference_data and isinstance(reference_data, dict) and reference_data.get('area_m2', 0) > 0:
                     area_m2 = reference_data.get('area_m2', 0)
                     if isinstance(area_m2, (int, float)) and area_m2 > 0:
                         estimated_value = price_per_m2 * area_m2
-                        story.append(Paragraph(f"<b>Geschatte waarde referentie woning:</b> €{estimated_value:,.0f}", styles['Normal']))
+                        story.append(Paragraph(f"<b>Geschatte waarde referentie woning:</b> € {estimated_value:,.0f}", styles['Normal']))
             
             # End of first page (property info)
             story.append(PageBreak())
