@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import json
+from io import BytesIO
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -162,11 +163,14 @@ def parse_realworks_property(text: str) -> Dict[str, Any]:
         'notes': None
     }
     
-    # Extract address (first bold line) - FIXED to allow "11 1" style addresses
-    address_match = re.search(r'([A-Za-zÀ-ÿ\.\-\' ]+)\s+(\d+(\s+[A-Za-z0-9]+)?),\s*(\d{4}\s?[A-Z]{2})\s+([A-Za-z ]+)', text)
+    # Extract address (first bold line) - FIXED to allow "11 1" style addresses and "40-2" style
+    # Support both space and dash separators: "40-2", "40 2", "17 4", etc.
+    address_match = re.search(r'([A-Za-zÀ-ÿ\.\-\' ]+)\s+(\d+([\s\-]+[A-Za-z0-9]+)?),\s*(\d{4}\s?[A-Z]{2})\s+([A-Za-z ]+)', text)
     if address_match:
         street, house_num, _, postal, city = address_match.groups()
-        record['address_full'] = f"{street} {house_num}, {postal} {city}"
+        # Clean city: remove "Verkocht In verkoop genomen Vraagprijs" and similar status text
+        city_clean = re.sub(r'\s*(Verkocht|In verkoop genomen|Vraagprijs|Prijs op aanvraag).*$', '', city, flags=re.IGNORECASE).strip()
+        record['address_full'] = f"{street} {house_num}, {postal} {city_clean}"
         record['street'] = street.strip()
         record['house_number'] = house_num.strip()
         record['postal_code'] = postal.replace(' ', '')
@@ -200,9 +204,18 @@ def parse_realworks_property(text: str) -> Dict[str, Any]:
         record['ask_price'] = ask_price
     
     # Dates
+    # Verkoopdatum (sale date) - try multiple patterns
+    sale_date_match = re.search(r'Verkoop\s*datum.*?(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', text, re.IGNORECASE)
+    if sale_date_match:
+        record['sale_date'] = parse_date(sale_date_match.group(1))
+    
     transport_match = re.search(r'Transport\s+datum.*?(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', text, re.IGNORECASE)
     if transport_match:
-        record['transport_date'] = parse_date(transport_match.group(1))
+        transport_date = parse_date(transport_match.group(1))
+        record['transport_date'] = transport_date
+        # If sale_date is not set, use transport_date as sale_date
+        if not record['sale_date']:
+            record['sale_date'] = transport_date
     
     list_match = re.search(r'Aangemeld.*?(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', text, re.IGNORECASE)
     if list_match:
@@ -390,13 +403,14 @@ def parse_rtf_file(file_path: Path) -> List[Dict[str, Any]]:
     return properties
 
 def parse_directory(rtf_dir: Path, output_csv: Path) -> pd.DataFrame:
-    """Parse all RTF files in directory and create CSV."""
+    """Parse all RTF, PDF, and MHTML files in directory and create CSV."""
     
     if not rtf_dir.exists():
         logger.error(f"Directory {rtf_dir} does not exist")
         return pd.DataFrame()
     
     all_properties = []
+    property_images_map = {}
     
     # Find all RTF files
     rtf_files = list(rtf_dir.glob("*.rtf"))
@@ -406,9 +420,71 @@ def parse_directory(rtf_dir: Path, output_csv: Path) -> pd.DataFrame:
         properties = parse_rtf_file(rtf_file)
         all_properties.extend(properties)
     
+    # Find all PDF files
+    try:
+        from parse_realworks_pdf import parse_pdf_file
+        pdf_files = list(rtf_dir.glob("*.pdf"))
+        logger.info(f"Found {len(pdf_files)} PDF files")
+        
+        for pdf_file in pdf_files:
+            properties = parse_pdf_file(pdf_file)
+            # Extract images from properties
+            for prop in properties:
+                if 'images' in prop and prop['images']:
+                    address = prop.get('address_full', '')
+                    if address:
+                        property_images_map[address] = prop['images']
+                        prop['image_count'] = len(prop['images'])
+                        del prop['images']
+                    else:
+                        prop['image_count'] = 0
+                else:
+                    prop['image_count'] = 0
+            all_properties.extend(properties)
+    except ImportError:
+        logger.warning("PDF parsing not available (PyMuPDF not installed)")
+    
+    # Find all MHTML files
+    try:
+        from parse_realworks_mhtml import parse_mhtml_file
+        mhtml_files = list(rtf_dir.glob("*.mhtml")) + list(rtf_dir.glob("*.mht"))
+        logger.info(f"Found {len(mhtml_files)} MHTML files")
+        
+        for mhtml_file in mhtml_files:
+            properties = parse_mhtml_file(mhtml_file)
+            # Extract images from properties
+            for prop in properties:
+                if 'images' in prop and prop['images']:
+                    address = prop.get('address_full', '')
+                    if address:
+                        property_images_map[address] = prop['images']
+                        prop['image_count'] = len(prop['images'])
+                        del prop['images']
+                    else:
+                        prop['image_count'] = 0
+                else:
+                    prop['image_count'] = 0
+            all_properties.extend(properties)
+            logger.info(f"Parsed MHTML {mhtml_file}: {len(properties)} properties")
+    except ImportError as e:
+        logger.warning(f"MHTML parsing not available: {e}")
+    
     if not all_properties:
         logger.warning("No properties found")
         return pd.DataFrame()
+    
+    # Convert images to a serializable format for CSV
+    # Store images separately, keep count in CSV
+    property_images = {}  # address_full -> list of PIL Images
+    for prop in all_properties:
+        if 'images' in prop:
+            address = prop.get('address_full', '')
+            if address:
+                property_images[address] = prop['images']
+                prop['image_count'] = len(prop['images'])
+                del prop['images']
+        else:
+            prop['image_count'] = 0
     
     # Create DataFrame
     df = pd.DataFrame(all_properties)
@@ -422,6 +498,26 @@ def parse_directory(rtf_dir: Path, output_csv: Path) -> pd.DataFrame:
     # Save to CSV
     df.to_csv(output_csv, index=False)
     logger.info(f"Saved {len(df)} records to {output_csv}")
+    
+    # Save images mapping to JSON for later use
+    if property_images:
+        import json
+        images_json = {}
+        for address, images in property_images.items():
+            # Convert PIL Images to base64 for JSON storage
+            import base64
+            images_base64 = []
+            for img in images:
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                images_base64.append(img_str)
+            images_json[address] = images_base64
+        
+        images_file = output_csv.parent / f"{output_csv.stem}_images.json"
+        with open(images_file, 'w') as f:
+            json.dump(images_json, f)
+        logger.info(f"Saved {len(images_json)} property images to {images_file}")
     
     return df
 

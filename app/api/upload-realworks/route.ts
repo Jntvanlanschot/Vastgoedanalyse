@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdtemp } from 'fs/promises';
-import { rmSync, existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { rmSync, existsSync, readFileSync, statSync } from 'fs';
+import { join, relative } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
+
+// Increase max duration for long-running Python workflows (5 minutes)
+export const maxDuration = 300;
 
 function extractStreetName(address: string): string {
   try {
@@ -42,21 +45,33 @@ async function runHouseAnalysisWithRealworks(
 ): Promise<WorkflowResult> {
   return new Promise((resolve) => {
     const workflowPath = join(process.cwd(), 'apps', 'workflow-py', 'workflow');
-    const pythonScript = join(workflowPath, 'api_workflow.py');
+    // Use relative path since we set cwd to workflowPath
+    const pythonScript = 'api_workflow.py';
 
     console.log('Running Algorithm 2 (house analysis) with Realworks files:', pythonScript);
     console.log('Working directory:', workflowPath);
     console.log('Realworks files:', realworksFiles);
 
     // Spawn Python process with all file paths
-    const pythonProcess = spawn('python3', [
+    // Use 'python' on Windows, 'python3' on Unix
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    
+    // Build command arguments - use absolute paths for file arguments
+    const args = [
       pythonScript,
       referenceFilePath,
       csvFilePath,
       ...realworksFiles
-    ], {
+    ];
+    
+    console.log('Python command:', pythonCmd);
+    console.log('Python script:', pythonScript);
+    console.log('Arguments:', args.slice(1).join(', '));
+    
+    const pythonProcess = spawn(pythonCmd, args, {
       cwd: workflowPath,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsVerbatimArguments: false // Let Node.js handle path escaping
     });
 
     let stdout = '';
@@ -76,7 +91,22 @@ async function runHouseAnalysisWithRealworks(
       console.log('Python stdout length:', stdout.length);
       console.log('Python stderr length:', stderr.length);
       
-      // Try to parse JSON regardless of exit code - sometimes workflow prints errors to stderr but still outputs valid JSON
+      // If Python process failed, don't use old cached results
+      if (code !== 0) {
+        console.error('Python workflow failed with exit code:', code);
+        console.error('Python stderr:', stderr);
+        resolve({
+          status: 'error',
+          message: `Python workflow failed with exit code ${code}. Error: ${stderr.substring(0, 500)}`,
+          step1_result: null,
+          step2_result: null,
+          step3_result: null,
+          step4_result: null
+        });
+        return;
+      }
+      
+      // Try to parse JSON only if process succeeded
       try {
         // Try to parse the JSON output from stderr (logger.info goes to stderr)
         let resultJson = '';
@@ -106,28 +136,79 @@ async function runHouseAnalysisWithRealworks(
         
         console.log('Extracted JSON length:', resultJson.length);
         
-        // Try to read from saved file first (most reliable)
+        // Try to read from saved file first (most reliable) - but only if process succeeded
         let result: any = {};
         const resultFile = join(process.cwd(), 'apps', 'workflow-py', 'workflow', 'outputs', 'api_workflow_result.json');
         try {
+          // First try to read from file (Python script writes it there)
+          // But only if the file is recent (within last 30 seconds) to avoid using stale data
           if (existsSync(resultFile)) {
+            const fileStats = statSync(resultFile);
+            const fileAge = Date.now() - fileStats.mtimeMs;
+            const maxAge = 30000; // 30 seconds
+            
+            if (fileAge > maxAge) {
+              console.warn(`Result file is too old (${fileAge}ms old), ignoring it`);
+              throw new Error('Result file is too old, workflow may have failed');
+            }
+            
             const fileContent = readFileSync(resultFile, 'utf-8');
             result = JSON.parse(fileContent);
-            console.log('Read result from file:', resultFile);
+            console.log('Read result from file:', resultFile, `(age: ${fileAge}ms)`);
+          } else if (resultJson) {
+            // Fallback: parse from output
+            result = JSON.parse(resultJson);
+            console.log('Parsed result from Python output');
           } else {
-            // Fallback to parsing from output
-            console.log('Result file not found, parsing from output');
-            result = JSON.parse(resultJson || '{}');
+            throw new Error('No JSON output found from Python workflow and no result file created');
           }
         } catch (fileError) {
-          console.error('Failed to read result file:', fileError);
-          result = JSON.parse(resultJson || '{}');
+          console.error('Failed to parse result:', fileError);
+          console.error('Stdout:', stdout.substring(0, 500));
+          console.error('Stderr:', stderr.substring(0, 500));
+          resolve({
+            status: 'error',
+            message: `Failed to parse workflow result: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`,
+            step1_result: null,
+            step2_result: null,
+            step3_result: null,
+            step4_result: null
+          });
+          return;
         }
         
         console.log('Parsed result status:', result.status);
         
+        // Check if workflow was successful - if status is error, fail immediately
+        if (result.status === 'error') {
+          console.error('Python workflow returned error status:', result.message);
+          resolve({
+            status: 'error',
+            message: result.message || 'Python workflow failed',
+            step1_result: result.step1_result || null,
+            step2_result: result.step2_result || null,
+            step3_result: result.step3_result || null,
+            step4_result: result.step4_result || null
+          });
+          return;
+        }
+        
         // Check if workflow was successful
         if (result.status === 'success') {
+          // Check if PDF/Excel files were actually generated
+          if (!result.summary?.pdf_file || !result.summary?.excel_file) {
+            console.error('Workflow returned success but PDF/Excel files are missing');
+            resolve({
+              status: 'error',
+              message: 'Workflow completed but reports were not generated. This may indicate a previous error.',
+              step1_result: result.step1_result || null,
+              step2_result: result.step2_result || null,
+              step3_result: result.step3_result || null,
+              step4_result: result.step4_result || null
+            });
+            return;
+          }
+          
           // Look for generated artifacts
           const artifacts: any = {};
           
@@ -196,6 +277,7 @@ export async function POST(request: NextRequest) {
     console.log('Starting Realworks file upload and workflow...');
     
     const formData = await request.formData();
+    console.log('FormData received, checking for required fields...');
     
     // Get reference data
     const referenceDataStr = formData.get('referenceData') as string;
@@ -244,19 +326,51 @@ export async function POST(request: NextRequest) {
         realworksFilePaths.push(filePath);
       }
       
-    // Get CSV data from the form data
+    // Get CSV data from the form data (optional - user may skip Funda scraper)
     const csvData = formData.get('csvData') as string;
-    if (!csvData) {
-      return NextResponse.json({ error: 'CSV data is required' }, { status: 400 });
-    }
+    let csvFilePath: string | null = null;
     
-    // Write CSV data to file
-    const csvFilePath = join(tempDir, 'funda_data.csv');
-    await writeFile(csvFilePath, csvData, 'utf8');
+    if (csvData && csvData.trim().length > 0 && csvData !== 'address_full,street_name\n') {
+      console.log('CSV data provided, length:', csvData.length);
+      csvFilePath = join(tempDir, 'funda_data.csv');
+      await writeFile(csvFilePath, csvData, 'utf8');
+      console.log('CSV file written successfully');
+    } else {
+      console.log('No CSV data provided - user skipped Funda scraper. Creating minimal CSV for workflow compatibility.');
+      // Create minimal CSV with just headers for workflow compatibility
+      csvFilePath = join(tempDir, 'funda_data.csv');
+      await writeFile(csvFilePath, 'address_full,street_name\n', 'utf8');
+      console.log('Created minimal CSV file for workflow compatibility');
+    }
       
     console.log('Reference file:', referenceFilePath);
     console.log('CSV file:', csvFilePath);
     console.log('Realworks files:', realworksFilePaths);
+    
+    // Delete ALL old result files to prevent using stale data
+    // Note: New files use "Taxatierapport [adres]" naming, but we also clean up old naming
+    const outputsDir = join(process.cwd(), 'apps', 'workflow-py', 'workflow', 'outputs');
+    const filesToDelete = [
+      'api_workflow_result.json',
+      'top15_perfect_matches_final.csv',
+      'top15_perfect_report_final.pdf',
+      'top15_perfecte_woningen_tabel_final.xlsx'
+    ];
+    
+    // Also delete any old "Taxatierapport" files to prevent conflicts
+    // (This will be handled by the Python script, but we can add it here if needed)
+    
+    for (const file of filesToDelete) {
+      const filePath = join(outputsDir, file);
+      try {
+        if (existsSync(filePath)) {
+          rmSync(filePath, { force: true });
+          console.log(`Deleted old file: ${file}`);
+        }
+      } catch (error) {
+        console.warn(`Could not delete ${file}:`, error);
+      }
+    }
       
       // Run Python workflow with Realworks files
       const result = await runHouseAnalysisWithRealworks(

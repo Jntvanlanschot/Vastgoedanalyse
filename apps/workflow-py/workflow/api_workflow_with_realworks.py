@@ -264,7 +264,7 @@ def process_realworks_files(realworks_files):
         for i, file_path in enumerate(realworks_files):
             if os.path.exists(file_path):
                 try:
-                    # Process RTF file using the specialized parser
+                    # Process RTF or PDF file using the specialized parser
                     if file_path.endswith('.rtf'):
                         properties = parse_rtf_file(Path(file_path))
                         records_count = len(properties)
@@ -281,8 +281,36 @@ def process_realworks_files(realworks_files):
                         })
                         
                         logger.info(f"Processed RTF {file_path}: {records_count} records")
+                    elif file_path.endswith('.pdf'):
+                        # Process PDF file
+                        try:
+                            from parse_realworks_pdf import parse_pdf_file
+                            properties = parse_pdf_file(Path(file_path))
+                            records_count = len(properties)
+                            total_records += records_count
+                            
+                            # Get column names from first property if available
+                            columns = list(properties[0].keys()) if properties else []
+                            
+                            processed_files.append({
+                                "file": f"realworks_file_{i+1}",
+                                "records": records_count,
+                                "columns": columns,
+                                "file_type": "PDF"
+                            })
+                            
+                            logger.info(f"Processed PDF {file_path}: {records_count} records")
+                        except ImportError:
+                            logger.error("PDF parsing not available (PyMuPDF not installed)")
+                            processed_files.append({
+                                "file": f"realworks_file_{i+1}",
+                                "records": 0,
+                                "columns": [],
+                                "file_type": "PDF",
+                                "error": "PyMuPDF not installed"
+                            })
                     else:
-                        # Fallback for non-RTF files (Excel/CSV)
+                        # Fallback for non-RTF/PDF files (Excel/CSV)
                         if file_path.endswith(('.xlsx', '.xls')):
                             df = pd.read_excel(file_path)
                         else:
@@ -377,46 +405,54 @@ def calculate_simple_similarity_score(row, reference_data):
     try:
         score = 0.0
         
-        # Area similarity (30% weight)
+        # Area similarity (20% weight - reduced to prioritize energy label)
         if pd.notna(row.get('rw_area_m2', 0)) and row['rw_area_m2'] > 0:
             area_diff = abs(row['rw_area_m2'] - reference_data.get('area_m2', 100))
             area_score = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
-            score += 0.30 * area_score
+            score += 0.20 * area_score
         
-        # Bedrooms similarity (20% weight)
+        # Bedrooms similarity (12% weight)
         if pd.notna(row.get('rw_bedrooms', 0)):
             bedroom_diff = abs(row['rw_bedrooms'] - reference_data.get('bedrooms', 2))
             bedroom_score = max(0, 1 - (bedroom_diff / max(reference_data.get('bedrooms', 2), 1)))
-            score += 0.20 * bedroom_score
+            score += 0.12 * bedroom_score
         
-        # Rooms similarity (15% weight)
+        # Rooms similarity (8% weight)
         if pd.notna(row.get('rw_rooms', 0)):
             room_diff = abs(row['rw_rooms'] - reference_data.get('rooms', 3))
             room_score = max(0, 1 - (room_diff / max(reference_data.get('rooms', 3), 1)))
-            score += 0.15 * room_score
+            score += 0.08 * room_score
         
-        # Energy label similarity (20% weight)
-        energy_labels = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
-        ref_energy = reference_data.get('energy_label', 'B')
-        row_energy = row.get('rw_energy_label', 'Unknown')
-        
-        if ref_energy in energy_labels and row_energy in energy_labels:
-            ref_index = energy_labels.index(ref_energy)
-            row_index = energy_labels.index(row_energy)
-            energy_diff = abs(ref_index - row_index)
-            energy_score = max(0, 1 - (energy_diff / len(energy_labels)))
-            score += 0.20 * energy_score
-        else:
-            score += 0.20 * 0.5  # Neutral score for unknown labels
-        
-        # Price reasonableness (15% weight) - properties within reasonable price range
+        # Price reasonableness (20% weight) - properties within reasonable price range
+        # Calculate BEFORE energy label combination
+        price_reasonableness_score = 0.0
         if pd.notna(row.get('rw_sale_price', 0)) and row['rw_sale_price'] > 0:
             # Simple price range check (this could be more sophisticated)
             price_per_m2 = row['rw_sale_price'] / max(row.get('rw_area_m2', 1), 1)
             if 3000 <= price_per_m2 <= 15000:  # Reasonable price per m² range
-                score += 0.15 * 1.0
+                price_reasonableness_score = 0.20 * 1.0
             else:
-                score += 0.15 * 0.5
+                price_reasonableness_score = 0.20 * 0.5
+            score += price_reasonableness_score
+        
+        # Energy label similarity - Calculate separately for combined similarity
+        from energy_label_correction import energy_label_similarity
+        ref_energy = reference_data.get('energy_label', 'B')
+        row_energy = row.get('rw_energy_label', 'Unknown')
+        energy_sim = energy_label_similarity(ref_energy, row_energy)
+        
+        # Calculate base similarity (all factors except energy label)
+        # Current score is sum of: 20% + 12% + 8% + 20% = 60% max (before energy label)
+        # Normalize to 0-1 range for fair combination
+        max_base_score = 0.20 + 0.12 + 0.08 + 0.20  # 0.60
+        base_similarity = min(1.0, score / max_base_score) if max_base_score > 0 else 0.0
+        
+        # Combine: 60% energy label similarity + 40% base similarity
+        # This makes energy label the dominant factor in ranking
+        combined_similarity = 0.6 * energy_sim + 0.4 * base_similarity
+        
+        # Replace the score with combined similarity
+        score = combined_similarity
         
         return min(1.0, score)  # Cap at 1.0
         

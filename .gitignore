@@ -22,3 +22,5 @@ data/*.gpkg
 __pycache__/
 *.pyc
 .venv/
+venv/
+outputs/

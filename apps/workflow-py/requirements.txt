@@ -4,3 +4,8 @@ openpyxl
 reportlab
 matplotlib
 requests
+optuna
+scikit-learn
+striprtf
+python-docx
+PyMuPDF

@@ -55,7 +55,11 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
   const citySlug = cityToSlug(city);
   const streetSlugs = streets.map((street: string) => `${citySlug}/straat-${slugifyStreetName(street)}`);
   
-  const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=[${streetSlugs.map((slug: string) => `"${slug}"`).join(',')}]&availability=["negotiations","unavailable"]`;
+  // URL encode the JSON array properly (format: [%22area1%22,%22area2%22])
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(streetSlugs));
+  // Availability parameter is CRUCIAL - use only "unavailable"
+  const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
+  const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
   
   const fundaConfig = {
     includeSold: true,
@@ -172,7 +176,11 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
   // Build Funda search URL with buurt slugs
   const citySlug = cityToSlug(city);
   const selectedAreas = buurtSlugs.map(slug => `${citySlug}/${slug}`);
-  const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${JSON.stringify(selectedAreas)}&availability=${JSON.stringify(['negotiations', 'unavailable'])}`;
+  // URL encode the JSON array properly (format: [%22area1%22,%22area2%22])
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(selectedAreas));
+  // Availability parameter is CRUCIAL - use only "unavailable"
+  const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
+  const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
   
   const fundaConfig = {
     includeSold: true,
@@ -281,7 +289,11 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
   const citySlug = cityToSlug(city);
   const wijkAreaSlugs = wijkSlugs.map((wijkSlug: string) => `${citySlug}/${wijkSlug}`);
   
-  const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=[${wijkAreaSlugs.map((slug: string) => `"${slug}"`).join(',')}]&availability=["negotiations","unavailable"]`;
+  // URL encode the JSON array properly (format: [%22area1%22,%22area2%22])
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(wijkAreaSlugs));
+  // Availability parameter is CRUCIAL - use only "unavailable"
+  const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
+  const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
   
   const fundaConfig = {
     includeSold: true,
@@ -442,7 +454,7 @@ export async function POST(request: NextRequest) {
     }
 
     const runId = runResponse!.data.data.id;
-    const datasetId = runResponse!.data.data.defaultDatasetId;
+    let datasetId = runResponse!.data.data.defaultDatasetId; // Use let instead of const to allow updates
     
     console.log(`Apify run started with ID: ${runId}, Dataset ID: ${datasetId}`);
 
@@ -483,6 +495,13 @@ export async function POST(request: NextRequest) {
       const status = statusResponse!.data.data.status;
       console.log(`Run status (attempt ${attempts + 1}): ${status}`);
       
+      // Update datasetId from status response if available (as fallback)
+      const statusDatasetId = statusResponse!.data.data.defaultDatasetId;
+      if (statusDatasetId && statusDatasetId !== datasetId) {
+        console.log(`Dataset ID updated from status: ${statusDatasetId} (was ${datasetId})`);
+        datasetId = statusDatasetId;
+      }
+      
       if (status === 'SUCCEEDED') {
         break;
       } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
@@ -503,14 +522,54 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Apify run completed successfully, fetching dataset...');
+    
+    // Verify dataset ID is available
+    if (!datasetId) {
+      return NextResponse.json(
+        { error: 'Dataset ID not available from Apify run response', runId },
+        { status: 500 }
+      );
+    }
+    
+    // Wait a bit for dataset to be fully available (sometimes there's a delay)
+    console.log(`Waiting 3 seconds for dataset ${datasetId} to be fully available...`);
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Step 3: Fetch the dataset with retry logic
+    // Step 3: First check if dataset has items (to avoid empty dataset error)
+    console.log(`Checking dataset ${datasetId} for items...`);
+    let datasetInfo;
+    try {
+      datasetInfo = await axios.get(
+        `https://api.apify.com/v2/datasets/${datasetId}?token=${apifyToken}`,
+        { timeout: 15000 }
+      );
+      const itemCount = datasetInfo.data.data.itemCount || 0;
+      console.log(`Dataset has ${itemCount} items`);
+      
+      if (itemCount === 0) {
+        return NextResponse.json(
+          { 
+            error: 'De scraper heeft geen resultaten gevonden. Mogelijke oorzaken:\n- Geen woningen beschikbaar voor de geselecteerde buurten\n- Funda website blokkeert de scraper\n- Scraper configuratie probleem',
+            datasetId,
+            runId,
+            itemCount: 0,
+            suggestion: 'Probeer andere buurten of controleer de Funda website handmatig'
+          },
+          { status: 404 }
+        );
+      }
+    } catch (error) {
+      console.warn('Could not check dataset info, proceeding with fetch attempt:', error instanceof Error ? error.message : String(error));
+    }
+
+    // Step 4: Fetch the dataset with retry logic
     let datasetResponse;
     let datasetRetryCount = 0;
-    const maxDatasetRetries = 3;
+    const maxDatasetRetries = 5; // Increased retries
     
     while (datasetRetryCount < maxDatasetRetries) {
       try {
+        console.log(`Fetching dataset ${datasetId} (attempt ${datasetRetryCount + 1}/${maxDatasetRetries})...`);
         datasetResponse = await axios.get(
           `https://api.apify.com/v2/datasets/${datasetId}/items?format=csv&clean=true&token=${apifyToken}`,
           {
@@ -521,17 +580,60 @@ export async function POST(request: NextRequest) {
         break; // Success, exit retry loop
       } catch (error: unknown) {
         datasetRetryCount++;
-        console.error(`Dataset fetch failed (attempt ${datasetRetryCount}):`, error instanceof Error ? error.message : String(error));
+        
+        // Enhanced error logging
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const statusText = error.response?.statusText;
+          const errorData = error.response?.data;
+          console.error(`Dataset fetch failed (attempt ${datasetRetryCount}):`, {
+            status,
+            statusText,
+            message: error.message,
+            data: errorData,
+            datasetId,
+            url: error.config?.url
+          });
+          
+          // Check for empty dataset error specifically
+          if (status === 400 && errorData) {
+            try {
+              const errorObj = typeof errorData === 'string' ? JSON.parse(errorData) : errorData;
+              if (errorObj?.error?.type === 'no-columns-in-exported-dataset') {
+                console.error('Dataset is empty - scraper found no results');
+                return NextResponse.json(
+                  { 
+                    error: 'De scraper heeft geen resultaten gevonden. De dataset is leeg.\n\nMogelijke oorzaken:\n- Geen woningen beschikbaar voor de geselecteerde buurten\n- Funda website blokkeert de scraper\n- Scraper configuratie probleem\n\nProbeer andere buurten of controleer de Funda website handmatig.',
+                    datasetId,
+                    runId,
+                    itemCount: 0,
+                    errorType: 'empty-dataset',
+                    suggestion: 'Controleer of er woningen beschikbaar zijn op Funda voor deze buurten'
+                  },
+                  { status: 404 }
+                );
+              }
+            } catch (parseError) {
+              // Continue with normal error handling if parsing fails
+            }
+          }
+        } else {
+          console.error(`Dataset fetch failed (attempt ${datasetRetryCount}):`, error instanceof Error ? error.message : String(error));
+        }
         
         if (datasetRetryCount >= maxDatasetRetries) {
+          const errorMessage = axios.isAxiosError(error) 
+            ? `Failed to fetch dataset after ${maxDatasetRetries} attempts. Status: ${error.response?.status} ${error.response?.statusText}. Error: ${JSON.stringify(error.response?.data || error.message)}`
+            : `Failed to fetch dataset after ${maxDatasetRetries} attempts. Error: ${error instanceof Error ? error.message : String(error)}`;
+          
           return NextResponse.json(
-            { error: `Failed to fetch dataset after ${maxDatasetRetries} attempts. Network error: ${error instanceof Error ? error.message : String(error)}` },
+            { error: errorMessage, datasetId, runId },
             { status: 500 }
           );
         }
         
-        // Wait before retry
-        const waitTime = Math.pow(2, datasetRetryCount) * 1000; // 2s, 4s, 8s
+        // Wait before retry with exponential backoff
+        const waitTime = Math.pow(2, datasetRetryCount) * 1000; // 2s, 4s, 8s, 16s, 32s
         console.log(`Retrying dataset fetch in ${waitTime}ms...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }

@@ -29,12 +29,16 @@ export function buildFundaSearchUrl(selectedAreaStrings: string[]): string {
     throw new Error('At least one selected area must be provided');
   }
 
-  // Skip validation for now to prevent errors
-
-  // Build the complete Funda URL without URL encoding
+  // Build the complete Funda URL matching the format: 
+  // https://www.funda.nl/zoeken/koop?selected_area=[%22amsterdam/scheldebuurt-midden%22,%22amsterdam/scheldebuurt-west%22]&availability=[%22unavailable%22]
   const baseUrl = 'https://www.funda.nl/zoeken/koop';
-  const selectedAreaParam = JSON.stringify(selectedAreaStrings);
-  const availabilityParam = JSON.stringify(['negotiations', 'unavailable']);
+  // Format as JSON array and URL encode it
+  const selectedAreaJson = JSON.stringify(selectedAreaStrings);
+  const selectedAreaParam = encodeURIComponent(selectedAreaJson);
+  
+  // Availability parameter is CRUCIAL - use only "unavailable"
+  const availabilityJson = JSON.stringify(['unavailable']);
+  const availabilityParam = encodeURIComponent(availabilityJson);
   
   return `${baseUrl}?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 }

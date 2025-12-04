@@ -3,74 +3,35 @@
   "message": "API workflow executed successfully",
   "step1_result": {
     "status": "success",
-    "message": "Fetched similarity data for 28 streets"
+    "message": "Skipped Funda scraper - no street similarity data fetched"
   },
   "step2_result": {
     "status": "success",
-    "message": "Found reference street + 4 other similar streets",
+    "message": "No Funda data - using only Realworks data",
     "top_5_streets": [
-      {
-        "street_name": "Churchill-laan",
-        "name": "Churchill-laan",
-        "city": "Amsterdam",
-        "properties_count": 19,
-        "average_price": 935789,
-        "is_reference": true
-      },
-      {
-        "street_name": "Europaplein",
-        "name": "Europaplein",
-        "city": "Amsterdam",
-        "properties_count": 3,
-        "average_price": 765000,
-        "is_reference": false
-      },
-      {
-        "street_name": "Dintelstraat",
-        "name": "Dintelstraat",
-        "city": "Amsterdam",
-        "properties_count": 8,
-        "average_price": 1057375,
-        "is_reference": false
-      },
-      {
-        "street_name": "Haringvlietstraat",
-        "name": "Haringvlietstraat",
-        "city": "Amsterdam",
-        "properties_count": 5,
-        "average_price": 1552000,
-        "is_reference": false
-      },
-      {
-        "street_name": "Deurloostraat",
-        "name": "Deurloostraat",
-        "city": "Amsterdam",
-        "properties_count": 18,
-        "average_price": 784416,
-        "is_reference": false
-      }
+      "Schipbeekstraat"
     ],
-    "total_funda_records": 150
+    "total_funda_records": 0
   },
   "step3_result": {
     "status": "success",
-    "message": "Processed 115 Realworks records",
-    "processed_records": 115,
-    "realworks_file": "outputs/realworks_perfect_data.csv"
+    "message": "Processed 52 Realworks records",
+    "processed_records": 52,
+    "realworks_file": "outputs\\realworks_perfect_data.csv"
   },
   "step4_result": {
     "status": "success",
     "message": "Analysis completed",
-    "matched_records": 115,
+    "matched_records": 52,
     "top_15_count": 15,
-    "top15_file": "outputs/top15_perfect_matches_final.csv"
+    "top15_file": "outputs\\top15_perfect_matches_final.csv"
   },
   "summary": {
-    "total_funda_records": 150,
-    "realworks_records": 115,
-    "matched_records": 115,
+    "total_funda_records": 0,
+    "realworks_records": 52,
+    "matched_records": 52,
     "top_15_matches": 15,
-    "pdf_file": "outputs/top15_perfect_report_final.pdf",
-    "excel_file": "outputs/top15_perfecte_woningen_tabel_final.xlsx"
+    "pdf_file": "outputs\\Taxatierapport Schipbeekstraat 40-2.pdf",
+    "excel_file": "outputs\\Taxatierapport Schipbeekstraat 40-2.xlsx"
   }
 }

@@ -3,7 +3,7 @@
 MODIFIED WORKFLOW: Vastgoedanalyse Tool for API Integration
 
 This script orchestrates the complete workflow with CSV data provided directly:
-1. Process reference address and get top 5 streets from provided CSV
+1. Process reference address and get top 10 streets from provided CSV
 2. Process uploaded Realworks data (empty for now)
 3. Merge data and select top 15 matches
 4. Generate PDF and Excel reports
@@ -29,6 +29,7 @@ from io import StringIO
 import shutil
 import glob
 import math
+from datetime import datetime, date
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -46,19 +47,64 @@ def process_realworks_files_from_args(realworks_files):
         
         logger.info(f"Processing {len(realworks_files)} Realworks files from arguments")
         
-        # Import the RTF parser
+        # Import the parsers
         import sys
         sys.path.append('..')
         from parse_realworks_perfect import parse_rtf_file
         
         # Parse Realworks data from the provided files
         all_properties = []
+        property_images_map = {}  # address_full -> list of PIL Images
         
         for file_path in realworks_files:
-            if Path(file_path).exists():
-                properties = parse_rtf_file(Path(file_path))
-                all_properties.extend(properties)
-                logger.info(f"Parsed {file_path}: {len(properties)} properties")
+            file_path_obj = Path(file_path)
+            if file_path_obj.exists():
+                if file_path.endswith('.rtf'):
+                    properties = parse_rtf_file(file_path_obj)
+                    all_properties.extend(properties)
+                    logger.info(f"Parsed RTF {file_path}: {len(properties)} properties")
+                elif file_path.endswith('.pdf'):
+                    try:
+                        from parse_realworks_pdf import parse_pdf_file
+                        properties = parse_pdf_file(file_path_obj)
+                        # Extract images from properties
+                        for prop in properties:
+                            if 'images' in prop and prop['images']:
+                                address = prop.get('address_full', '')
+                                if address:
+                                    property_images_map[address] = prop['images']
+                                    prop['image_count'] = len(prop['images'])
+                                    del prop['images']
+                                else:
+                                    prop['image_count'] = 0
+                            else:
+                                prop['image_count'] = 0
+                        all_properties.extend(properties)
+                        logger.info(f"Parsed PDF {file_path}: {len(properties)} properties")
+                    except ImportError:
+                        logger.error("PDF parsing not available (PyMuPDF not installed)")
+                elif file_path.endswith('.mhtml') or file_path.endswith('.mht'):
+                    try:
+                        from parse_realworks_mhtml import parse_mhtml_file
+                        properties = parse_mhtml_file(file_path_obj)
+                        # Extract images from properties
+                        for prop in properties:
+                            if 'images' in prop and prop['images']:
+                                address = prop.get('address_full', '')
+                                if address:
+                                    property_images_map[address] = prop['images']
+                                    prop['image_count'] = len(prop['images'])
+                                    del prop['images']
+                                else:
+                                    prop['image_count'] = 0
+                            else:
+                                prop['image_count'] = 0
+                        all_properties.extend(properties)
+                        logger.info(f"Parsed MHTML {file_path}: {len(properties)} properties")
+                    except ImportError as e:
+                        logger.error(f"MHTML parsing not available: {e}")
+                else:
+                    logger.warning(f"Unsupported file type: {file_path}")
             else:
                 logger.warning(f"File not found: {file_path}")
         
@@ -75,6 +121,35 @@ def process_realworks_files_from_args(realworks_files):
         # Save to CSV
         output_csv = Path("outputs/realworks_perfect_data.csv")
         realworks_df.to_csv(output_csv, index=False)
+        
+        # Save images mapping to JSON if we have images
+        if property_images_map:
+            import json
+            import base64
+            from io import BytesIO
+            from PIL import Image as PILImage
+            
+            images_json = {}
+            for address, images in property_images_map.items():
+                images_base64 = []
+                for img in images:
+                    buffered = BytesIO()
+                    # Convert RGBA to RGB if needed before saving as JPEG
+                    if img.mode == 'RGBA':
+                        rgb_img = PILImage.new('RGB', img.size, (255, 255, 255))
+                        rgb_img.paste(img, mask=img.split()[3] if img.mode == 'RGBA' else None)
+                        img = rgb_img
+                    elif img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    img.save(buffered, format="JPEG")
+                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                    images_base64.append(img_str)
+                images_json[address] = images_base64
+            
+            images_file = output_csv.parent / f"{output_csv.stem}_images.json"
+            with open(images_file, 'w') as f:
+                json.dump(images_json, f)
+            logger.info(f"Saved {len(images_json)} property images to {images_file}")
         
         return {
             "status": "success",
@@ -110,31 +185,62 @@ def run_api_workflow_with_realworks(reference_data, csv_file_path, realworks_fil
         
         logger.info("=== STARTING API WORKFLOW WITH REALWORKS ===")
         
-        # Parse CSV data from file
+        # Parse CSV data from file (optional - may be empty if user skipped Funda scraper)
         csv_df = pd.read_csv(csv_file_path)
         logger.info(f"Loaded {len(csv_df)} records from CSV")
         
-        # Step 1: Fetch street similarity data using Overpass API FIRST
-        logger.info("STEP 1: Fetching street similarity data from Overpass API...")
-        street_similarity_cache = fetch_street_similarity_data(reference_data, csv_df)
-        # Don't include street_similarity_cache in result - contains non-serializable StreetProfile objects
-        step1_result = {
-            "status": "success",
-            "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets"
-        }
+        # Check if CSV has actual data (not just headers)
+        has_csv_data = len(csv_df) > 0 and not (len(csv_df.columns) == 2 and len(csv_df) == 0)
         
-        # Step 2: Process the CSV data to find top streets using Algorithm 1
-        logger.info("STEP 2: Processing reference address and selecting top streets from CSV...")
-        top_4_streets = process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache)
-        
-        step2_result = {
-            "status": "success",
-            "message": f"Found reference street + {len(top_4_streets)-1} other similar streets",
-            "top_5_streets": top_4_streets,  # Keep the same key name for compatibility
-            "total_funda_records": len(csv_df)
-        }
-        
-        logger.info(f"Step 2 completed: Found reference street + {len(top_4_streets)-1} other streets")
+        if has_csv_data and len(csv_df) > 0:
+            # Step 1: Fetch street similarity data using Overpass API FIRST
+            logger.info("STEP 1: Fetching street similarity data from Overpass API...")
+            street_similarity_cache = fetch_street_similarity_data(reference_data, csv_df)
+            # Don't include street_similarity_cache in result - contains non-serializable StreetProfile objects
+            step1_result = {
+                "status": "success",
+                "message": f"Fetched similarity data for {len(street_similarity_cache.get(reference_data.get('street_name', ''), []))} streets"
+            }
+            
+            # Step 2: Process the CSV data to find top streets using Algorithm 1
+            # NOTE: These top streets are calculated for display purposes, but Realworks data is NOT filtered by them
+            logger.info("STEP 2: Processing reference address and selecting top streets from CSV...")
+            top_streets = process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache)
+            
+            step2_result = {
+                "status": "success",
+                "message": f"Found reference street + {len(top_streets)-1} other similar streets",
+                "top_5_streets": top_streets,  # Keep the same key name for compatibility (but now contains 10 streets)
+                "total_funda_records": len(csv_df)
+            }
+            
+            logger.info(f"Step 2 completed: Found reference street + {len(top_streets)-1} other streets (Total: {len(top_streets)} streets)")
+            logger.info(f"NOTE: Top streets are for display only - Realworks data will NOT be filtered by these streets")
+        else:
+            # No CSV data - user skipped Funda scraper
+            logger.info("STEP 1: No CSV data provided - user skipped Funda scraper")
+            street_similarity_cache = {}
+            step1_result = {
+                "status": "success",
+                "message": "Skipped Funda scraper - no street similarity data fetched"
+            }
+            
+            # Extract street name from reference address if available
+            reference_street = reference_data.get('street_name', '')
+            if not reference_street and 'address_full' in reference_data:
+                # Try to extract street from address
+                address_parts = reference_data['address_full'].split(',')[0].strip().split()
+                if len(address_parts) > 1:
+                    reference_street = ' '.join(address_parts[:-1])  # Everything except last part (number)
+            
+            step2_result = {
+                "status": "success",
+                "message": "No Funda data - using only Realworks data",
+                "top_5_streets": [reference_street] if reference_street else ["Onbekend"],
+                "total_funda_records": 0
+            }
+            
+            logger.info("Step 2 completed: No Funda data - proceeding with Realworks only")
         
         # Step 3: Process Realworks files
         logger.info("STEP 3: Processing Realworks files...")
@@ -261,16 +367,16 @@ def run_api_workflow(reference_data, csv_file_path):
         
         # Step 2: Process the CSV data to find top streets using Algorithm 1
         logger.info("STEP 2: Processing reference address and selecting top streets from CSV...")
-        top_4_streets = process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache)
+        top_streets = process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache)
         
         step2_result = {
             "status": "success",
-            "message": f"Found reference street + {len(top_4_streets)-1} other similar streets",
-            "top_5_streets": top_4_streets,  # Keep the same key name for compatibility
+            "message": f"Found reference street + {len(top_streets)-1} other similar streets",
+            "top_5_streets": top_streets,  # Keep the same key name for compatibility (but now contains 10 streets)
             "total_funda_records": len(csv_df)
         }
         
-        logger.info(f"Step 2 completed: Found reference street + {len(top_4_streets)-1} other streets")
+        logger.info(f"Step 2 completed: Found reference street + {len(top_streets)-1} other streets (Total: {len(top_streets)} streets)")
         
         # Step 3: Check for and process Realworks files if available
         logger.info("STEP 3: Checking for Realworks files...")
@@ -336,45 +442,49 @@ def run_api_workflow(reference_data, csv_file_path):
                 excel_file = report_result["excel_file"]
                 logger.info(f"Step 4 completed: Generated real reports")
             else:
-                # Fallback to placeholder if generation fails
-                logger.warning(f"Report generation failed: {report_result.get('message', 'Unknown error')}")
-                
-                with open(pdf_file, 'w') as f:
-                    f.write("PDF Report Placeholder\n")
-                    f.write(f"Analysis of {len(csv_df)} properties\n")
-                    f.write(f"Reference: {reference_data.get('address_full', 'Unknown')}\n")
-                
-                with open(excel_file, 'w') as f:
-                    f.write("Excel Report Placeholder\n")
-                    f.write(f"Analysis of {len(csv_df)} properties\n")
-                
+                # Report generation failed - don't create placeholder, fail the workflow
+                logger.error(f"Report generation failed: {report_result.get('message', 'Unknown error')}")
                 step5_result = {
-                    "status": "success",
-                    "message": "Reports generated (placeholder)",
-                    "pdf_file": pdf_file,
-                    "excel_file": excel_file
+                    "status": "error",
+                    "message": f"Report generation failed: {report_result.get('message', 'Unknown error')}",
+                    "pdf_file": None,
+                    "excel_file": None
                 }
                 
         except Exception as e:
             logger.error(f"Error generating reports: {e}")
-            # Fallback to proper PDF generation
-            from step4_generate_reports import create_empty_pdf
-            
-            # Create empty Excel file
-            empty_df = pd.DataFrame(columns=['Rang', 'Adres', 'Verkoopprijs (€)', 'Oppervlakte (m²)', 'Score'])
-            empty_df.to_excel(excel_file, index=False, sheet_name='Top 15 Woningen')
-            
-            # Create proper PDF
-            create_empty_pdf(pdf_file, reference_data)
-            
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Don't create fallback - let the error propagate
             step5_result = {
-                "status": "success",
-                "message": "Reports generated (fallback)",
-                "pdf_file": pdf_file,
-                "excel_file": excel_file
+                "status": "error",
+                "message": f"Failed to generate reports: {str(e)}",
+                "pdf_file": None,
+                "excel_file": None
             }
         
         logger.info("Step 5 completed: Generated reports")
+        
+        # Check if step5 (report generation) failed
+        if step5_result.get("status") == "error":
+            logger.error("Workflow failed: Report generation failed")
+            return {
+                "status": "error",
+                "message": step5_result.get("message", "Report generation failed"),
+                "step1_result": step1_result,
+                "step2_result": step2_result,
+                "step3_result": step3_result,
+                "step4_result": step4_result,
+                "step5_result": step5_result,
+                "summary": {
+                    "total_funda_records": len(csv_df),
+                    "realworks_records": realworks_result.get("processed_records", 0),
+                    "matched_records": len(top15_df),
+                    "top_15_matches": min(15, len(top15_df)),
+                    "pdf_file": None,
+                    "excel_file": None
+                }
+            }
         
         # Prepare final result
         final_result = {
@@ -411,7 +521,7 @@ def run_api_workflow(reference_data, csv_file_path):
         }
 
 def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=None):
-    """Process CSV data to find top 4 streets using Algorithm 1."""
+    """Process CSV data to find top 9 streets using Algorithm 1 (reference + top 9 = total 10 streets)."""
     try:
         # Find street name column
         street_col = None
@@ -474,16 +584,16 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         
         logger.info(f"Found {len(street_scores)} streets with at least 3 properties")
         
-        # Sort by similarity score (descending) and take top 4 OTHER streets (excluding reference street)
+        # Sort by similarity score (descending) and take top 9 OTHER streets (excluding reference street)
         street_scores.sort(key=lambda x: x['similarity_score'], reverse=True)
         
-        # Filter out the reference street and take top 4 other streets
+        # Filter out the reference street and take top 9 other streets
         ref_street_name = reference_data.get('street_name', '').lower().strip()
         other_streets = [street for street in street_scores if street['street_name'].lower().strip() != ref_street_name]
 
         # Special handling for Amsterdam's main canals: Prinsen/Keizers/Herengracht
         canals = {'prinsengracht', 'keizersgracht', 'herengracht'}
-        top_4_other_streets = other_streets[:4]
+        top_9_other_streets = other_streets[:9]
         if ref_street_name in canals:
             # Prefer the other canal streets in positions 2 and 3 when available
             other_canal_names = [c for c in canals if c != ref_street_name]
@@ -493,9 +603,9 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
             seen_ids = set(id(s) for s in preferred)
             remainder = [s for s in other_streets if id(s) not in seen_ids]
             combined = preferred + remainder
-            top_4_other_streets = combined[:4]
+            top_9_other_streets = combined[:9]
         
-        # Create final result: reference street first, then top 4 other streets
+        # Create final result: reference street first, then top 9 other streets
         final_streets = []
         
         # Add reference street as block 1 (only if it exists in CSV data)
@@ -514,11 +624,11 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         else:
             logger.info(f"Reference street '{ref_street_name}' not found in CSV data, skipping")
         
-        # Add top 4 other streets as blocks 2-5 (or 1-4 if reference street not found)
-        streets_to_add = top_4_other_streets
+        # Add top 9 other streets as blocks 2-10 (or 1-9 if reference street not found)
+        streets_to_add = top_9_other_streets
         if not ref_street_data:
-            # If reference street not found, take top 5 streets instead of top 4
-            streets_to_add = other_streets[:5]
+            # If reference street not found, take top 10 streets instead of top 9
+            streets_to_add = other_streets[:10]
         
         for street in streets_to_add:
             final_streets.append({
@@ -530,7 +640,7 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
                 "is_reference": False
             })
         
-        logger.info(f"Found reference street + top 4 other streets using Algorithm 1 (street matching)")
+        logger.info(f"Found reference street + top 9 other streets using Algorithm 1 (street matching) - Total: {len(final_streets)} streets")
         return final_streets
         
     except Exception as e:
@@ -683,6 +793,113 @@ def process_csv_for_top15_matches(csv_df, reference_data, street_similarity_cach
         # Return empty DataFrame with expected columns
         return pd.DataFrame(columns=['address_full', 'rw_sale_price', 'rw_area_m2', 'rw_bedrooms', 'rw_rooms', 'rw_energy_label', 'similarity_score'])
 
+def parse_date_safe(date_str):
+    """Parse date string to date object, return None if invalid."""
+    if pd.isna(date_str) or not date_str:
+        return None
+    try:
+        if isinstance(date_str, date):
+            return date_str
+        if isinstance(date_str, datetime):
+            return date_str.date()
+        # Try YYYY-MM-DD format
+        if isinstance(date_str, str):
+            return datetime.strptime(date_str[:10], '%Y-%m-%d').date()
+    except Exception:
+        pass
+    return None
+
+def calculate_date_similarity(ref_date, row_date, max_days_diff=730):
+    """
+    Calculate date similarity score.
+    
+    Logic:
+    - Same date: score = 1.0
+    - Closer dates = higher score (exponential decay)
+    - More recent dates = slightly higher score (time decay)
+    
+    Args:
+        ref_date: Reference sale date
+        row_date: Comparable property sale date
+        max_days_diff: Maximum days difference to consider (default 2 years)
+    
+    Returns:
+        Similarity score (0-1)
+    """
+    if ref_date is None or row_date is None:
+        return 0.0
+    
+    ref_date = parse_date_safe(ref_date)
+    row_date = parse_date_safe(row_date)
+    
+    if ref_date is None or row_date is None:
+        return 0.0
+    
+    # Calculate days difference
+    days_diff = abs((ref_date - row_date).days)
+    
+    if days_diff == 0:
+        return 1.0
+    
+    if days_diff > max_days_diff:
+        return 0.0
+    
+    # Exponential decay: closer dates = higher score
+    # Score = exp(-days_diff / decay_factor)
+    # decay_factor = 180 means 50% score at ~125 days, 10% at ~415 days
+    decay_factor = 180.0
+    proximity_score = math.exp(-days_diff / decay_factor)
+    
+    # Time recency bonus: more recent = slightly higher
+    # Use today as reference point
+    today = date.today()
+    ref_days_ago = (today - ref_date).days
+    row_days_ago = (today - row_date).days
+    
+    # If both are recent (< 1 year), give small bonus
+    if ref_days_ago < 365 and row_days_ago < 365:
+        recency_bonus = 0.05
+    else:
+        recency_bonus = 0.0
+    
+    return min(1.0, proximity_score + recency_bonus)
+
+def calculate_year_built_similarity(ref_year, row_year):
+    """
+    Calculate building year similarity score.
+    
+    Logic:
+    - Same year: score = 1.0
+    - Closer years = higher score (exponential decay)
+    
+    Args:
+        ref_year: Reference building year
+        row_year: Comparable property building year
+    
+    Returns:
+        Similarity score (0-1)
+    """
+    if pd.isna(ref_year) or pd.isna(row_year) or ref_year == 0 or row_year == 0:
+        return 0.5  # Neutral score if missing
+    
+    try:
+        ref_year = int(ref_year)
+        row_year = int(row_year)
+    except (ValueError, TypeError):
+        return 0.5
+    
+    if ref_year == row_year:
+        return 1.0
+    
+    year_diff = abs(ref_year - row_year)
+    
+    # Exponential decay: closer years = higher score
+    # decay_factor = 20 means 50% score at ~14 years, 10% at ~46 years
+    decay_factor = 20.0
+    score = math.exp(-year_diff / decay_factor)
+    
+    return max(0.0, min(1.0, score))
+
 def calculate_simple_similarity_score(row, reference_data, street_similarity_cache=None, debug=False):
     """Calculate similarity score based on new weighted criteria with OSM street similarity."""
     try:
@@ -697,43 +914,71 @@ def calculate_simple_similarity_score(row, reference_data, street_similarity_cac
         ref_is_gracht = 'gracht' in ref_street if ref_street else False
         row_is_gracht = 'gracht' in row_street if row_street else False
         
-        # Apply HEAVY penalty for gracht vs straat mismatch
-        gracht_penalty = 0.01 if (ref_is_gracht != row_is_gracht) else 1.0
+        # Import optimized weights
+        try:
+            from optimized_weights import OPTIMIZED_WEIGHTS
+            w_street = OPTIMIZED_WEIGHTS.get('weight_street_name', 0.1)
+            w_osm = OPTIMIZED_WEIGHTS.get('weight_osm_street', 0.1)
+            w_area = OPTIMIZED_WEIGHTS.get('weight_area', 0.33)
+            w_distance = OPTIMIZED_WEIGHTS.get('weight_distance', 0.18)
+            w_garden = OPTIMIZED_WEIGHTS.get('weight_garden', 0.02)
+            w_rooms = OPTIMIZED_WEIGHTS.get('weight_rooms', 0.05)
+            w_balcony = OPTIMIZED_WEIGHTS.get('weight_balcony', 0.11)
+            w_energy = OPTIMIZED_WEIGHTS.get('weight_energy_label', 0.35)
+            w_sale_date = OPTIMIZED_WEIGHTS.get('weight_sale_date', 0.11)
+            w_year_built = OPTIMIZED_WEIGHTS.get('weight_year_built', 0.01)
+            gracht_penalty_val = OPTIMIZED_WEIGHTS.get('gracht_penalty', 0.0035)
+        except ImportError:
+            # Fallback to optimized values if import fails
+            w_street = 0.1
+            w_osm = 0.1
+            w_area = 0.33
+            w_distance = 0.18
+            w_garden = 0.02
+            w_rooms = 0.05
+            w_balcony = 0.11
+            w_energy = 0.35
+            w_sale_date = 0.11
+            w_year_built = 0.01
+            gracht_penalty_val = 0.0035
+        
+        # Apply optimized gracht penalty
+        gracht_penalty = gracht_penalty_val if (ref_is_gracht != row_is_gracht) else 1.0
         
         if gracht_penalty < 1.0:
-            logger.info(f"Gracht penalty 0.01x applied: ref='{ref_street}' (gracht={ref_is_gracht}) vs row='{row_street}' (gracht={row_is_gracht})")
+            logger.info(f"Gracht penalty {gracht_penalty:.4f}x applied: ref='{ref_street}' (gracht={ref_is_gracht}) vs row='{row_street}' (gracht={row_is_gracht})")
         
-        # 1. Street similarity (2% weight - ChatGPT recommended)
+        # 1. Street similarity (geoptimaliseerd: 10% weight)
         if ref_street and row_street:
             if ref_street == row_street:
-                street_score = 0.02 * 1.0  # Same street = perfect match
+                street_score = w_street * 1.0  # Same street = perfect match
                 score += street_score
-                if debug: breakdown.append(f"  1. Straat naam (2%): {street_score:.4f} (ZELFDE straat!)")
+                if debug: breakdown.append(f"  1. Straat naam ({w_street*100:.0f}%): {street_score:.4f} (ZELFDE straat!)")
             else:
                 # Calculate street name similarity (Levenshtein distance)
                 street_similarity = calculate_string_similarity(ref_street, row_street)
-                street_score = 0.02 * street_similarity
+                street_score = w_street * street_similarity
                 score += street_score
-                if debug: breakdown.append(f"  1. Straat naam (2%): {street_score:.4f} (similariteit: {street_similarity:.3f})")
+                if debug: breakdown.append(f"  1. Straat naam ({w_street*100:.0f}%): {street_score:.4f} (similariteit: {street_similarity:.3f})")
         
-        # 2. OSM-based street similarity (8% weight)
+        # 2. OSM-based street similarity (geoptimaliseerd: 10% weight)
         osm_street_score_raw = calculate_osm_street_similarity(row, reference_data, street_similarity_cache)
-        osm_street_score = 0.08 * osm_street_score_raw
+        osm_street_score = w_osm * osm_street_score_raw
         score += osm_street_score
-        if debug: breakdown.append(f"  2. OSM straat (8%): {osm_street_score:.4f} (raw: {osm_street_score_raw:.3f})")
+        if debug: breakdown.append(f"  2. OSM straat ({w_osm*100:.0f}%): {osm_street_score:.4f} (raw: {osm_street_score_raw:.3f})")
         
-        # 3. Living area (m²) proximity (36% weight)
+        # 3. Living area (m²) proximity (geoptimaliseerd: 33% weight)
         # Try both rw_area_m2 (from merged data) and floor_area/0 (from Funda data)
         area_m2 = row.get('rw_area_m2', 0) or row.get('floor_area/0', 0)
         area_score = 0
         if pd.notna(area_m2) and area_m2 > 0:
             area_diff = abs(area_m2 - reference_data.get('area_m2', 100))
             area_score_raw = max(0, 1 - (area_diff / reference_data.get('area_m2', 100)))
-            area_score = 0.36 * area_score_raw
+            area_score = w_area * area_score_raw
             score += area_score
-            if debug: breakdown.append(f"  3. Oppervlakte (36%): {area_score:.4f} (ref: {reference_data.get('area_m2')}, row: {area_m2})")
+            if debug: breakdown.append(f"  3. Oppervlakte ({w_area*100:.0f}%): {area_score:.4f} (ref: {reference_data.get('area_m2')}, row: {area_m2})")
         
-        # 4. Micro-location proximity by geographic distance (14% weight)
+        # 4. Micro-location proximity by geographic distance (geoptimaliseerd: 18% weight)
         def _get_coords_from_row(r):
             lat_keys = ['address/latitude', 'latitude', 'lat', 'geo_lat']
             lon_keys = ['address/longitude', 'longitude', 'lon', 'lng', 'geo_lng']
@@ -780,81 +1025,102 @@ def calculate_simple_similarity_score(row, reference_data, street_similarity_cac
         if ref_lat is not None and ref_lon is not None and row_lat is not None and row_lon is not None:
             dist_m = _haversine_m(ref_lat, ref_lon, row_lat, row_lon)
             proximity = max(0.0, 1.0 - (dist_m / 2000.0))  # 0-2km linear decay
-            neighbourhood_score = 0.14 * proximity
+            neighbourhood_score = w_distance * proximity
             score += neighbourhood_score
-            if debug: breakdown.append(f"  4. Afstand (14%): {neighbourhood_score:.4f} (afstand: {dist_m:.0f} m)")
+            if debug: breakdown.append(f"  4. Afstand ({w_distance*100:.0f}%): {neighbourhood_score:.4f} (afstand: {dist_m:.0f} m)")
         else:
             # Fallback to neighbourhood string similarity if coords missing
             ref_neighbourhood = str(reference_data.get('neighbourhood', '')).lower().strip()
             row_neighbourhood = str(row.get('address/neighbourhood', '')).lower().strip()
             if ref_neighbourhood and row_neighbourhood:
                 if ref_neighbourhood == row_neighbourhood:
-                    neighbourhood_score = 0.14 * 1.0
+                    neighbourhood_score = w_distance * 1.0
                     score += neighbourhood_score
-                    if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f}")
+                    if debug: breakdown.append(f"  4. Buurt/Locatie ({w_distance*100:.0f}%): {neighbourhood_score:.4f}")
                 else:
                     neighbourhood_similarity = calculate_string_similarity(ref_neighbourhood, row_neighbourhood)
-                    neighbourhood_score = 0.14 * neighbourhood_similarity
+                    neighbourhood_score = w_distance * neighbourhood_similarity
                     score += neighbourhood_score
-                    if debug: breakdown.append(f"  4. Buurt/Locatie (14%): {neighbourhood_score:.4f} (similariteit: {neighbourhood_similarity:.3f})")
+                    if debug: breakdown.append(f"  4. Buurt/Locatie ({w_distance*100:.0f}%): {neighbourhood_score:.4f} (similariteit: {neighbourhood_similarity:.3f})")
         
-        # 5. Garden match (10% weight)
+        # 5. Garden match (geoptimaliseerd: 2% weight)
         ref_garden = reference_data.get('has_garden', False)
         row_garden = row.get('rw_has_garden', False)
         garden_score = 0
         if ref_garden == row_garden:
-            garden_score = 0.10 * 1.0
+            garden_score = w_garden * 1.0
             score += garden_score
-            if debug: breakdown.append(f"  5. Tuin (10%): {garden_score:.4f} MATCH!")
+            if debug: breakdown.append(f"  5. Tuin ({w_garden*100:.0f}%): {garden_score:.4f} MATCH!")
         else:
-            garden_score = 0.10 * 0.5  # Partial score for mismatch
+            garden_score = w_garden * 0.5  # Partial score for mismatch
             score += garden_score
-            if debug: breakdown.append(f"  5. Tuin (10%): {garden_score:.4f} (mismatch)")
+            if debug: breakdown.append(f"  5. Tuin ({w_garden*100:.0f}%): {garden_score:.4f} (mismatch)")
         
-        # 6. Rooms similarity (10% weight - ChatGPT recommended)
+        # 6. Rooms similarity (geoptimaliseerd: 5% weight)
         # Try both rw_rooms (from merged data) and number_of_rooms (from Funda data)
         rooms = row.get('rw_rooms', 0) or row.get('number_of_rooms', 0)
         room_score = 0
         if pd.notna(rooms) and rooms > 0:
             room_diff = abs(rooms - reference_data.get('rooms', 3))
             room_score_raw = max(0, 1 - (room_diff / max(reference_data.get('rooms', 3), 1)))
-            room_score = 0.10 * room_score_raw
+            room_score = w_rooms * room_score_raw
             score += room_score
-            if debug: breakdown.append(f"  6. Kamers (10%): {room_score:.4f} (ref: {reference_data.get('rooms')}, row: {rooms})")
+            if debug: breakdown.append(f"  6. Kamers ({w_rooms*100:.0f}%): {room_score:.4f} (ref: {reference_data.get('rooms')}, row: {rooms})")
         
         # 7. Bedrooms similarity (0% weight) — removed per requirement
         # (kept as no-op for clarity)
         
-        # 8. Balcony/Roof terrace (7% weight)
+        # 8. Balcony/Roof terrace (geoptimaliseerd: 11% weight)
         ref_balcony = reference_data.get('has_balcony', False) or reference_data.get('has_terrace', False)
         row_balcony = row.get('rw_has_balcony', False) or row.get('rw_has_terrace', False)
         balcony_score = 0
         if ref_balcony == row_balcony:
-            balcony_score = 0.07 * 1.0
+            balcony_score = w_balcony * 1.0
             score += balcony_score
-            if debug: breakdown.append(f"  8. Balkon/Terras (7%): {balcony_score:.4f} MATCH!")
+            if debug: breakdown.append(f"  8. Balkon/Terras ({w_balcony*100:.0f}%): {balcony_score:.4f} MATCH!")
         else:
-            balcony_score = 0.07 * 0.5
+            balcony_score = w_balcony * 0.5
             score += balcony_score
-            if debug: breakdown.append(f"  8. Balkon/Terras (7%): {balcony_score:.4f} (mismatch)")
+            if debug: breakdown.append(f"  8. Balkon/Terras ({w_balcony*100:.0f}%): {balcony_score:.4f} (mismatch)")
         
-        # 9. Energy label (13% weight)
-        energy_labels = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+        # 9. Sale date similarity (geoptimaliseerd: 11% weight)
+        ref_sale_date = reference_data.get('sale_date', None)
+        row_sale_date = row.get('sale_date', None) or row.get('rw_sale_date', None)
+        date_sim = calculate_date_similarity(ref_sale_date, row_sale_date)
+        date_score = w_sale_date * date_sim
+        score += date_score
+        if debug: breakdown.append(f"  9. Verkoopdatum ({w_sale_date*100:.0f}%): {date_score:.4f} (similariteit: {date_sim:.3f})")
+        
+        # 10. Building year similarity (geoptimaliseerd: 1% weight)
+        ref_year = reference_data.get('year_built', None)
+        row_year = row.get('year_built', None) or row.get('rw_year_built', None)
+        year_sim = calculate_year_built_similarity(ref_year, row_year)
+        year_score = w_year_built * year_sim
+        score += year_score
+        if debug: breakdown.append(f"  10. Bouwjaar ({w_year_built*100:.0f}%): {year_score:.4f} (ref: {ref_year}, row: {row_year}, similariteit: {year_sim:.3f})")
+        
+        # 11. Energy label - Calculate separately for combined similarity
+        from energy_label_correction import energy_label_similarity
         ref_energy = reference_data.get('energy_label', 'B')
         row_energy = row.get('rw_energy_label', 'Unknown')
-        energy_score = 0
-        if ref_energy in energy_labels and row_energy in energy_labels:
-            ref_index = energy_labels.index(ref_energy)
-            row_index = energy_labels.index(row_energy)
-            energy_diff = abs(ref_index - row_index)
-            energy_score_raw = max(0, 1 - (energy_diff / len(energy_labels)))
-            energy_score = 0.13 * energy_score_raw
-            score += energy_score
-            if debug: breakdown.append(f"  9. Energielabel (13%): {energy_score:.4f}")
-        else:
-            energy_score = 0.13 * 0.5  # Neutral score for unknown labels
-            score += energy_score
-            if debug: breakdown.append(f"  9. Energielabel (13%): {energy_score:.4f} (unknown)")
+        energy_sim = energy_label_similarity(ref_energy, row_energy)
+        
+        # Calculate base similarity (all factors except energy label)
+        # Geoptimaliseerde weights: 10% + 10% + 33% + 18% + 2% + 5% + 11% + 11% + 1% = 101% max
+        max_base_score = w_street + w_osm + w_area + w_distance + w_garden + w_rooms + w_balcony + w_sale_date + w_year_built
+        base_similarity_raw = score  # Save raw score before normalization
+        base_similarity = min(1.0, score / max_base_score) if max_base_score > 0 else 0.0
+        
+        # Combine: geoptimaliseerd 35% energy label similarity + 65% base similarity
+        combined_similarity = w_energy * energy_sim + (1 - w_energy) * base_similarity
+        
+        # Replace the score with combined similarity
+        score = combined_similarity
+        
+        if debug:
+            breakdown.append(f"  11. Energielabel similarity: {energy_sim:.4f}")
+            breakdown.append(f"  Base similarity (raw): {base_similarity_raw:.4f}, (genormaliseerd): {base_similarity:.4f}")
+            breakdown.append(f"  Gecombineerde similarity ({w_energy*100:.0f}% label, {(1-w_energy)*100:.0f}% base): {combined_similarity:.4f}")
         
         # Apply gracht penalty to the ENTIRE score
         score_before_penalty = score
@@ -1298,7 +1564,11 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
         
         # Map Realworks columns to expected names
         realworks_df['rw_sale_price'] = realworks_df['sale_price'].fillna(0) if 'sale_price' in realworks_df.columns else 0
-        realworks_df['rw_area_m2'] = realworks_df['area_m2'].fillna(0) if 'area_m2' in realworks_df.columns else 0
+        # Ensure area_m2 is numeric before mapping
+        if 'area_m2' in realworks_df.columns:
+            realworks_df['rw_area_m2'] = pd.to_numeric(realworks_df['area_m2'], errors='coerce').fillna(0)
+        else:
+            realworks_df['rw_area_m2'] = 0
         realworks_df['rw_bedrooms'] = realworks_df['bedrooms'].fillna(0) if 'bedrooms' in realworks_df.columns else 0
         realworks_df['rw_rooms'] = realworks_df['rooms'].fillna(0) if 'rooms' in realworks_df.columns else 0
         realworks_df['rw_energy_label'] = realworks_df['energy_label'].fillna('Unknown') if 'energy_label' in realworks_df.columns else 'Unknown'
@@ -1312,7 +1582,24 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
         realworks_df['rw_maintenance_inside'] = realworks_df['maintenance_inside'].fillna('Unknown') if 'maintenance_inside' in realworks_df.columns else 'Unknown'
         realworks_df['rw_maintenance_outside'] = realworks_df['maintenance_outside'].fillna('Unknown') if 'maintenance_outside' in realworks_df.columns else 'Unknown'
         
+        # CRITICAL: Use transport_date as sale_date if sale_date is missing
+        # In MHTML files, the sale date is called "Transport datum"
+        if 'transport_date' in realworks_df.columns and 'sale_date' in realworks_df.columns:
+            # Fill missing sale_date with transport_date
+            realworks_df['sale_date'] = realworks_df['sale_date'].fillna(realworks_df['transport_date'])
+        elif 'transport_date' in realworks_df.columns:
+            # If sale_date column doesn't exist, create it from transport_date
+            realworks_df['sale_date'] = realworks_df['transport_date']
+        
+        # Also ensure rw_sale_date is set for PDF generation
+        if 'sale_date' in realworks_df.columns:
+            realworks_df['rw_sale_date'] = realworks_df['sale_date']
+        elif 'transport_date' in realworks_df.columns:
+            realworks_df['rw_sale_date'] = realworks_df['transport_date']
+        
         logger.info(f"INITIAL Realworks data: {len(realworks_df)} records after cleaning")
+        
+        # Area filter removed - all properties will be considered regardless of area difference
         
         # Calculate similarity scores using Algorithm 2 (house matching)
         realworks_df['similarity_score'] = realworks_df.apply(lambda row: calculate_simple_similarity_score(row, reference_data, street_similarity_cache), axis=1)
@@ -1372,6 +1659,8 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
         
         logger.info(f"=== FINAL AVAILABLE: {len(realworks_df)} Realworks records for top 15 ===")
         
+        # Note: Area filter has been removed - all properties are considered regardless of area difference
+        
         # Sort by similarity score and take top 15
         top15_df = realworks_df.sort_values('similarity_score', ascending=False).head(15).copy()
         logger.info(f"=== TOP 15 SELECTED: {len(top15_df)} records ===")
@@ -1396,6 +1685,7 @@ def process_realworks_data_for_top15(realworks_df, reference_data, street_simila
             'rw_bathrooms', 'rw_year_built', 'rw_energy_label', 
             'rw_maintenance_inside', 'rw_maintenance_outside',
             'rw_has_garden', 'rw_has_balcony', 'rw_has_terrace',
+            'sale_date', 'rw_sale_date', 'transport_date',  # Include date columns for PDF
             'similarity_score', 'final_score'
         ]
         
@@ -1524,6 +1814,28 @@ def process_merged_data_for_top15(merged_df, reference_data, street_similarity_c
                 logger.info(f"After duplicate filter: {after_duplicate_filter} records (removed {duplicates_removed} duplicates)")
         
         logger.info(f"=== FINAL AVAILABLE: {len(merged_df)} records for top 15 ===")
+        
+        # Filter out properties with more than 20% difference in area (oppervlakte)
+        ref_area = reference_data.get('area_m2', 0)
+        if ref_area and ref_area > 0:
+            before_area_filter = len(merged_df)
+            # Calculate area difference percentage for each property
+            merged_df['area_diff_pct'] = merged_df['rw_area_m2'].apply(
+                lambda comp_area: abs(comp_area - ref_area) / ref_area * 100 if pd.notna(comp_area) and comp_area > 0 else 999
+            )
+            # Keep only properties within 20% difference
+            merged_df = merged_df[merged_df['area_diff_pct'] <= 20.0].copy()
+            after_area_filter = len(merged_df)
+            area_filtered_count = before_area_filter - after_area_filter
+            if area_filtered_count > 0:
+                logger.info(f"After area filter (max 20% difference from {ref_area:.0f}m²): {after_area_filter} records (removed {area_filtered_count} properties with >20% area difference)")
+            else:
+                logger.info(f"Area filter (max 20% difference from {ref_area:.0f}m²): All {after_area_filter} properties within range")
+            # Drop the temporary column
+            if 'area_diff_pct' in merged_df.columns:
+                merged_df = merged_df.drop(columns=['area_diff_pct'])
+        else:
+            logger.warning(f"Reference area not available ({ref_area}), skipping area filter")
         
         # Sort by final score (descending) and take top 15 OTHER properties (excluding reference)
         top15_df = merged_df.sort_values('final_score', ascending=False).head(15).copy()

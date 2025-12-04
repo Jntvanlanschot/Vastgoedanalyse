@@ -332,6 +332,44 @@ export default function Home() {
             >
               {isLoading ? 'Bezig...' : 'Volgende'}
             </button>
+            
+            {/* Direct to Realworks Upload Button */}
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <p className="text-sm text-gray-400 text-center mb-3">
+                Of ga direct naar Realworks upload (overslaan Funda scraper)
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  // Save property data to localStorage
+                  localStorage.setItem('propertyData', JSON.stringify(propertyData));
+                  
+                  // Prepare reference data for the workflow
+                  const referenceData = {
+                    address_full: propertyData.address.trim() || 'Onbekend adres',
+                    area_m2: propertyData.oppervlakte || 100,
+                    energy_label: propertyData.energielabel || 'B',
+                    bedrooms: propertyData.slaapkamers || 2,
+                    bathrooms: propertyData.badkamers || 1,
+                    rooms: propertyData.kamers || 3,
+                    has_terrace: propertyData.dakterras_balkon === 'Ja',
+                    has_balcony: propertyData.dakterras_balkon === 'Ja',
+                    has_garden: propertyData.tuin === 'Ja',
+                    sun_orientation: 'zuid'
+                  };
+                  
+                  // Store reference data for the workflow
+                  sessionStorage.setItem('referenceData', JSON.stringify(referenceData));
+                  
+                  // Navigate directly to Realworks upload
+                  window.location.href = '/upload-realworks';
+                }}
+                disabled={isLoading}
+                className="w-full bg-gray-600 hover:bg-gray-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+              >
+                Direct naar Realworks Upload
+              </button>
+            </div>
           </form>
         </div>
       </div>

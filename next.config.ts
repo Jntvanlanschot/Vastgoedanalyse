@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     // Enable Turbopack for faster builds
   },
+  // Increase body size limit for large file uploads (50MB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
+  },
 };
 
 export default nextConfig;

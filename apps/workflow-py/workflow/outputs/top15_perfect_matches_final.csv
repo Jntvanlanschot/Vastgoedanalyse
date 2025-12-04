@@ -1,16 +1,16 @@
-address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_bathrooms,rw_year_built,rw_energy_label,rw_maintenance_inside,rw_maintenance_outside,rw_has_garden,rw_has_balcony,rw_has_terrace,similarity_score,final_score
-" Churchill-laan 290 2, 1078 GB Amsterdam Verkocht onder voorbehoud ",870000.0,98.0,0.0,4.0,2.0,1926.0,C,Goed,Goed,False,True,True,0.7941636363636363,0.7941636363636363
-" Churchill-laan 157 2, 1078 DV Amsterdam Verkocht Width",675000.0,94.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,True,True,0.7797636363636363,0.7797636363636363
-" Churchill-laan 153 4, 1078 DT Amsterdam Verkocht Width",795000.0,89.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,False,True,0.7617636363636363,0.7617636363636363
-" Scheldestraat 29 1, 1078 GE Amsterdam Verkocht Width",850000.0,95.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,True,True,0.7547922077922078,0.7547922077922078
-" Churchill-laan 119 4, 1078 DN Amsterdam Verkocht Width",675000.0,87.0,0.0,4.0,1.0,1928.0,C,Goed,Goed,False,True,True,0.7545636363636363,0.7545636363636363
-" Churchill-laan 282 3, 1078 GB Amsterdam Verkocht Width",795000.0,97.0,0.0,5.0,1.0,1929.0,D,Goed,Goed,False,True,True,0.7537454545454545,0.7537454545454545
-" Scheldestraat 29 4, 1078 GE Amsterdam Verkocht Width",700000.0,90.0,0.0,4.0,1.0,1928.0,B,Goed,Goed,False,False,True,0.7486103896103896,0.7486103896103896
-" Rooseveltlaan 168 2, 1078 NT Amsterdam Verkocht Width",875000.0,101.0,0.0,4.0,1.0,1934.0,C,Goed,Goed,False,True,True,0.7477636363636363,0.7477636363636363
-" Rooseveltlaan 224 III, 1078 NX Amsterdam Verkocht Width",800000.0,98.0,0.0,4.0,1.0,1934.0,C,Uitstekend,Uitstekend,False,True,True,0.7441636363636364,0.7441636363636364
-" Rooseveltlaan 230 3, 1078 NX Amsterdam Verkocht Width",895000.0,98.0,0.0,3.0,1.0,1934.0,A,Goed,Goed,False,True,True,0.7428000000000001,0.7428000000000001
-" Churchill-laan 248 1, 1078 EZ Amsterdam Verkocht Width",750000.0,105.0,0.0,4.0,0.0,1928.0,Unknown,Matig,Matig,False,True,True,0.742,0.742
-" Churchill-laan 161 H, 1078 DV Amsterdam Verkocht Width",995000.0,110.0,0.0,4.0,1.0,1928.0,D,Goed,Goed,True,False,False,0.7385454545454547,0.7385454545454547
-" Churchill-laan 59 B, 1078 DH Amsterdam Verkocht Width",715000.0,87.0,0.0,3.0,1.0,1927.0,C,Uitstekend,Uitstekend,False,True,True,0.7295636363636364,0.7295636363636364
-" Rooseveltlaan 122 1, 1078 NP Amsterdam Verkocht Width",899000.0,101.0,0.0,3.0,2.0,1930.0,C,Uitstekend,Uitstekend,False,True,True,0.7227636363636363,0.7227636363636363
-" Amstelkade 168 2, 1078 AZ Amsterdam Verkocht Width",850000.0,102.0,0.0,4.0,1.0,1936.0,D,Goed,Goed,False,True,True,0.7180597402597403,0.7180597402597403
+address_full,rw_sale_price,rw_area_m2,rw_bedrooms,rw_rooms,rw_bathrooms,rw_year_built,rw_energy_label,rw_maintenance_inside,rw_maintenance_outside,rw_has_garden,rw_has_balcony,rw_has_terrace,sale_date,rw_sale_date,transport_date,similarity_score,final_score
+"Amstelkade 17 4, 1078 AC Amsterdam",632100.0,62.0,2.0,3.0,1.0,1922.0,A,Uitstekend,Uitstekend,False,True,False,2025-11-28,2025-11-28,2025-11-28,0.7161881188118813,0.7161881188118813
+"Amstelkade 16 4, 1078 AC Amsterdam",630000.0,58.0,1.0,2.0,1.0,1922.0,A,Uitstekend,Uitstekend,False,True,True,2025-10-20,2025-10-20,2025-10-20,0.7054620462046204,0.7054620462046204
+"Churchill-laan 98 3, 1078 EL Amsterdam",566098.0,62.0,2.0,3.0,1.0,1924.0,A,Goed,Goed,False,True,True,2025-09-11,2025-09-11,2025-09-11,0.6904455445544555,0.6904455445544555
+"Amstelkade 54 H, 1078 AJ Amsterdam",925000.0,78.0,2.0,3.0,1.0,1924.0,A,Uitstekend,Goed,True,False,False,2025-06-25,2025-06-25,2025-06-25,0.6885148514851485,0.6885148514851485
+"IJselstraat 32 A, 1078 CJ Amsterdam",685000.0,79.0,2.0,3.0,0.0,1990.0,A,Goed,Goed,False,True,True,2025-10-22,2025-10-22,2025-10-22,0.6645957095709571,0.6645957095709571
+"Schipbeekstraat 7 1, 1078 BK Amsterdam",530000.0,53.0,2.0,3.0,1.0,1926.0,C,Goed,Goed,False,True,True,2025-07-01,2025-07-01,2025-07-01,0.6624752475247524,0.6624752475247524
+"IJselstraat 87 H, 1078 CG Amsterdam",535000.0,66.0,2.0,3.0,1.0,1925.0,C,Redelijk,Redelijk,True,False,False,2025-02-25,2025-02-25,2025-02-25,0.6520709570957095,0.6520709570957095
+"Schipbeekstraat 9 2, 1078 BK Amsterdam",487083.0,50.0,2.0,3.0,1.0,1926.0,D,Goed,Goed,False,False,False,2025-11-05,2025-11-05,2025-11-05,0.6347524752475248,0.6347524752475248
+"Churchill-laan 14, 1078 EE Amsterdam",549000.0,52.0,2.0,3.0,1.0,1930.0,B,Uitstekend,Uitstekend,False,True,True,2025-06-30,2025-06-30,2025-06-30,0.6342079207920792,0.6342079207920792
+"Amstelkade 17 3, 1078 AC Amsterdam",625000.0,58.0,2.0,3.0,1.0,1922.0,C,Uitstekend,Uitstekend,False,True,True,2025-11-14,2025-11-14,2025-11-14,0.6286881188118811,0.6286881188118811
+"Oude-IJselstraat 24 1, 1078 CN Amsterdam",480000.0,63.0,2.0,3.0,1.0,1923.0,C,Redelijk,Redelijk,False,True,True,2025-07-16,2025-07-16,2025-07-16,0.6283663366336634,0.6283663366336634
+"Amstelkade 3 1, 1078 AA Amsterdam",865000.0,85.0,3.0,4.0,1.0,1922.0,A,Goed,Goed,False,True,True,2025-06-16,2025-06-16,2025-06-16,0.6240511551155116,0.6240511551155116
+"Churchill-laan 20, 1078 EE Amsterdam",505000.0,53.0,2.0,3.0,1.0,1930.0,C,Goed,Goed,False,False,False,2025-11-14,2025-11-14,2025-11-14,0.6206435643564356,0.6206435643564356
+"IJselstraat 54 1, 1078 CK Amsterdam",521000.0,55.0,2.0,4.0,1.0,1930.0,C,Goed,Goed,False,True,True,2025-12-01,2025-12-01,2025-12-01,0.6159240924092408,0.6159240924092408
+"Amstelkade 93 1, 1078 AN Amsterdam",550000.0,63.0,1.0,2.0,1.0,1924.0,C,Goed,Goed,False,True,True,2025-07-21,2025-07-21,2025-07-21,0.6144224422442244,0.6144224422442244

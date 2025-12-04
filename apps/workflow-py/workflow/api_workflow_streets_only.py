@@ -226,7 +226,7 @@ def calculate_street_similarity_score(row, reference_data, street_similarity_cac
         return 0.0
 
 def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=None):
-    """Process CSV data to find top 4 streets using Algorithm 1."""
+    """Process CSV data to find top 9 streets using Algorithm 1 (reference + top 9 = total 10 streets)."""
     try:
         # Find street name column
         street_col = None
@@ -287,7 +287,7 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
                 "similarity_score": similarity_score
             })
         
-        # Sort by similarity score (descending) and take top 4 OTHER streets (excluding reference street)
+        # Sort by similarity score (descending) and take top 9 OTHER streets (excluding reference street)
         street_scores.sort(key=lambda x: x['similarity_score'], reverse=True)
         
         # Log ALL streets with their scores for debugging
@@ -297,8 +297,8 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         for i, street in enumerate(street_scores, 1):
             is_gracht = 'gracht' in street['street_name'].lower()
             gracht_indicator = " [GRACHT]" if is_gracht else " [STRAAT]"
-            in_top5_marker = " <-- TOP 5" if i <= 5 else ""
-            logger.info(f"{i:2}. {street['street_name']:40} | Score: {street['similarity_score']:.4f}{gracht_indicator}{in_top5_marker}")
+            in_top10_marker = " <-- TOP 10" if i <= 10 else ""
+            logger.info(f"{i:2}. {street['street_name']:40} | Score: {street['similarity_score']:.4f}{gracht_indicator}{in_top10_marker}")
         logger.info("=" * 100)
         
         # Extract street name from reference data
@@ -314,10 +314,10 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
         logger.info(f"Extracted reference street name: '{ref_street_name}'")
         logger.info(f"Available streets in CSV: {[s.lower().strip() for s in unique_streets]}")
         
-        # Filter out the reference street and take top 4 other streets
+        # Filter out the reference street and take top 9 other streets
         other_streets = [street for street in street_scores if street['street_name'].lower().strip() != ref_street_name]
         
-        # Create final result: reference street ALWAYS first (block 1), then top 4 other streets (blocks 2-5)
+        # Create final result: reference street ALWAYS first (block 1), then top 9 other streets (blocks 2-10)
         final_streets = []
         
         # ALWAYS add reference street as block 1, regardless of whether it's in CSV data
@@ -345,8 +345,8 @@ def process_csv_for_top_streets(csv_df, reference_data, street_similarity_cache=
             })
             logger.info(f"Reference street '{ref_street_name}' not found in CSV data, creating placeholder entry")
         
-        # Add top 4 other streets as blocks 2-5 (STRICT: only streets from CSV)
-        streets_to_add = other_streets[:4]
+        # Add top 9 other streets as blocks 2-10 (STRICT: only streets from CSV)
+        streets_to_add = other_streets[:9]
         
         # Validate that all streets are from CSV data
         csv_street_names = set(s.lower().strip() for s in unique_streets)

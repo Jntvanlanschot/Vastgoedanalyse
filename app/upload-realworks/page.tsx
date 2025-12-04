@@ -32,7 +32,7 @@ export default function UploadRealworksPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Get street analysis data from sessionStorage
+    // Get street analysis data from sessionStorage (optional - may not exist if skipping scraper)
     const streetAnalysisStr = sessionStorage.getItem('streetAnalysisResult');
     if (streetAnalysisStr) {
       try {
@@ -48,6 +48,7 @@ export default function UploadRealworksPage() {
         console.error('Failed to parse street analysis data:', e);
       }
     }
+    // If no street analysis, that's OK - user can still upload Realworks files
   }, []);
 
   const handleFiles = useCallback((files: FileList | null) => {
@@ -57,7 +58,7 @@ export default function UploadRealworksPage() {
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (file.name.toLowerCase().endsWith('.rtf')) {
+      if (file.name.toLowerCase().endsWith('.mhtml') || file.name.toLowerCase().endsWith('.mht')) {
         newFiles.push({
           file,
           id: `file-${Date.now()}-${i}`
@@ -102,7 +103,7 @@ export default function UploadRealworksPage() {
 
   const handleSubmit = async () => {
     if (uploadedFiles.length === 0) {
-      setError('Please upload at least one Realworks RTF file');
+      setError('Please upload at least one Realworks MHTML file');
       return;
     }
 
@@ -123,21 +124,23 @@ export default function UploadRealworksPage() {
         formData.append('referenceData', referenceDataStr);
       }
 
-      // Get CSV data from sessionStorage
+      // Get CSV data from sessionStorage (optional - may not exist if skipping scraper)
       const csvData = sessionStorage.getItem('csvData');
       if (csvData) {
         formData.append('csvData', csvData);
         console.log('Including CSV data in upload, length:', csvData.length);
       } else {
-        console.error('No CSV data found in sessionStorage');
-        setError('CSV data not found. Please run the scraper first.');
-        setIsUploading(false);
-        return;
+        console.warn('No CSV data found in sessionStorage - continuing without it');
+        // Create empty CSV data for workflow compatibility
+        formData.append('csvData', 'address_full,street_name\n');
       }
 
       const response = await fetch('/api/upload-realworks', {
         method: 'POST',
         body: formData,
+      }).catch((err) => {
+        console.error('Fetch error:', err);
+        throw new Error(`Network error: ${err.message}. Please check if the server is running and try again.`);
       });
 
       if (!response.ok) {
@@ -196,7 +199,7 @@ export default function UploadRealworksPage() {
             Upload Realworks Bestanden
           </h1>
           <p className="text-lg text-gray-300">
-            Sleep en zet neer of klik om meerdere RTF bestanden te selecteren
+            Sleep en zet neer of klik om meerdere MHTML bestanden te selecteren
           </p>
         </div>
 
@@ -204,7 +207,7 @@ export default function UploadRealworksPage() {
         {analysisData?.top_5_streets ? (
           <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
             <h2 className="text-xl font-semibold text-white mb-4 text-center">
-              Top 5 Straten uit Funda Analyse
+              Top 10 Straten uit Funda Analyse
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {analysisData.top_5_streets.map((street, index) => (
@@ -259,7 +262,7 @@ export default function UploadRealworksPage() {
                 <div className="mt-2 text-sm text-yellow-300">
                   <p>
                     Er zijn nog geen Funda analyse resultaten beschikbaar. Ga terug naar de vorige pagina 
-                    en start eerst de Funda scraper om de top 5 straten te analyseren.
+                    en start eerst de Funda scraper om de top 10 straten te analyseren.
                   </p>
                 </div>
               </div>
@@ -288,10 +291,10 @@ export default function UploadRealworksPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">
-                {isDragging ? 'Laat hier vallen!' : uploadedFiles.length > 0 ? `${uploadedFiles.length} bestand(en) geüpload` : 'Sleep hier je RTF bestanden'}
+                {isDragging ? 'Laat hier vallen!' : uploadedFiles.length > 0 ? `${uploadedFiles.length} bestand(en) geüpload` : 'Sleep hier je MHTML bestanden'}
               </h3>
               <p className="text-gray-300">
-                Sleep en zet neer of klik om te selecteren
+                Sleep en zet neer of klik om te selecteren (MHTML)
               </p>
             </div>
             
@@ -310,7 +313,7 @@ export default function UploadRealworksPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".rtf"
+              accept=".mhtml,.mht"
               multiple
               onChange={handleFileInput}
               className="hidden"
