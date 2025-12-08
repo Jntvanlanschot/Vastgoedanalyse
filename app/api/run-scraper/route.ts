@@ -95,10 +95,11 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
 
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
+  const maxAttempts = 50; // 50 * 5 seconds = 250 seconds max (within Vercel Pro 300s limit)
+  const pollInterval = 5000; // 5 seconds instead of 10
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds (same as main handler)
+    await new Promise(resolve => setTimeout(resolve, pollInterval)); // Wait 5 seconds
     
     const statusResponse = await axios.get<ApifyRunStatus>(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
@@ -216,10 +217,11 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
 
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
+  const maxAttempts = 50; // 50 * 5 seconds = 250 seconds max (within Vercel Pro 300s limit)
+  const pollInterval = 5000; // 5 seconds instead of 10
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds (same as main handler)
+    await new Promise(resolve => setTimeout(resolve, pollInterval)); // Wait 5 seconds
     
     const statusResponse = await axios.get<ApifyRunStatus>(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
@@ -329,10 +331,11 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
 
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
+  const maxAttempts = 50; // 50 * 5 seconds = 250 seconds max (within Vercel Pro 300s limit)
+  const pollInterval = 5000; // 5 seconds instead of 10
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds (same as main handler)
+    await new Promise(resolve => setTimeout(resolve, pollInterval)); // Wait 5 seconds
     
     const statusResponse = await axios.get<ApifyRunStatus>(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
@@ -484,11 +487,13 @@ export async function POST(request: NextRequest) {
     console.log(`Apify run started with ID: ${runId}, Dataset ID: ${datasetId}`);
 
     // Step 2: Poll for completion
+    // Use shorter polling interval to detect completion faster and reduce total time
     let attempts = 0;
-    const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
+    const maxAttempts = 50; // 50 * 5 seconds = 250 seconds max (within Vercel Pro 300s limit)
+    const pollInterval = 5000; // 5 seconds instead of 10
     
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+      await new Promise(resolve => setTimeout(resolve, pollInterval)); // Wait 5 seconds
       attempts++;
       
       let statusResponse;
@@ -519,7 +524,8 @@ export async function POST(request: NextRequest) {
       }
       
       const status = statusResponse!.data.data.status;
-      console.log(`Run status (attempt ${attempts}/${maxAttempts}): ${status}`);
+      const elapsedSeconds = attempts * (pollInterval / 1000);
+      console.log(`Run status (attempt ${attempts}/${maxAttempts}, ${elapsedSeconds}s elapsed): ${status}`);
       
       // Update datasetId from status response if available (as fallback)
       const statusDatasetId = statusResponse!.data.data.defaultDatasetId;
@@ -529,7 +535,8 @@ export async function POST(request: NextRequest) {
       }
       
       if (status === 'SUCCEEDED') {
-        console.log(`Scraper completed successfully after ${attempts} attempts (${attempts * 10} seconds)`);
+        const elapsedSeconds = attempts * (pollInterval / 1000);
+        console.log(`Scraper completed successfully after ${attempts} attempts (${elapsedSeconds} seconds)`);
         break;
       } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
         return NextResponse.json(
@@ -559,8 +566,9 @@ export async function POST(request: NextRequest) {
     }
     
     // Wait a bit for dataset to be fully available (sometimes there's a delay)
-    console.log(`Waiting 3 seconds for dataset ${datasetId} to be fully available...`);
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Reduced from 3 seconds to 1 second to save time
+    console.log(`Waiting 1 second for dataset ${datasetId} to be fully available...`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Step 3: First check if dataset has items (to avoid empty dataset error)
     console.log(`Checking dataset ${datasetId} for items...`);
