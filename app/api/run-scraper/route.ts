@@ -555,7 +555,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Apify run completed successfully, fetching dataset...');
+    console.log('Apify run completed successfully!');
     
     // Verify dataset ID is available
     if (!datasetId) {
@@ -565,135 +565,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Wait a bit for dataset to be fully available (sometimes there's a delay)
-    // Reduced from 3 seconds to 1 second to save time
-    console.log(`Waiting 1 second for dataset ${datasetId} to be fully available...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Step 3: First check if dataset has items (to avoid empty dataset error)
-    console.log(`Checking dataset ${datasetId} for items...`);
-    let datasetInfo;
-    try {
-      datasetInfo = await axios.get(
-        `https://api.apify.com/v2/datasets/${datasetId}?token=${apifyToken}`,
-        { timeout: 15000 }
-      );
-      const itemCount = datasetInfo.data.data.itemCount || 0;
-      console.log(`Dataset has ${itemCount} items`);
-      
-      if (itemCount === 0) {
-        return NextResponse.json(
-          { 
-            error: 'De scraper heeft geen resultaten gevonden. Mogelijke oorzaken:\n- Geen woningen beschikbaar voor de geselecteerde buurten\n- Funda website blokkeert de scraper\n- Scraper configuratie probleem',
-            datasetId,
-            runId,
-            itemCount: 0,
-            suggestion: 'Probeer andere buurten of controleer de Funda website handmatig'
-          },
-          { status: 404 }
-        );
-      }
-    } catch (error) {
-      console.warn('Could not check dataset info, proceeding with fetch attempt:', error instanceof Error ? error.message : String(error));
-    }
-
-    // Step 4: Fetch the dataset with retry logic
-    let datasetResponse;
-    let datasetRetryCount = 0;
-    const maxDatasetRetries = 3; // Reduced retries to save time
-    const datasetFetchTimeout = 60000; // 60 seconds timeout for large datasets
-    
-    while (datasetRetryCount < maxDatasetRetries) {
-      try {
-        console.log(`Fetching dataset ${datasetId} (attempt ${datasetRetryCount + 1}/${maxDatasetRetries})...`);
-        const fetchStartTime = Date.now();
-        datasetResponse = await axios.get(
-          `https://api.apify.com/v2/datasets/${datasetId}/items?format=csv&clean=true&token=${apifyToken}`,
-          {
-            responseType: 'text',
-            timeout: datasetFetchTimeout, // 60 second timeout for large datasets
-          }
-        );
-        const fetchDuration = ((Date.now() - fetchStartTime) / 1000).toFixed(1);
-        console.log(`Dataset fetched successfully in ${fetchDuration} seconds`);
-        break; // Success, exit retry loop
-      } catch (error: unknown) {
-        datasetRetryCount++;
-        
-        // Enhanced error logging
-        if (axios.isAxiosError(error)) {
-          const status = error.response?.status;
-          const statusText = error.response?.statusText;
-          const errorData = error.response?.data;
-          console.error(`Dataset fetch failed (attempt ${datasetRetryCount}):`, {
-            status,
-            statusText,
-            message: error.message,
-            data: errorData,
-            datasetId,
-            url: error.config?.url
-          });
-          
-          // Check for empty dataset error specifically
-          if (status === 400 && errorData) {
-            try {
-              const errorObj = typeof errorData === 'string' ? JSON.parse(errorData) : errorData;
-              if (errorObj?.error?.type === 'no-columns-in-exported-dataset') {
-                console.error('Dataset is empty - scraper found no results');
-                return NextResponse.json(
-                  { 
-                    error: 'De scraper heeft geen resultaten gevonden. De dataset is leeg.\n\nMogelijke oorzaken:\n- Geen woningen beschikbaar voor de geselecteerde buurten\n- Funda website blokkeert de scraper\n- Scraper configuratie probleem\n\nProbeer andere buurten of controleer de Funda website handmatig.',
-                    datasetId,
-                    runId,
-                    itemCount: 0,
-                    errorType: 'empty-dataset',
-                    suggestion: 'Controleer of er woningen beschikbaar zijn op Funda voor deze buurten'
-                  },
-                  { status: 404 }
-                );
-              }
-            } catch (parseError) {
-              // Continue with normal error handling if parsing fails
-            }
-          }
-        } else {
-          console.error(`Dataset fetch failed (attempt ${datasetRetryCount}):`, error instanceof Error ? error.message : String(error));
-        }
-        
-        if (datasetRetryCount >= maxDatasetRetries) {
-          const errorMessage = axios.isAxiosError(error) 
-            ? `Failed to fetch dataset after ${maxDatasetRetries} attempts. Status: ${error.response?.status} ${error.response?.statusText}. Error: ${JSON.stringify(error.response?.data || error.message)}`
-            : `Failed to fetch dataset after ${maxDatasetRetries} attempts. Error: ${error instanceof Error ? error.message : String(error)}`;
-          
-          return NextResponse.json(
-            { error: errorMessage, datasetId, runId },
-            { status: 500 }
-          );
-        }
-        
-        // Wait before retry with exponential backoff
-        const waitTime = Math.pow(2, datasetRetryCount) * 1000; // 2s, 4s, 8s, 16s, 32s
-        console.log(`Retrying dataset fetch in ${waitTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    }
-
-    const csvData = datasetResponse!.data;
-    console.log(`Dataset fetched, ${csvData.length} characters`);
-
-    // Return CSV immediately - street analysis can be done separately if needed
-    // This prevents timeout issues when street analysis takes too long
-    console.log('Returning CSV data immediately...');
+    // Return immediately with datasetId - let frontend fetch the dataset
+    // This prevents timeout issues when dataset fetch takes too long
+    console.log(`Returning scraper completion with datasetId ${datasetId} - frontend will fetch dataset`);
     
     const downloadUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`;
     
     return NextResponse.json({
       success: true,
-      csvData: csvData,
       runId,
       datasetId,
       downloadUrl: downloadUrl,
-      message: 'Scraper completed successfully. CSV data is ready.'
+      message: 'Scraper completed successfully. Dataset is ready to be fetched.'
     });
 
   } catch (error) {

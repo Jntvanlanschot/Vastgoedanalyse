@@ -27,12 +27,12 @@ export async function GET(request: NextRequest) {
 
     console.log('Fetching dataset from Apify:', datasetId);
 
-    // Fetch the dataset as CSV
+    // Fetch the dataset as CSV with longer timeout for large datasets
     const datasetResponse = await axios.get(
       `https://api.apify.com/v2/datasets/${datasetId}/items?format=csv&clean=true&token=${apifyToken}`,
       {
         responseType: 'text',
-        timeout: 30000,
+        timeout: 120000, // 2 minutes timeout for large datasets
       }
     );
 
