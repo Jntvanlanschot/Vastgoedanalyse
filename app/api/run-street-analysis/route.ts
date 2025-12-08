@@ -140,14 +140,28 @@ export async function POST(request: NextRequest) {
         }
       });
       
-      pythonProcess.on('error', (error) => {
+      pythonProcess.on('error', (error: any) => {
         clearTimeout(processTimeout);
         console.error('Python process error:', error);
-        resolve(NextResponse.json({
-          status: 'error',
-          message: 'Failed to start Python process',
-          error: error.message
-        }, { status: 500 }));
+        
+        // If ENOENT (command not found), provide helpful error message
+        if (error.code === 'ENOENT') {
+          resolve(NextResponse.json({
+            status: 'error',
+            message: `Python command '${pythonCmd}' not found. On Vercel, Python may not be available in serverless functions.`,
+            error: error.message,
+            code: error.code,
+            triedCommand: pythonCmd,
+            environment: process.env.VERCEL ? 'Vercel' : 'Local'
+          }, { status: 500 }));
+        } else {
+          resolve(NextResponse.json({
+            status: 'error',
+            message: 'Failed to start Python process',
+            error: error.message,
+            code: error.code
+          }, { status: 500 }));
+        }
       });
     });
 
