@@ -138,7 +138,6 @@ export default function NearestBuurtenNLPage() {
         
         // Now run street analysis separately (to avoid timeout in scraper route)
         console.log('Starting street analysis...');
-        setProgress('Street analyse wordt uitgevoerd...');
         
         try {
           // Get reference data from sessionStorage
