@@ -117,32 +117,73 @@ export default function NearestBuurtenNLPage() {
       console.log('Response content-type:', contentType);
       
       if (contentType && contentType.includes('application/json')) {
-        // Response contains workflow results
+        // Response contains CSV data from scraper
         const workflowResult = await response.json();
-        console.log('Workflow result:', workflowResult);
+        console.log('Scraper result:', workflowResult);
         
-        // Store street analysis results and CSV data in sessionStorage for the upload-realworks page
-        // Check for street analysis results
-        if (workflowResult.streetAnalysis && workflowResult.streetAnalysis.top_streets) {
-          sessionStorage.setItem('streetAnalysisResult', JSON.stringify(workflowResult.streetAnalysis));
-          console.log('Stored street analysis results in sessionStorage:', workflowResult.streetAnalysis);
+        // Store CSV data for the upload-realworks page
+        if (workflowResult.csvData) {
+          sessionStorage.setItem('csvData', workflowResult.csvData);
+          console.log('Stored CSV data in sessionStorage, length:', workflowResult.csvData.length);
+        }
+        
+        // Now run street analysis separately (to avoid timeout in scraper route)
+        console.log('Starting street analysis...');
+        setProgress('Street analyse wordt uitgevoerd...');
+        
+        try {
+          // Get reference data from sessionStorage
+          const referenceDataStr = sessionStorage.getItem('referenceData');
+          let referenceData = null;
+          if (referenceDataStr) {
+            try {
+              referenceData = JSON.parse(referenceDataStr);
+            } catch (e) {
+              console.error('Failed to parse reference data:', e);
+            }
+          }
           
-          // Store CSV data for the upload-realworks page
-          if (workflowResult.csvData) {
-            sessionStorage.setItem('csvData', workflowResult.csvData);
-            console.log('Stored CSV data in sessionStorage, length:', workflowResult.csvData.length);
+          if (!referenceData) {
+            throw new Error('Reference data not found in sessionStorage');
+          }
+          
+          // Call street analysis API
+          const streetAnalysisResponse = await fetch('/api/run-street-analysis', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              csvData: workflowResult.csvData,
+              referenceData: referenceData
+            }),
+          });
+          
+          if (!streetAnalysisResponse.ok) {
+            const errorData = await streetAnalysisResponse.json();
+            throw new Error(errorData.error || 'Street analysis failed');
+          }
+          
+          const streetAnalysisResult = await streetAnalysisResponse.json();
+          console.log('Street analysis result:', streetAnalysisResult);
+          
+          // Store street analysis results in sessionStorage
+          if (streetAnalysisResult.status === 'success' && streetAnalysisResult.result) {
+            sessionStorage.setItem('streetAnalysisResult', JSON.stringify(streetAnalysisResult.result));
+            console.log('Stored street analysis results in sessionStorage');
+          } else {
+            throw new Error(streetAnalysisResult.message || 'Street analysis failed');
           }
           
           // Automatically download CSV file
           if (workflowResult.downloadUrl) {
             console.log('Auto-downloading CSV file:', workflowResult.downloadUrl);
-            console.log('RunId:', workflowResult.runId, 'DatasetId:', workflowResult.datasetId);
             
             // Use fetch to get the CSV data and create a blob download
             try {
-              const response = await fetch(workflowResult.downloadUrl);
-              if (response.ok) {
-                const blob = await response.blob();
+              const csvResponse = await fetch(workflowResult.downloadUrl);
+              if (csvResponse.ok) {
+                const blob = await csvResponse.blob();
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -153,29 +194,29 @@ export default function NearestBuurtenNLPage() {
                 window.URL.revokeObjectURL(url);
                 console.log('CSV download initiated successfully');
               } else {
-                console.error('Failed to fetch CSV:', response.status, response.statusText);
+                console.error('Failed to fetch CSV:', csvResponse.status, csvResponse.statusText);
               }
             } catch (error) {
               console.error('Error downloading CSV:', error);
             }
-            
-            // Wait a moment for download to start before redirecting
-            setTimeout(() => {
-              console.log('Redirecting to upload-realworks page...');
-              window.location.href = '/upload-realworks';
-            }, 1000); // 1 second delay
-          } else {
-            console.error('No downloadUrl found in workflow result:', workflowResult);
-            // Navigate to upload-realworks page even if no download URL
-            console.log('Redirecting to upload-realworks page...');
-            window.location.href = '/upload-realworks';
           }
           
-          return;
-        } else {
-          console.error('No street analysis results found in response:', workflowResult);
-          setError('Geen straat analyse resultaten ontvangen van de scraper');
+          // Wait a moment for download to start before redirecting
+          setTimeout(() => {
+            console.log('Redirecting to upload-realworks page...');
+            window.location.href = '/upload-realworks';
+          }, 1000); // 1 second delay
+          
+        } catch (streetAnalysisError) {
+          console.error('Street analysis error:', streetAnalysisError);
+          setError(`Street analyse mislukt: ${streetAnalysisError instanceof Error ? streetAnalysisError.message : 'Onbekende fout'}`);
+          // Still allow user to proceed to upload-realworks page
+          setTimeout(() => {
+            window.location.href = '/upload-realworks';
+          }, 2000);
         }
+        
+        return;
       } else {
         // Response is CSV file (legacy behavior)
         console.log('Response is CSV file, downloading...');
