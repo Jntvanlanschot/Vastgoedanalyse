@@ -585,11 +585,9 @@ def generate_reports(top15_csv_path="outputs/top15_perfect_matches_final.csv", r
             # Try multiple possible date column names
             sale_date = row.get('sale_date', None) or row.get('rw_sale_date', None) or row.get('transport_date', None)
             
-            # Calculate price per m² with energy label correction
+            # Calculate price per m² WITHOUT adjustments so it matches the detail page
             if sale_price > 0 and area_m2 > 0:
-                comp_label = row.get('rw_energy_label', 'Unknown')
-                corrected_price = correct_price_for_energy_label(sale_price, comp_label, ref_label)
-                price_per_m2 = corrected_price / area_m2
+                price_per_m2 = sale_price / area_m2
                 price_display = f"€ {price_per_m2:,.0f}"
             else:
                 price_display = 'Onbekend'
