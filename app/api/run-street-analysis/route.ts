@@ -48,11 +48,21 @@ export async function POST(request: NextRequest) {
     console.log('Reference file:', referenceFilePath);
 
     // Run Python script for street analysis only
+    // Use 'python' on Windows locally, 'python3' on Unix/Vercel
+    const pythonCmd = process.env.VERCEL ? 'python3' : (process.platform === 'win32' ? 'python' : 'python3');
     const pythonScript = join(process.cwd(), 'apps/workflow-py/workflow/api_workflow_streets_only.py');
     
-    const pythonProcess = spawn('python3', [pythonScript, referenceFilePath, csvFilePath], {
+    console.log('Python command:', pythonCmd);
+    console.log('Python script:', pythonScript);
+    console.log('Working directory:', join(process.cwd(), 'apps/workflow-py/workflow'));
+    
+    const pythonProcess = spawn(pythonCmd, [pythonScript, referenceFilePath, csvFilePath], {
       cwd: join(process.cwd(), 'apps/workflow-py/workflow'),
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1' // Ensure Python output is not buffered
+      }
     });
 
     let stdout = '';

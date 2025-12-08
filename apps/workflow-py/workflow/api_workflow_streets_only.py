@@ -419,8 +419,11 @@ def run_street_analysis(csv_file_path, reference_data):
                     
                     # Use Overpass API to get REAL street similarity for ALL streets
                     similarity_calc = OverpassStreetSimilarity()
-                    # Use top_n=len(candidate_streets) to get ALL streets, not just top 5
-                    similar_streets = similarity_calc.find_similar_streets(ref_street, candidate_streets, top_n=len(candidate_streets))
+                    # Limit to top 50 streets to prevent timeout - still enough for good results
+                    limited_candidates = candidate_streets[:50] if len(candidate_streets) > 50 else candidate_streets
+                    logger.info(f"Processing {len(limited_candidates)} streets (limited from {len(candidate_streets)} to prevent timeout)")
+                    # Use top_n=len(limited_candidates) to get all limited streets
+                    similar_streets = similarity_calc.find_similar_streets(ref_street, limited_candidates, top_n=len(limited_candidates))
                     
                     # Build cache - IMPORTANT: use normalized reference street name as key
                     street_similarity_cache = {}

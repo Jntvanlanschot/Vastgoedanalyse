@@ -155,8 +155,8 @@ class OverpassStreetSimilarity:
         # Build bbox for Amsterdam: south, west, north, east
         south, west, north, east = self.amsterdam_bbox[1], self.amsterdam_bbox[0], self.amsterdam_bbox[3], self.amsterdam_bbox[2]
         
-        # Build query with proper structure
-        query = "[out:json][timeout:60];\n(\n"
+        # Build query with proper structure - reduced timeout for faster execution
+        query = "[out:json][timeout:25];\n(\n"
         
         # Add name filter with or without anchors (no parentheses around entire pattern)
         if use_anchors:
@@ -179,7 +179,7 @@ class OverpassStreetSimilarity:
         
         return query
     
-    def fetch_street_data(self, street_names: List[str], batch_size: int = 30) -> Dict:
+    def fetch_street_data(self, street_names: List[str], batch_size: int = 15) -> Dict:
         """Fetch street data from Overpass API with batching and fallbacks.
         
         Implements F) Guardrails - tracks success rate and logs metrics.
@@ -273,7 +273,7 @@ class OverpassStreetSimilarity:
                     self.overpass_url,
                     data={'data': query},
                     headers=headers,
-                    timeout=60
+                    timeout=30  # Reduced from 60 to 30 seconds for faster execution
                 )
                 
                 # Check for error status
