@@ -468,6 +468,7 @@ export async function POST(request: NextRequest) {
     
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+      attempts++;
       
       let statusResponse;
       let statusRetryCount = 0;
@@ -497,7 +498,7 @@ export async function POST(request: NextRequest) {
       }
       
       const status = statusResponse!.data.data.status;
-      console.log(`Run status (attempt ${attempts + 1}): ${status}`);
+      console.log(`Run status (attempt ${attempts}/${maxAttempts}): ${status}`);
       
       // Update datasetId from status response if available (as fallback)
       const statusDatasetId = statusResponse!.data.data.defaultDatasetId;
@@ -507,6 +508,7 @@ export async function POST(request: NextRequest) {
       }
       
       if (status === 'SUCCEEDED') {
+        console.log(`Scraper completed successfully after ${attempts} attempts (${attempts * 10} seconds)`);
         break;
       } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
         return NextResponse.json(
@@ -515,7 +517,7 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      attempts++;
+      // Continue polling if status is RUNNING or READY
     }
 
     if (attempts >= maxAttempts) {
@@ -569,18 +571,22 @@ export async function POST(request: NextRequest) {
     // Step 4: Fetch the dataset with retry logic
     let datasetResponse;
     let datasetRetryCount = 0;
-    const maxDatasetRetries = 5; // Increased retries
+    const maxDatasetRetries = 3; // Reduced retries to save time
+    const datasetFetchTimeout = 60000; // 60 seconds timeout for large datasets
     
     while (datasetRetryCount < maxDatasetRetries) {
       try {
         console.log(`Fetching dataset ${datasetId} (attempt ${datasetRetryCount + 1}/${maxDatasetRetries})...`);
+        const fetchStartTime = Date.now();
         datasetResponse = await axios.get(
           `https://api.apify.com/v2/datasets/${datasetId}/items?format=csv&clean=true&token=${apifyToken}`,
           {
             responseType: 'text',
-            timeout: 30000, // 30 second timeout
+            timeout: datasetFetchTimeout, // 60 second timeout for large datasets
           }
         );
+        const fetchDuration = ((Date.now() - fetchStartTime) / 1000).toFixed(1);
+        console.log(`Dataset fetched successfully in ${fetchDuration} seconds`);
         break; // Success, exit retry loop
       } catch (error: unknown) {
         datasetRetryCount++;
