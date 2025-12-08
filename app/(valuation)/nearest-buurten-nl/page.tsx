@@ -146,43 +146,56 @@ export default function NearestBuurtenNLPage() {
           const csvData = await csvResponse.text();
           console.log('CSV data fetched, length:', csvData.length);
           
+          // Verify CSV data is valid before storing
+          if (!csvData || csvData.length < 100) {
+            throw new Error('CSV data is invalid or too small. Scraper may have failed.');
+          }
+          
           // Store CSV data for the upload-realworks page
           sessionStorage.setItem('csvData', csvData);
-          console.log('Stored CSV data in sessionStorage');
+          console.log('Stored CSV data in sessionStorage, length:', csvData.length);
+          
+          // Verify CSV data was stored correctly
+          const storedCsv = sessionStorage.getItem('csvData');
+          if (!storedCsv || storedCsv.length < 100) {
+            throw new Error('Failed to store CSV data in sessionStorage');
+          }
+          console.log('Verified CSV data in sessionStorage, length:', storedCsv.length);
           
           // Now run street analysis separately (to avoid timeout in scraper route)
-          console.log('Starting street analysis...');
+          // Street analysis is REQUIRED - do not proceed without it
+          console.log('Starting street analysis (REQUIRED)...');
           
-          try {
-            // Get reference data from sessionStorage
-            const referenceDataStr = sessionStorage.getItem('referenceData');
-            let referenceData = null;
-            if (referenceDataStr) {
-              try {
-                referenceData = JSON.parse(referenceDataStr);
-              } catch (e) {
-                console.error('Failed to parse reference data:', e);
-              }
+          // Get reference data from sessionStorage
+          const referenceDataStr = sessionStorage.getItem('referenceData');
+          let referenceData = null;
+          if (referenceDataStr) {
+            try {
+              referenceData = JSON.parse(referenceDataStr);
+            } catch (e) {
+              console.error('Failed to parse reference data:', e);
+              throw new Error('Reference data is invalid');
             }
-            
-            if (!referenceData) {
-              throw new Error('Reference data not found in sessionStorage');
-            }
-            
-            // Call street analysis API with longer timeout
-            console.log('Calling street analysis API...');
-            const streetAnalysisResponse = await fetch('/api/run-street-analysis', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                csvData: csvData,
-                referenceData: referenceData
-              }),
-              // Note: Browser fetch timeout is limited, but server has 10 minute maxDuration
-            });
+          }
           
+          if (!referenceData) {
+            throw new Error('Reference data not found in sessionStorage');
+          }
+          
+          // Call street analysis API with longer timeout
+          console.log('Calling street analysis API...');
+          const streetAnalysisResponse = await fetch('/api/run-street-analysis', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              csvData: csvData,
+              referenceData: referenceData
+            }),
+            // Note: Browser fetch timeout is limited, but server has 10 minute maxDuration
+          });
+        
           if (!streetAnalysisResponse.ok) {
             // Try to parse error response
             let errorMessage = `HTTP ${streetAnalysisResponse.status}: ${streetAnalysisResponse.statusText}`;
@@ -203,7 +216,7 @@ export default function NearestBuurtenNLPage() {
             }
             throw new Error(errorMessage);
           }
-          
+        
           // Parse response
           const responseText = await streetAnalysisResponse.text();
           let streetAnalysisResult;
@@ -214,73 +227,62 @@ export default function NearestBuurtenNLPage() {
             console.error('Response text:', responseText.substring(0, 500));
             throw new Error(`Invalid JSON response from street analysis: ${responseText.substring(0, 200)}`);
           }
-            console.log('Street analysis result:', streetAnalysisResult);
+          
+          console.log('Street analysis result:', streetAnalysisResult);
+          
+          // Verify street analysis was successful - REQUIRED
+          if (streetAnalysisResult.status !== 'success' || !streetAnalysisResult.result) {
+            throw new Error(streetAnalysisResult.message || 'Street analysis failed - cannot proceed without results');
+          }
+          
+          // Store street analysis results in sessionStorage
+          sessionStorage.setItem('streetAnalysisResult', JSON.stringify(streetAnalysisResult.result));
+          console.log('Stored street analysis results in sessionStorage');
+          
+          // Verify both CSV and street analysis data are stored
+          const finalCsvCheck = sessionStorage.getItem('csvData');
+          const finalStreetCheck = sessionStorage.getItem('streetAnalysisResult');
+          if (!finalCsvCheck || !finalStreetCheck) {
+            throw new Error('Failed to store analysis data. CSV or street analysis data missing.');
+          }
+          console.log('Verified all data stored: CSV length:', finalCsvCheck.length, 'Street analysis:', !!finalStreetCheck);
+          
+          // Automatically download CSV file
+          if (workflowResult.downloadUrl) {
+            console.log('Auto-downloading CSV file:', workflowResult.downloadUrl);
             
-            // Store street analysis results in sessionStorage
-            if (streetAnalysisResult.status === 'success' && streetAnalysisResult.result) {
-              sessionStorage.setItem('streetAnalysisResult', JSON.stringify(streetAnalysisResult.result));
-              console.log('Stored street analysis results in sessionStorage');
-            } else {
-              throw new Error(streetAnalysisResult.message || 'Street analysis failed');
-            }
-            
-            // Automatically download CSV file
-            if (workflowResult.downloadUrl) {
-              console.log('Auto-downloading CSV file:', workflowResult.downloadUrl);
-              
-              // Use fetch to get the CSV data and create a blob download
-              try {
-                const csvDownloadResponse = await fetch(workflowResult.downloadUrl);
-                if (csvDownloadResponse.ok) {
-                  const blob = await csvDownloadResponse.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `funda-data-${workflowResult.runId || 'scraped'}.csv`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  window.URL.revokeObjectURL(url);
-                  console.log('CSV download initiated successfully');
-                } else {
-                  console.error('Failed to fetch CSV:', csvDownloadResponse.status, csvDownloadResponse.statusText);
-                }
-              } catch (error) {
-                console.error('Error downloading CSV:', error);
+            // Use fetch to get the CSV data and create a blob download
+            try {
+              const csvDownloadResponse = await fetch(workflowResult.downloadUrl);
+              if (csvDownloadResponse.ok) {
+                const blob = await csvDownloadResponse.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `funda-data-${workflowResult.runId || 'scraped'}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                console.log('CSV download initiated successfully');
+              } else {
+                console.error('Failed to fetch CSV:', csvDownloadResponse.status, csvDownloadResponse.statusText);
               }
+            } catch (error) {
+              console.error('Error downloading CSV:', error);
+            }
             }
             
             // Wait a moment for download to start before redirecting
             setTimeout(() => {
-              console.log('Redirecting to upload-realworks page...');
+            console.log('All data verified - redirecting to upload-realworks page...');
               window.location.href = '/upload-realworks';
             }, 1000); // 1 second delay
-            
-          } catch (streetAnalysisError) {
-            console.error('Street analysis error:', streetAnalysisError);
-            const errorMsg = streetAnalysisError instanceof Error ? streetAnalysisError.message : 'Onbekende fout';
-            
-            // Log warning but allow user to proceed - street analysis is optional
-            console.warn('Street analysis failed, but continuing without it. User can still upload Realworks files.');
-            
-            // Show a warning (not error) that street analysis failed but user can continue
-            if (errorMsg.includes('504') || errorMsg.includes('timeout') || errorMsg.includes('Gateway')) {
-              setError('Street analyse duurt te lang en is overgeslagen. Je kunt doorgaan naar de volgende stap zonder street analyse resultaten.');
-            } else {
-              setError(`Street analyse mislukt: ${errorMsg.substring(0, 100)}. Je kunt doorgaan zonder street analyse resultaten.`);
-            }
-            
-            // Auto-redirect to upload-realworks page after 2 seconds
-            setTimeout(() => {
-              console.log('Redirecting to upload-realworks page (street analysis skipped)...');
-              window.location.href = '/upload-realworks';
-            }, 2000);
-          }
-        } else {
+          } else {
           throw new Error('Failed to fetch CSV data from Apify dataset');
-        }
-        
-        return;
+          }
+          
+          return;
       } else {
         // Response is CSV file (legacy behavior)
         console.log('Response is CSV file, downloading...');
