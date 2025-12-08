@@ -104,7 +104,16 @@ export default function NearestBuurtenNLPage() {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         try {
           const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
+          // Handle different error formats
+          if (typeof errorData.error === 'string') {
+            errorMessage = errorData.error;
+          } else if (errorData.error && typeof errorData.error === 'object') {
+            errorMessage = JSON.stringify(errorData.error);
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = JSON.stringify(errorData);
+          }
         } catch {
           // If response is not JSON, use the status text
           console.log('Response is not JSON, using status text');
@@ -235,7 +244,15 @@ export default function NearestBuurtenNLPage() {
       }
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      let errorMessage = 'Unknown error occurred';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        errorMessage = JSON.stringify(err);
+      } else {
+        errorMessage = String(err);
+      }
+      console.error('Scraper error:', err);
       setError(errorMessage);
     } finally {
       setIsScraping(false);

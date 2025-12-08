@@ -385,7 +385,28 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const requestBody = await request.json();
+    // Validate request body can be parsed
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+    
+    // Log request for debugging
+    console.log('Received scraper request:', {
+      hasBuurtSlugs: !!requestBody.buurtSlugs,
+      hasWijkSlugs: !!requestBody.wijkSlugs,
+      hasStreets: !!requestBody.streets,
+      hasSearchUrls: !!requestBody.searchUrls,
+      buurtSlugsCount: requestBody.buurtSlugs?.length || 0,
+      wijkSlugsCount: requestBody.wijkSlugs?.length || 0,
+      streetsCount: requestBody.streets?.length || 0
+    });
     
     // Handle new buurt-based scraping
     if (requestBody.buurtSlugs && Array.isArray(requestBody.buurtSlugs)) {
@@ -669,9 +690,26 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error running Apify scraper:', error);
+    
+    // Enhanced error logging
+    let errorMessage = 'Unknown error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      console.error('Error stack:', error.stack);
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = JSON.stringify(error);
+    } else {
+      errorMessage = String(error);
+    }
+    
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: errorMessage,
+        details: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        } : undefined
       },
       { status: 500 }
     );
