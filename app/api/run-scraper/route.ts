@@ -665,49 +665,57 @@ export async function POST(request: NextRequest) {
       };
 
       // Call the street analysis API (Algorithm 1 only)
-      const streetAnalysisResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/run-street-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          csvData,
-          referenceData
-        }),
-      });
-
-      const streetAnalysisResult = await streetAnalysisResponse.json();
+      // Use AbortController for timeout (max 4 minutes to stay within 5 min total)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutes timeout
       
-      if (streetAnalysisResult.status === 'success') {
-        console.log('Street analysis completed successfully:', streetAnalysisResult.result);
-        
-        // Generate download URL
-        const downloadUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`;
-        console.log('Generated download URL:', downloadUrl);
-        
-        // Return both CSV and street analysis results
-        return NextResponse.json({
-          success: true,
-          csvData: csvData,
-          streetAnalysis: streetAnalysisResult.result,
-          runId,
-          datasetId,
-          downloadUrl: downloadUrl
+      try {
+        const streetAnalysisResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/run-street-analysis`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            csvData,
+            referenceData
+          }),
+          signal: controller.signal,
         });
-      } else {
-        console.error('Street analysis failed:', streetAnalysisResult.message);
+        clearTimeout(timeoutId);
+
+        const streetAnalysisResult = await streetAnalysisResponse.json();
         
-        // Return CSV with street analysis error
-        return NextResponse.json({
-          success: true,
-          csvData: csvData,
-          streetAnalysis: streetAnalysisResult,
-          runId,
-          datasetId,
-          downloadUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`
-        });
-      }
-    } catch (streetAnalysisError) {
+        if (streetAnalysisResult.status === 'success') {
+          console.log('Street analysis completed successfully:', streetAnalysisResult.result);
+          
+          // Generate download URL
+          const downloadUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`;
+          console.log('Generated download URL:', downloadUrl);
+          
+          // Return both CSV and street analysis results
+          return NextResponse.json({
+            success: true,
+            csvData: csvData,
+            streetAnalysis: streetAnalysisResult.result,
+            runId,
+            datasetId,
+            downloadUrl: downloadUrl
+          });
+        } else {
+          console.error('Street analysis failed:', streetAnalysisResult.message);
+          
+          // Return CSV with street analysis error
+          return NextResponse.json({
+            success: true,
+            csvData: csvData,
+            streetAnalysis: streetAnalysisResult,
+            runId,
+            datasetId,
+            downloadUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`
+          });
+        }
+      } catch (streetAnalysisError) {
+        clearTimeout(timeoutId);
       console.error('Error running street analysis:', streetAnalysisError);
       
       // Return CSV even if street analysis fails

@@ -1,7 +1,19 @@
 {
   "buildCommand": "npm install && cd apps/workflow-py && pip3 install -r requirements.txt && cd ../.. && npm run build",
   "functions": {
-    "app/api/**/*.ts": {
+    "app/api/run-scraper/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/run-street-analysis/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/run-workflow/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/upload-realworks/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/upload-realworks-public/route.ts": {
       "maxDuration": 300
     }
   },
