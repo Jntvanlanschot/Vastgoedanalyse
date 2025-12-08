@@ -258,9 +258,21 @@ export default function NearestBuurtenNLPage() {
             
           } catch (streetAnalysisError) {
             console.error('Street analysis error:', streetAnalysisError);
-            setError(`Street analyse mislukt: ${streetAnalysisError instanceof Error ? streetAnalysisError.message : 'Onbekende fout'}`);
-            // Still allow user to proceed to upload-realworks page
+            const errorMsg = streetAnalysisError instanceof Error ? streetAnalysisError.message : 'Onbekende fout';
+            
+            // Log warning but allow user to proceed - street analysis is optional
+            console.warn('Street analysis failed, but continuing without it. User can still upload Realworks files.');
+            
+            // Show a warning (not error) that street analysis failed but user can continue
+            if (errorMsg.includes('504') || errorMsg.includes('timeout') || errorMsg.includes('Gateway')) {
+              setError('Street analyse duurt te lang en is overgeslagen. Je kunt doorgaan naar de volgende stap zonder street analyse resultaten.');
+            } else {
+              setError(`Street analyse mislukt: ${errorMsg.substring(0, 100)}. Je kunt doorgaan zonder street analyse resultaten.`);
+            }
+            
+            // Auto-redirect to upload-realworks page after 2 seconds
             setTimeout(() => {
+              console.log('Redirecting to upload-realworks page (street analysis skipped)...');
               window.location.href = '/upload-realworks';
             }, 2000);
           }
