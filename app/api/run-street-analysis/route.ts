@@ -5,6 +5,9 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { homedir } from 'os';
 
+// Increase max duration for long-running Python workflows (5 minutes)
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

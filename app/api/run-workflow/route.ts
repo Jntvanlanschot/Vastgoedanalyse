@@ -4,6 +4,9 @@ import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
+// Increase max duration for long-running Python workflows (5 minutes)
+export const maxDuration = 300;
+
 function extractStreetName(address: string): string {
   try {
     // Extract street name from full address
