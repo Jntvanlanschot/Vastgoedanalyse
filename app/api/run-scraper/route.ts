@@ -95,10 +95,10 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
 
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 60; // 10 minutes max
+  const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds (same as main handler)
     
     const statusResponse = await axios.get<ApifyRunStatus>(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
@@ -120,10 +120,10 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
   }
 
   if (attempts >= maxAttempts) {
-    return NextResponse.json(
-      { error: 'Apify run timed out after 10 minutes' },
-      { status: 408 }
-    );
+      return NextResponse.json(
+        { error: 'Apify run timed out after 5 minutes. The scraper may still be running. Please try again in a few minutes or check Apify dashboard.', runId, datasetId },
+        { status: 408 }
+      );
   }
 
   console.log('Street scraper run completed successfully, fetching dataset...');
@@ -216,10 +216,10 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
 
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 60; // 10 minutes max
+  const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds (same as main handler)
     
     const statusResponse = await axios.get<ApifyRunStatus>(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
@@ -241,10 +241,10 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
   }
 
   if (attempts >= maxAttempts) {
-    return NextResponse.json(
-      { error: 'Apify run timed out after 10 minutes' },
-      { status: 408 }
-    );
+      return NextResponse.json(
+        { error: 'Apify run timed out after 5 minutes. The scraper may still be running. Please try again in a few minutes or check Apify dashboard.', runId, datasetId },
+        { status: 408 }
+      );
   }
 
   console.log('Buurt scraper run completed successfully, fetching dataset...');
@@ -329,10 +329,10 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
 
   // Poll for completion
   let attempts = 0;
-  const maxAttempts = 60; // 10 minutes max
+  const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
   
   while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds (same as main handler)
     
     const statusResponse = await axios.get<ApifyRunStatus>(
       `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
@@ -354,10 +354,10 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
   }
 
   if (attempts >= maxAttempts) {
-    return NextResponse.json(
-      { error: 'Apify run timed out after 10 minutes' },
-      { status: 408 }
-    );
+      return NextResponse.json(
+        { error: 'Apify run timed out after 5 minutes. The scraper may still be running. Please try again in a few minutes or check Apify dashboard.', runId, datasetId },
+        { status: 408 }
+      );
   }
 
   console.log('Wijk scraper run completed successfully, fetching dataset...');
@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Poll for completion
     let attempts = 0;
-    const maxAttempts = 60; // 10 minutes max (60 * 10 seconds)
+    const maxAttempts = 30; // 5 minutes max (30 * 10 seconds) - within Vercel Pro 300s limit
     
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
@@ -520,7 +520,7 @@ export async function POST(request: NextRequest) {
 
     if (attempts >= maxAttempts) {
       return NextResponse.json(
-        { error: 'Apify run timed out after 10 minutes' },
+        { error: 'Apify run timed out after 5 minutes. The scraper may still be running. Please try again in a few minutes or check Apify dashboard.', runId, datasetId },
         { status: 408 }
       );
     }
