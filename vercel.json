@@ -5,7 +5,7 @@
       "maxDuration": 300
     },
     "app/api/run-street-analysis/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 600
     },
     "app/api/run-workflow/route.ts": {
       "maxDuration": 300

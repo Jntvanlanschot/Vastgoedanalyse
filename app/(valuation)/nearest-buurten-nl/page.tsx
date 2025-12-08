@@ -169,7 +169,8 @@ export default function NearestBuurtenNLPage() {
               throw new Error('Reference data not found in sessionStorage');
             }
             
-            // Call street analysis API
+            // Call street analysis API with longer timeout
+            console.log('Calling street analysis API...');
             const streetAnalysisResponse = await fetch('/api/run-street-analysis', {
               method: 'POST',
               headers: {
@@ -179,14 +180,40 @@ export default function NearestBuurtenNLPage() {
                 csvData: csvData,
                 referenceData: referenceData
               }),
+              // Note: Browser fetch timeout is limited, but server has 10 minute maxDuration
             });
           
-            if (!streetAnalysisResponse.ok) {
-              const errorData = await streetAnalysisResponse.json();
-              throw new Error(errorData.error || 'Street analysis failed');
+          if (!streetAnalysisResponse.ok) {
+            // Try to parse error response
+            let errorMessage = `HTTP ${streetAnalysisResponse.status}: ${streetAnalysisResponse.statusText}`;
+            try {
+              const errorText = await streetAnalysisResponse.text();
+              // Try to parse as JSON
+              try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.error || errorData.message || errorMessage;
+              } catch {
+                // If not JSON, use text (might be truncated due to timeout)
+                if (errorText && errorText.length > 0) {
+                  errorMessage = errorText.substring(0, 500); // Limit length
+                }
+              }
+            } catch (e) {
+              console.error('Failed to read error response:', e);
             }
-            
-            const streetAnalysisResult = await streetAnalysisResponse.json();
+            throw new Error(errorMessage);
+          }
+          
+          // Parse response
+          const responseText = await streetAnalysisResponse.text();
+          let streetAnalysisResult;
+          try {
+            streetAnalysisResult = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('Failed to parse street analysis response:', parseError);
+            console.error('Response text:', responseText.substring(0, 500));
+            throw new Error(`Invalid JSON response from street analysis: ${responseText.substring(0, 200)}`);
+          }
             console.log('Street analysis result:', streetAnalysisResult);
             
             // Store street analysis results in sessionStorage

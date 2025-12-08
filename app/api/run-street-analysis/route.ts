@@ -5,8 +5,9 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { homedir } from 'os';
 
-// Increase max duration for long-running Python workflows (5 minutes)
-export const maxDuration = 300;
+// Increase max duration for long-running Python workflows (10 minutes)
+// Street analysis can take 5-10 minutes due to Overpass API calls and similarity calculations
+export const maxDuration = 600;
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,9 +67,22 @@ export async function POST(request: NextRequest) {
       console.log('Python stderr:', data.toString());
     });
 
+    // Set a timeout for the Python process (9 minutes to stay under 10 minute limit)
+    const processTimeout = setTimeout(() => {
+      pythonProcess.kill();
+      console.error('Python process timed out after 9 minutes');
+    }, 9 * 60 * 1000);
+
     return new Promise((resolve) => {
       pythonProcess.on('close', (code) => {
+        clearTimeout(processTimeout);
         console.log(`Python process exited with code ${code}`);
+        
+        if (code !== 0 && code !== null) {
+          console.error('Python process failed with code:', code);
+          console.error('stderr:', stderr);
+          console.error('stdout:', stdout);
+        }
         
         try {
           // Extract JSON from stdout
@@ -84,23 +98,36 @@ export async function POST(request: NextRequest) {
             }));
           } else {
             console.error('No JSON found in stdout:', stdout);
+            console.error('stderr:', stderr);
             resolve(NextResponse.json({
               status: 'error',
               message: 'No valid result from Python script',
-              stdout: stdout,
-              stderr: stderr
+              stdout: stdout.substring(0, 1000), // Limit output size
+              stderr: stderr.substring(0, 1000)
             }, { status: 500 }));
           }
         } catch (parseError) {
           console.error('Error parsing Python output:', parseError);
+          console.error('stdout:', stdout);
+          console.error('stderr:', stderr);
           resolve(NextResponse.json({
             status: 'error',
             message: 'Failed to parse Python script output',
-            stdout: stdout,
-            stderr: stderr,
+            stdout: stdout.substring(0, 1000), // Limit output size
+            stderr: stderr.substring(0, 1000),
             error: parseError instanceof Error ? parseError.message : String(parseError)
           }, { status: 500 }));
         }
+      });
+      
+      pythonProcess.on('error', (error) => {
+        clearTimeout(processTimeout);
+        console.error('Python process error:', error);
+        resolve(NextResponse.json({
+          status: 'error',
+          message: 'Failed to start Python process',
+          error: error.message
+        }, { status: 500 }));
       });
     });
 
