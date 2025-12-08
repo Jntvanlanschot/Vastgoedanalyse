@@ -652,91 +652,20 @@ export async function POST(request: NextRequest) {
     const csvData = datasetResponse!.data;
     console.log(`Dataset fetched, ${csvData.length} characters`);
 
-    // Run Python workflow on the CSV data
-    console.log('Starting Python workflow analysis...');
+    // Return CSV immediately - street analysis can be done separately if needed
+    // This prevents timeout issues when street analysis takes too long
+    console.log('Returning CSV data immediately...');
     
-    try {
-      // Get reference data from the request or use default structure
-      const referenceData = {
-        address_full: requestBody.referenceData?.address_full || 'Unknown Address',
-        area_m2: requestBody.referenceData?.area_m2 || 100,
-        energy_label: requestBody.referenceData?.energy_label || 'B',
-        bedrooms: requestBody.referenceData?.bedrooms || 2,
-        bathrooms: requestBody.referenceData?.bathrooms || 1,
-        rooms: requestBody.referenceData?.rooms || 3,
-        has_terrace: requestBody.referenceData?.has_terrace || false,
-        has_balcony: requestBody.referenceData?.has_balcony || false,
-        has_garden: requestBody.referenceData?.has_garden || false,
-        sun_orientation: requestBody.referenceData?.sun_orientation || 'zuid'
-      };
-
-      // Call the street analysis API (Algorithm 1 only)
-      // Use AbortController for timeout (max 4 minutes to stay within 5 min total)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutes timeout
-      
-      try {
-        const streetAnalysisResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/run-street-analysis`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            csvData,
-            referenceData
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        const streetAnalysisResult = await streetAnalysisResponse.json();
-        
-        if (streetAnalysisResult.status === 'success') {
-          console.log('Street analysis completed successfully:', streetAnalysisResult.result);
-          
-          // Generate download URL
-          const downloadUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`;
-          console.log('Generated download URL:', downloadUrl);
-          
-          // Return both CSV and street analysis results
-          return NextResponse.json({
-            success: true,
-            csvData: csvData,
-            streetAnalysis: streetAnalysisResult.result,
-            runId,
-            datasetId,
-            downloadUrl: downloadUrl
-          });
-        } else {
-          console.error('Street analysis failed:', streetAnalysisResult.message);
-          
-          // Return CSV with street analysis error
-          return NextResponse.json({
-            success: true,
-            csvData: csvData,
-            streetAnalysis: streetAnalysisResult,
-            runId,
-            datasetId,
-            downloadUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`
-          });
-        }
-      } catch (streetAnalysisError) {
-        clearTimeout(timeoutId);
-      console.error('Error running street analysis:', streetAnalysisError);
-      
-      // Return CSV even if street analysis fails
-      return NextResponse.json({
-        success: true,
-        csvData: csvData,
-        streetAnalysis: {
-          status: 'error',
-          message: 'Street analysis execution failed'
-        },
-        runId,
-        datasetId,
-        downloadUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`
-      });
-    }
+    const downloadUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/download-csv?runId=${runId}&datasetId=${datasetId}`;
+    
+    return NextResponse.json({
+      success: true,
+      csvData: csvData,
+      runId,
+      datasetId,
+      downloadUrl: downloadUrl,
+      message: 'Scraper completed successfully. CSV data is ready.'
+    });
 
   } catch (error) {
     console.error('Error running Apify scraper:', error);
