@@ -273,6 +273,8 @@ export default function UploadRealworksPage() {
       router.push('/analysis-results');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Upload failed';
+      console.error('Upload error details:', err);
+      console.error('Error message:', errorMessage);
       setError(errorMessage);
     } finally {
       setIsUploading(false);

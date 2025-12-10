@@ -33,10 +33,23 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Blob signed URL generation error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Check if it's a token/configuration error
+    if (errorMessage.includes('token') || errorMessage.includes('BLOB_READ_WRITE_TOKEN')) {
+      return NextResponse.json(
+        {
+          error: 'Blob Storage not configured. Please create Blob Storage in Vercel Dashboard and ensure BLOB_READ_WRITE_TOKEN is set.',
+          details: errorMessage,
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       {
         error: 'Failed to generate signed URL for blob storage',
-        details: error instanceof Error ? error.message : String(error),
+        details: errorMessage,
       },
       { status: 500 }
     );
