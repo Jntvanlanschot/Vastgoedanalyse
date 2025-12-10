@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { upload } from '@vercel/blob/client';
 
 interface UploadedFile {
   file: File;
@@ -133,18 +132,27 @@ export default function UploadRealworksPage() {
       const csvData =
         sessionStorage.getItem('csvData') || 'address_full,street_name\n';
 
-      // Upload files to Vercel Blob (public access for server-side download)
+      // Upload files to Vercel Blob via API route (public access for server-side download)
       const uploadedBlobs = await Promise.all(
         uploadedFiles.map(async (uploadedFile) => {
-          const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
-            access: 'public',
+          const formData = new FormData();
+          formData.append('file', uploadedFile.file);
+          formData.append('filename', uploadedFile.file.name);
+
+          const uploadResponse = await fetch('/api/upload-blob', {
+            method: 'POST',
+            body: formData,
           });
-          return {
-            url: blob.url,
-            name: uploadedFile.file.name,
-            size: uploadedFile.file.size,
-            type: uploadedFile.file.type || 'application/octet-stream',
-          };
+
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json().catch(() => ({}));
+            throw new Error(
+              errorData.error ||
+                `Failed to upload ${uploadedFile.file.name}: ${uploadResponse.statusText}`
+            );
+          }
+
+          return await uploadResponse.json();
         })
       );
 
