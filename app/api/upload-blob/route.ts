@@ -1,38 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateSignedUrl } from '@vercel/blob';
+import { handleUpload } from '@vercel/blob/client';
 
 export const maxDuration = 300;
 
-// Generate signed URL for direct client upload (bypasses API body size limit)
+// Handle upload from @vercel/blob/client (bypasses API body size limit)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { filename, contentType } = body;
 
-    if (!filename) {
-      return NextResponse.json(
-        { error: 'Filename is required' },
-        { status: 400 }
-      );
-    }
-
-    // Generate signed URL for direct upload to Blob Storage
-    const { url: signedUrl, pathname } = await generateSignedUrl(filename, {
-      access: 'public',
-      contentType: contentType || 'application/octet-stream',
-      addRandomSuffix: true, // Prevent filename conflicts
+    // Use handleUpload to process the upload request from client
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        // Allow all MHTML files
+        return {
+          allowedContentTypes: [
+            'application/x-mimearchive',
+            'message/rfc822',
+            'application/octet-stream',
+            'text/html',
+          ],
+          tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('Upload completed:', blob.url, tokenPayload);
+      },
     });
 
-    // The signed URL is used for upload, the public URL is the signed URL without query params
-    const publicUrl = signedUrl.split('?')[0];
-
-    return NextResponse.json({
-      uploadUrl: signedUrl, // URL to upload to (with auth query params)
-      url: publicUrl, // Public URL after upload (without query params)
-      pathname,
-    });
+    return NextResponse.json(jsonResponse);
   } catch (error) {
-    console.error('Blob signed URL generation error:', error);
+    console.error('Blob upload handler error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     // Check if it's a token/configuration error
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       {
-        error: 'Failed to generate signed URL for blob storage',
+        error: 'Failed to handle blob upload',
         details: errorMessage,
       },
       { status: 500 }
