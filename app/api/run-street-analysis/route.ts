@@ -4,6 +4,7 @@ import { writeFileSync, mkdtempSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { homedir } from 'os';
+import Papa from 'papaparse';
 
 // Increase max duration for long-running street analysis (10 minutes)
 export const maxDuration = 600;
@@ -48,9 +49,16 @@ function extractStreetName(address: string): string {
 
 function processCSVForTopStreets(csvData: string, referenceData: any): StreetScore[] {
   try {
-    // Parse CSV
-    const lines = csvData.split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
+    // Parse CSV robustly (auto-detect delimiter, handle semicolons/tabs)
+    const parsed = Papa.parse(csvData, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      delimitersToGuess: [',', ';', '\t', '|']
+    });
+
+    const rows = (parsed.data as any[]).filter(Boolean);
+    if (!rows.length) {
       return [{
         street_name: 'Unknown Street',
         name: 'Unknown Street',
@@ -60,38 +68,14 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
         similarity_score: 0
       }];
     }
-    
-    const headers = lines[0].split(',').map(h => h.trim());
-    const streetColIndex = headers.findIndex(h => 
-      h === 'address/street_name' || h === 'street_name' || h === 'address_street_name'
-    );
-    
-    if (streetColIndex === -1) {
-      return [{
-        street_name: 'Unknown Street',
-        name: 'Unknown Street',
-        city: 'Amsterdam',
-        properties_count: 0,
-        average_price: 500000,
-        similarity_score: 0
-      }];
-    }
-    
-    const priceColIndex = headers.findIndex(h => 
-      h === 'price/selling_price/0' || h === 'selling_price' || h === 'price_selling_price_0' || h === 'price'
-    );
-    
-    // Parse rows
-    const rows: any[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
-      if (values[streetColIndex]) {
-        rows.push({
-          street_name: values[streetColIndex],
-          price: priceColIndex !== -1 ? parseFloat(values[priceColIndex]) || 0 : 0
-        });
+
+    // Accept multiple possible column names
+    const findValue = (row: any, keys: string[]): any => {
+      for (const k of keys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
       }
-    }
+      return undefined;
+    };
     
     // Get reference street name
     let refStreetName = referenceData.street_name || '';
@@ -104,17 +88,35 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
     const streetMap = new Map<string, { count: number; prices: number[] }>();
     
     for (const row of rows) {
-      const street = row.street_name;
+      const street = findValue(row, [
+        'address/street_name',
+        'street_name',
+        'address_street_name',
+        'address.street_name',
+        'address',
+      ]);
       if (!street) continue;
-      
+
+      const priceRaw = findValue(row, [
+        'price/selling_price/0',
+        'price/asking_price/0',
+        'selling_price',
+        'price_selling_price_0',
+        'price',
+        'asking_price',
+      ]);
+      const price = typeof priceRaw === 'number'
+        ? priceRaw
+        : parseFloat(String(priceRaw).replace(/[^\d.-]/g, '')) || 0;
+
       if (!streetMap.has(street)) {
         streetMap.set(street, { count: 0, prices: [] });
       }
       
       const streetData = streetMap.get(street)!;
       streetData.count++;
-      if (row.price > 0) {
-        streetData.prices.push(row.price);
+      if (price > 0) {
+        streetData.prices.push(price);
       }
     }
     
