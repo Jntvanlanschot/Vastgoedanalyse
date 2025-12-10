@@ -59,13 +59,21 @@ Zorg dat deze APIs zijn ingeschakeld:
 **OF** (voor development):
 - **Selecteer**: "Don't restrict key" (alleen voor testing!)
 
-### 2.4 Billing Instellen
+### 2.4 Billing Instellen ⚠️ VERPLICHT
 
-⚠️ **Belangrijk:** Google Maps vereist een billing account (maar heeft $200 gratis credits per maand)
+⚠️ **BELANGRIJK:** Google Maps vereist een billing account (maar heeft $200 gratis credits per maand)
 
-1. Ga naar "Billing" in Google Cloud Console
-2. Link een billing account
-3. Je krijgt automatisch $200 gratis credits per maand
+**Zie `GOOGLE_BILLING_SETUP.md` voor complete stappen!**
+
+**Quick steps:**
+1. Ga naar [Google Cloud Console Billing](https://console.cloud.google.com/billing)
+2. Klik "Create Billing Account" (of link bestaande)
+3. Voeg payment method toe (credit card of bank)
+4. Link billing account aan je project
+5. Wacht 5-10 minuten
+6. Test opnieuw
+
+**Je krijgt automatisch $200 gratis credits per maand!**
 
 ## Stap 3: Vercel Redeploy
 

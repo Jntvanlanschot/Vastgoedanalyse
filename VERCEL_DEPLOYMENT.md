@@ -287,3 +287,4 @@ Als Python spawn niet werkt, kun je Python scripts omzetten naar serverless func
 - **Community**: https://github.com/vercel/vercel/discussions
 
 
+

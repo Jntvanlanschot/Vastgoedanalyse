@@ -75,3 +75,5 @@ vercel --prod
 
 **Na redeploy zou de nieuwe API key moeten werken! 🎉**
 
+
+

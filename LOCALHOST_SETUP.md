@@ -160,3 +160,5 @@ Google Maps heeft een **special exception** voor development:
 
 **Voor Vercel:** Billing is alleen nodig als je live wilt gaan. Voor development/testen gebruik je gewoon localhost!
 
+
+

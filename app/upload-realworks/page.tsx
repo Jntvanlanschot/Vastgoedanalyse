@@ -137,8 +137,9 @@ export default function UploadRealworksPage() {
       const uploadedBlobs = await Promise.all(
         uploadedFiles.map(async (uploadedFile) => {
           try {
-            // Try to use client-side upload if available (dynamic import to avoid build errors)
             let blobData;
+            
+            // Try client-side upload using @vercel/blob/client (bypasses 6MB limit)
             try {
               const { upload } = await import('@vercel/blob/client');
               const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
@@ -172,6 +173,14 @@ export default function UploadRealworksPage() {
                 } catch (e) {
                   errorMessage = errorText || errorMessage;
                 }
+                
+                // If it's a size error, provide helpful message
+                if (uploadResponse.status === 413 || errorMessage.includes('too large') || errorMessage.includes('FUNCTION_PAYLOAD_TOO_LARGE')) {
+                  throw new Error(
+                    `${uploadedFile.file.name} is too large (${(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB). Maximum size per file is 6MB. Please split into smaller files or compress the file.`
+                  );
+                }
+                
                 throw new Error(errorMessage);
               }
 

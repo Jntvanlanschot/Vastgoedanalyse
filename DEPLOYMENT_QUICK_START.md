@@ -159,3 +159,4 @@ Na eerste deploy:
 
 **Klaar! 🎉** Je app zou nu live moeten staan op Vercel.
 
+

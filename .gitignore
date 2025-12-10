@@ -24,3 +24,9 @@ __pycache__/
 .venv/
 venv/
 outputs/
+
+# Large log files
+*.log
+apps/workflow-py/archive/*.log
+apps/workflow-py/archive/*.txt
+apps/workflow-py/archive/parameter_tuning_results*/

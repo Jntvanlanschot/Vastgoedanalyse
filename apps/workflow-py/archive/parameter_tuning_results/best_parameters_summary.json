@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-11-13T22:31:28.856592",
+  "best_parameters": {
+    "top_n": 5,
+    "min_score": 0.55,
+    "use_score_squared": false
+  },
+  "best_score": 49.6054592411547,
+  "test_metrics": {
+    "mape": 11.52621333253182,
+    "mae": 101393.50145554538,
+    "rmse": 148898.35355729348,
+    "within_10pct": 52.0,
+    "within_15pct": 76.0,
+    "valid_predictions": 75,
+    "total_predictions": 75
+  },
+  "train_metrics": {
+    "trial_number": 99,
+    "top_n": 4,
+    "min_score": 0.55,
+    "use_score_squared": false,
+    "mape": 12.459562216879082,
+    "mae": 113337.27476559137,
+    "rmse": 167686.17505872058,
+    "within_10pct": 48.13559322033898,
+    "within_15pct": 68.13559322033899,
+    "valid_predictions": 295,
+    "total_predictions": 295
+  },
+  "n_trials": 100,
+  "train_size": 298,
+  "test_size": 75,
+  "total_properties": 373
+}

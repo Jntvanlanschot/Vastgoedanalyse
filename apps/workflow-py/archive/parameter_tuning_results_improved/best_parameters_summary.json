@@ -1,0 +1,53 @@
+{
+  "timestamp": "2025-11-14T01:04:23.622157",
+  "best_parameters": {
+    "top_n": 9,
+    "min_score": 0.65,
+    "use_score_squared": true,
+    "weight_street_name": 0.12,
+    "weight_osm_street": 0.08,
+    "weight_area": 0.33999999999999997,
+    "weight_distance": 0.13,
+    "weight_garden": 0.025,
+    "weight_rooms": 0.02,
+    "weight_balcony": 0.15,
+    "weight_energy_label": 0.37,
+    "gracht_penalty": 0.0115
+  },
+  "best_score": 53.53233100200331,
+  "test_metrics": {
+    "mape": 11.024581922980103,
+    "mae": 108430.9995810272,
+    "rmse": 170729.58183074146,
+    "within_10pct": 54.054054054054056,
+    "within_15pct": 78.37837837837837,
+    "valid_predictions": 74,
+    "total_predictions": 74
+  },
+  "train_metrics": {
+    "trial_number": 499,
+    "top_n": 9,
+    "min_score": 0.75,
+    "use_score_squared": false,
+    "mape": 12.732128616351925,
+    "mae": 113911.82365882467,
+    "rmse": 167180.27548405153,
+    "within_10pct": 48.986486486486484,
+    "within_15pct": 69.25675675675676,
+    "valid_predictions": 296,
+    "total_predictions": 296,
+    "weight_street_name": 0.12,
+    "weight_osm_street": 0.09,
+    "weight_area": 0.33999999999999997,
+    "weight_distance": 0.13,
+    "weight_garden": 0.025,
+    "weight_rooms": 0.02,
+    "weight_balcony": 0.15,
+    "weight_energy_label": 0.37,
+    "gracht_penalty": 0.0115
+  },
+  "n_trials": 500,
+  "train_size": 299,
+  "test_size": 75,
+  "total_properties": 374
+}

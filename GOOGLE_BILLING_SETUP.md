@@ -208,3 +208,5 @@ Na het inschakelen van billing, zorg dat je API key restrictions correct zijn:
 
 **Let op:** Je krijgt $200 gratis credits per maand, dus voor de meeste apps kost dit niets extra!
 
+
+

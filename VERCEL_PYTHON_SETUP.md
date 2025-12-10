@@ -88,3 +88,5 @@ De `vercel.json` heeft al een buildCommand met pip3 install, maar dit werkt moge
 
 Laat me een script maken dat automatisch dependencies installeert tijdens runtime:
 
+
+
