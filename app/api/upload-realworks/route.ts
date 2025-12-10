@@ -4,7 +4,6 @@ import { rmSync, existsSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
-import { NextResponse } from 'next/server';
 
 // Increase max duration for long-running Python workflows (5 minutes)
 export const maxDuration = 300;
