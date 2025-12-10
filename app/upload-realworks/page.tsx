@@ -27,6 +27,7 @@ export default function UploadRealworksPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalSizeMb, setTotalSizeMb] = useState<number>(0);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +69,9 @@ export default function UploadRealworksPage() {
     
     setUploadedFiles(prev => {
       const updated = [...prev, ...newFiles];
+      // Recompute total size
+      const totalBytes = updated.reduce((sum, f) => sum + f.file.size, 0);
+      setTotalSizeMb(totalBytes / 1024 / 1024);
       return updated.slice(0, 10); // Max 10 files
     });
     
@@ -102,6 +106,15 @@ export default function UploadRealworksPage() {
   };
 
   const handleSubmit = async () => {
+    // Vercel serverless body limit is ~6MB. Block oversized uploads early.
+    if (process.env.NEXT_PUBLIC_VERCEL || typeof window !== 'undefined') {
+      const limitMb = 5.8; // stay under 6MB limit
+      if (totalSizeMb > limitMb) {
+        setError(`Te groot voor Vercel upload (max ~6MB). Huidig: ${totalSizeMb.toFixed(2)} MB. Upload minder/betere selectie of zip files.`);
+        return;
+      }
+    }
+
     if (uploadedFiles.length === 0) {
       setError('Please upload at least one Realworks MHTML file');
       return;
@@ -144,11 +157,25 @@ export default function UploadRealworksPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        // try json, fall back to text
+        let errorMessage = 'Upload failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          const text = await response.text();
+          errorMessage = text?.slice(0, 300) || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      let result: any = {};
+      try {
+        result = await response.json();
+      } catch (e) {
+        const text = await response.text();
+        throw new Error(text?.slice(0, 300) || 'Invalid JSON response from server');
+      }
       
       // Transform data to match analysis-results page expectations
       const transformedResult = {
@@ -189,6 +216,7 @@ export default function UploadRealworksPage() {
 
   const clearAllFiles = () => {
     setUploadedFiles([]);
+    setTotalSizeMb(0);
   };
 
   return (
@@ -327,6 +355,9 @@ export default function UploadRealworksPage() {
                 <h3 className="text-lg font-semibold text-white">
                   Geüploade Bestanden ({uploadedFiles.length})
                 </h3>
+                <span className="text-sm text-gray-300">
+                  Totaal: {totalSizeMb.toFixed(2)} MB
+                </span>
                 <button
                   onClick={clearAllFiles}
                   className="text-sm text-red-400 hover:text-red-300"
