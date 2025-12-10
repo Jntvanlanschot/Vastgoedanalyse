@@ -1,25 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob/client';
+import { handleUpload } from '@vercel/blob';
 
 export const maxDuration = 300;
 
 // Handle upload from @vercel/blob/client (bypasses API body size limit)
 export async function POST(request: NextRequest) {
   try {
+    // Check if token is available
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      console.error('BLOB_READ_WRITE_TOKEN not found in environment variables');
+      return NextResponse.json(
+        {
+          error: 'BLOB_READ_WRITE_TOKEN not configured. Please set it in Vercel environment variables.',
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
     // Use handleUpload to process the upload request from client
+    // handleUpload automatically uses BLOB_READ_WRITE_TOKEN from environment
     const jsonResponse = await handleUpload({
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        // Allow all MHTML files
+        // Allow all MHTML files and other common types
         return {
           allowedContentTypes: [
             'application/x-mimearchive',
             'message/rfc822',
             'application/octet-stream',
             'text/html',
+            'application/mhtml',
           ],
           tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
         };
