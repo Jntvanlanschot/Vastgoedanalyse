@@ -4,9 +4,17 @@ import { rmSync, existsSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
+import { NextResponse } from 'next/server';
 
 // Increase max duration for long-running Python workflows (5 minutes)
 export const maxDuration = 300;
+
+type BlobRef = {
+  url: string;
+  name: string;
+  size?: number;
+  type?: string;
+};
 
 function extractStreetName(address: string): string {
   try {
@@ -276,149 +284,286 @@ async function runHouseAnalysisWithRealworks(
 export async function POST(request: NextRequest) {
   try {
     console.log('Starting Realworks file upload and workflow...');
-    
+
+    const contentType = request.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+
+    // Branch: JSON (blob URLs) or multipart form-data (fallback)
+    if (isJson) {
+      const body = await request.json();
+      const { referenceData, csvData, blobs } = body || {};
+
+      if (!referenceData) {
+        return NextResponse.json(
+          { error: 'Reference data is required' },
+          { status: 400 }
+        );
+      }
+      if (!blobs || !Array.isArray(blobs) || blobs.length === 0) {
+        return NextResponse.json(
+          { error: 'At least 1 Realworks file (blob) is required' },
+          { status: 400 }
+        );
+      }
+
+      return await handleWithBlobs(referenceData, csvData, blobs);
+    }
+
+    // Fallback: multipart form-data (legacy path)
     const formData = await request.formData();
     console.log('FormData received, checking for required fields...');
-    
+
     // Get reference data
     const referenceDataStr = formData.get('referenceData') as string;
     if (!referenceDataStr) {
-      return NextResponse.json({ error: 'Reference data is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Reference data is required' },
+        { status: 400 }
+      );
     }
-    
+
     const referenceData = JSON.parse(referenceDataStr);
-    
+
     // Get uploaded files
     const realworksFiles: File[] = [];
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 10; i++) {
       const file = formData.get(`realworks_file_${i}`) as File;
       if (file) {
         realworksFiles.push(file);
       }
     }
-    
-    if (realworksFiles.length < 1) {
-      return NextResponse.json({ error: 'At least 1 Realworks file is required' }, { status: 400 });
-    }
-    
-    // Create temporary directory
-    const tempDir = await mkdtemp(join(tmpdir(), 'realworks-workflow-'));
-    console.log('Temp directory:', tempDir);
-    
-    try {
-      // Process reference data to extract street name and neighbourhood
-      const processedReferenceData = {
-        ...referenceData,
-        street_name: extractStreetName(referenceData.address_full),
-        neighbourhood: referenceData.neighbourhood || 'unknown'
-      };
 
-      // Write processed reference data to file
-      const referenceFilePath = join(tempDir, 'reference_data.json');
-      await writeFile(referenceFilePath, JSON.stringify(processedReferenceData, null, 2), 'utf8');
-      
-      // Write Realworks files
-      const realworksFilePaths: string[] = [];
-      for (let i = 0; i < realworksFiles.length; i++) {
-        const file = realworksFiles[i];
-        const filePath = join(tempDir, `realworks_file_${i + 1}.${file.name.split('.').pop()}`);
-        const buffer = Buffer.from(await file.arrayBuffer());
-        await writeFile(filePath, buffer);
-        realworksFilePaths.push(filePath);
-      }
-      
-    // Get CSV data from the form data (optional - user may skip Funda scraper)
-    const csvData = formData.get('csvData') as string;
-    let csvFilePath: string | null = null;
-    
-    if (csvData && csvData.trim().length > 0 && csvData !== 'address_full,street_name\n') {
-      console.log('CSV data provided, length:', csvData.length);
-      csvFilePath = join(tempDir, 'funda_data.csv');
-      await writeFile(csvFilePath, csvData, 'utf8');
-      console.log('CSV file written successfully');
-    } else {
-      console.log('No CSV data provided - user skipped Funda scraper. Creating minimal CSV for workflow compatibility.');
-      // Create minimal CSV with just headers for workflow compatibility
-      csvFilePath = join(tempDir, 'funda_data.csv');
-      await writeFile(csvFilePath, 'address_full,street_name\n', 'utf8');
-      console.log('Created minimal CSV file for workflow compatibility');
-    }
-      
-    console.log('Reference file:', referenceFilePath);
-    console.log('CSV file:', csvFilePath);
-    console.log('Realworks files:', realworksFilePaths);
-    
-    // Delete ALL old result files to prevent using stale data
-    // Note: New files use "Taxatierapport [adres]" naming, but we also clean up old naming
-    const outputsDir = join(process.cwd(), 'apps', 'workflow-py', 'workflow', 'outputs');
-    const filesToDelete = [
-      'api_workflow_result.json',
-      'top15_perfect_matches_final.csv',
-      'top15_perfect_report_final.pdf',
-      'top15_perfecte_woningen_tabel_final.xlsx'
-    ];
-    
-    // Also delete any old "Taxatierapport" files to prevent conflicts
-    // (This will be handled by the Python script, but we can add it here if needed)
-    
-    for (const file of filesToDelete) {
-      const filePath = join(outputsDir, file);
-      try {
-        if (existsSync(filePath)) {
-          rmSync(filePath, { force: true });
-          console.log(`Deleted old file: ${file}`);
-        }
-      } catch (error) {
-        console.warn(`Could not delete ${file}:`, error);
-      }
-    }
-      
-      // Run Python workflow with Realworks files
-      const result = await runHouseAnalysisWithRealworks(
-        tempDir,
-        referenceFilePath,
-        csvFilePath,
-        realworksFilePaths
+    if (realworksFiles.length < 1) {
+      return NextResponse.json(
+        { error: 'At least 1 Realworks file is required' },
+        { status: 400 }
       );
-      
-      // Clean up temporary files
-      try {
-        rmSync(tempDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.error('Failed to clean up temp directory:', cleanupError);
+    }
+
+    const csvData = (formData.get('csvData') as string) || '';
+    return await handleWithFiles(referenceData, csvData, realworksFiles);
+  } catch (error) {
+    console.error('Error in upload-realworks API:', error);
+    return NextResponse.json(
+      {
+        status: 'error',
+        message: 'Internal server error',
+        step1_result: null,
+        step2_result: null,
+        step3_result: null,
+        step4_result: null,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleWithBlobs(
+  referenceData: any,
+  csvData: string,
+  blobs: BlobRef[]
+) {
+  // Create temporary directory
+  const tempDir = await mkdtemp(join(tmpdir(), 'realworks-workflow-'));
+  console.log('Temp directory:', tempDir);
+
+  try {
+    // Process reference data to extract street name and neighbourhood
+    const processedReferenceData = {
+      ...referenceData,
+      street_name: extractStreetName(referenceData.address_full),
+      neighbourhood: referenceData.neighbourhood || 'unknown',
+    };
+
+    // Write processed reference data to file
+    const referenceFilePath = join(tempDir, 'reference_data.json');
+    await writeFile(
+      referenceFilePath,
+      JSON.stringify(processedReferenceData, null, 2),
+      'utf8'
+    );
+
+    // Download blobs to temp files
+    const realworksFilePaths: string[] = [];
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      const ext = blob.name?.split('.').pop() || 'mhtml';
+      const filePath = join(tempDir, `realworks_file_${i + 1}.${ext}`);
+      console.log('Downloading blob to file:', filePath);
+
+      const res = await fetch(blob.url);
+      if (!res.ok) {
+        throw new Error(`Failed to download blob ${blob.url}: ${res.status}`);
       }
-      
-      return NextResponse.json(result);
-      
-    } catch (error) {
-      // Clean up temporary files on error
-      try {
-        rmSync(tempDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.error('Failed to clean up temp directory after error:', cleanupError);
-      }
-      
-      console.error('Error processing Realworks files:', error);
-      return NextResponse.json({ 
-        status: 'error', 
+      const buffer = Buffer.from(await res.arrayBuffer());
+      await writeFile(filePath, buffer);
+      realworksFilePaths.push(filePath);
+    }
+
+    // CSV handling
+    const csvFilePath = await writeCsv(csvData, tempDir);
+
+    // Clean old outputs
+    cleanOldOutputs();
+
+    // Run workflow
+    const result = await runHouseAnalysisWithRealworks(
+      tempDir,
+      referenceFilePath,
+      csvFilePath,
+      realworksFilePaths
+    );
+
+    // Clean temp
+    safeCleanup(tempDir);
+
+    return NextResponse.json(result);
+  } catch (error) {
+    safeCleanup(tempDir);
+    console.error('Error processing Realworks blobs:', error);
+    return NextResponse.json(
+      {
+        status: 'error',
+        message: 'Failed to process Realworks files (blob mode)',
+        step1_result: null,
+        step2_result: null,
+        step3_result: null,
+        step4_result: null,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleWithFiles(
+  referenceData: any,
+  csvData: string,
+  realworksFiles: File[]
+) {
+  // Create temporary directory
+  const tempDir = await mkdtemp(join(tmpdir(), 'realworks-workflow-'));
+  console.log('Temp directory:', tempDir);
+
+  try {
+    // Process reference data to extract street name and neighbourhood
+    const processedReferenceData = {
+      ...referenceData,
+      street_name: extractStreetName(referenceData.address_full),
+      neighbourhood: referenceData.neighbourhood || 'unknown',
+    };
+
+    // Write processed reference data to file
+    const referenceFilePath = join(tempDir, 'reference_data.json');
+    await writeFile(
+      referenceFilePath,
+      JSON.stringify(processedReferenceData, null, 2),
+      'utf8'
+    );
+
+    // Write Realworks files
+    const realworksFilePaths: string[] = [];
+    for (let i = 0; i < realworksFiles.length; i++) {
+      const file = realworksFiles[i];
+      const filePath = join(
+        tempDir,
+        `realworks_file_${i + 1}.${file.name.split('.').pop()}`
+      );
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await writeFile(filePath, buffer);
+      realworksFilePaths.push(filePath);
+    }
+
+    // CSV handling
+    const csvFilePath = await writeCsv(csvData, tempDir);
+
+    // Clean old outputs
+    cleanOldOutputs();
+
+    // Run Python workflow with Realworks files
+    const result = await runHouseAnalysisWithRealworks(
+      tempDir,
+      referenceFilePath,
+      csvFilePath,
+      realworksFilePaths
+    );
+
+    // Clean up temporary files
+    safeCleanup(tempDir);
+
+    return NextResponse.json(result);
+  } catch (error) {
+    safeCleanup(tempDir);
+    console.error('Error processing Realworks files:', error);
+    return NextResponse.json(
+      {
+        status: 'error',
         message: 'Failed to process Realworks files',
         step1_result: null,
         step2_result: null,
         step3_result: null,
-        step4_result: null
-      }, { status: 500 });
+        step4_result: null,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function writeCsv(csvData: string, tempDir: string) {
+  let csvFilePath: string | null = null;
+
+  if (csvData && csvData.trim().length > 0 && csvData !== 'address_full,street_name\n') {
+    console.log('CSV data provided, length:', csvData.length);
+    csvFilePath = join(tempDir, 'funda_data.csv');
+    await writeFile(csvFilePath, csvData, 'utf8');
+    console.log('CSV file written successfully');
+  } else {
+    console.log(
+      'No CSV data provided - user skipped Funda scraper. Creating minimal CSV for workflow compatibility.'
+    );
+    // Create minimal CSV with just headers for workflow compatibility
+    csvFilePath = join(tempDir, 'funda_data.csv');
+    await writeFile(csvFilePath, 'address_full,street_name\n', 'utf8');
+    console.log('Created minimal CSV file for workflow compatibility');
+  }
+
+  return csvFilePath;
+}
+
+function cleanOldOutputs() {
+  // Delete ALL old result files to prevent using stale data
+  // Note: New files use "Taxatierapport [adres]" naming, but we also clean up old naming
+  const outputsDir = join(
+    process.cwd(),
+    'apps',
+    'workflow-py',
+    'workflow',
+    'outputs'
+  );
+  const filesToDelete = [
+    'api_workflow_result.json',
+    'top15_perfect_matches_final.csv',
+    'top15_perfect_report_final.pdf',
+    'top15_perfecte_woningen_tabel_final.xlsx',
+  ];
+
+  for (const file of filesToDelete) {
+    const filePath = join(outputsDir, file);
+    try {
+      if (existsSync(filePath)) {
+        rmSync(filePath, { force: true });
+        console.log(`Deleted old file: ${file}`);
+      }
+    } catch (error) {
+      console.warn(`Could not delete ${file}:`, error);
     }
-    
-  } catch (error) {
-    console.error('Error in upload-realworks API:', error);
-    return NextResponse.json({ 
-      status: 'error', 
-      message: 'Internal server error',
-      step1_result: null,
-      step2_result: null,
-      step3_result: null,
-      step4_result: null
-    }, { status: 500 });
+  }
+}
+
+function safeCleanup(tempDir: string) {
+  try {
+    rmSync(tempDir, { recursive: true, force: true });
+  } catch (cleanupError) {
+    console.error('Failed to clean up temp directory:', cleanupError);
   }
 }
 

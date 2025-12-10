@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { upload } from '@vercel/blob/client';
 
 interface UploadedFile {
   file: File;
@@ -106,17 +107,15 @@ export default function UploadRealworksPage() {
   };
 
   const handleSubmit = async () => {
-    // Vercel serverless body limit is ~6MB. Block oversized uploads early.
-    if (process.env.NEXT_PUBLIC_VERCEL || typeof window !== 'undefined') {
-      const limitMb = 5.8; // stay under 6MB limit
-      if (totalSizeMb > limitMb) {
-        setError(`Te groot voor Vercel upload (max ~6MB). Huidig: ${totalSizeMb.toFixed(2)} MB. Upload minder/betere selectie of zip files.`);
-        return;
-      }
-    }
-
     if (uploadedFiles.length === 0) {
       setError('Please upload at least one Realworks MHTML file');
+      return;
+    }
+
+    // Soft guard: avoid accidentally pushing hundreds of MB in one go
+    const softLimitMb = 250;
+    if (totalSizeMb > softLimitMb) {
+      setError(`Te groot totaal (${totalSizeMb.toFixed(2)} MB). Upload minder bestanden of splits batch.`);
       return;
     }
 
@@ -124,36 +123,45 @@ export default function UploadRealworksPage() {
     setError(null);
 
     try {
-      const formData = new FormData();
-      
-      // Add all uploaded files
-      uploadedFiles.forEach((uploadedFile, index) => {
-        formData.append(`realworks_file_${index + 1}`, uploadedFile.file);
-      });
-
-      // Get reference data from sessionStorage
+      // Load reference and CSV data
       const referenceDataStr = sessionStorage.getItem('referenceData');
-      if (referenceDataStr) {
-        formData.append('referenceData', referenceDataStr);
+      if (!referenceDataStr) {
+        throw new Error('Reference data ontbreekt. Ga terug en start de Funda stap opnieuw.');
       }
+      const referenceData = JSON.parse(referenceDataStr);
 
-      // Get CSV data from sessionStorage (optional - may not exist if skipping scraper)
-      const csvData = sessionStorage.getItem('csvData');
-      if (csvData) {
-        formData.append('csvData', csvData);
-        console.log('Including CSV data in upload, length:', csvData.length);
-      } else {
-        console.warn('No CSV data found in sessionStorage - continuing without it');
-        // Create empty CSV data for workflow compatibility
-        formData.append('csvData', 'address_full,street_name\n');
-      }
+      const csvData =
+        sessionStorage.getItem('csvData') || 'address_full,street_name\n';
 
+      // Upload files to Vercel Blob (public access for server-side download)
+      const uploadedBlobs = await Promise.all(
+        uploadedFiles.map(async (uploadedFile) => {
+          const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
+            access: 'public',
+          });
+          return {
+            url: blob.url,
+            name: uploadedFile.file.name,
+            size: uploadedFile.file.size,
+            type: uploadedFile.file.type || 'application/octet-stream',
+          };
+        })
+      );
+
+      // Send small JSON payload to API (no big bodies)
       const response = await fetch('/api/upload-realworks', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          referenceData,
+          csvData,
+          blobs: uploadedBlobs,
+        }),
       }).catch((err) => {
         console.error('Fetch error:', err);
-        throw new Error(`Network error: ${err.message}. Please check if the server is running and try again.`);
+        throw new Error(
+          `Network error: ${err.message}. Please check if the server is running and try again.`
+        );
       });
 
       if (!response.ok) {
@@ -174,34 +182,41 @@ export default function UploadRealworksPage() {
         result = await response.json();
       } catch (e) {
         const text = await response.text();
-        throw new Error(text?.slice(0, 300) || 'Invalid JSON response from server');
+        throw new Error(
+          text?.slice(0, 300) || 'Invalid JSON response from server'
+        );
       }
-      
+
       // Transform data to match analysis-results page expectations
       const transformedResult = {
         ...result,
         step1_result: {
           ...result.step1_result,
           top_5_streets: result.step2_result?.top_5_streets || [],
-          total_funda_records: result.summary?.total_funda_records || 0
+          total_funda_records: result.summary?.total_funda_records || 0,
         },
         step2_result: {
           ...result.step2_result,
-          processed_records: result.step3_result?.processed_records || result.summary?.realworks_records || 0
+          processed_records:
+            result.step3_result?.processed_records ||
+            result.summary?.realworks_records ||
+            0,
         },
         step3_result: {
           ...result.step3_result,
-          top_15_count: result.step4_result?.top_15_count || result.summary?.top_15_matches || 0
-        }
+          top_15_count:
+            result.step4_result?.top_15_count ||
+            result.summary?.top_15_matches ||
+            0,
+        },
       };
-      
+
       // Store the transformed results in sessionStorage
       sessionStorage.setItem('analysisResult', JSON.stringify(transformedResult));
       console.log('Stored analysis result in sessionStorage:', transformedResult);
-      
+
       // Redirect to results page or show success
       router.push('/analysis-results');
-      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Upload failed';
       setError(errorMessage);
