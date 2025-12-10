@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { upload } from '@vercel/blob/client';
 
 interface UploadedFile {
   file: File;
@@ -133,19 +132,54 @@ export default function UploadRealworksPage() {
       const csvData =
         sessionStorage.getItem('csvData') || 'address_full,street_name\n';
 
-      // Upload files directly to Vercel Blob using @vercel/blob/client (bypasses API body size limit)
+      // Upload files to Vercel Blob
+      // Try client-side upload first (bypasses 6MB limit), fallback to API route
       const uploadedBlobs = await Promise.all(
         uploadedFiles.map(async (uploadedFile) => {
           try {
-            // Upload directly to Blob Storage using @vercel/blob/client
-            // This bypasses the 6MB API limit by uploading directly from client
-            const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
-              access: 'public',
-              handleUploadUrl: '/api/upload-blob', // Our API route handles the upload token
-            });
+            // Try to use client-side upload if available (dynamic import to avoid build errors)
+            let blobData;
+            try {
+              const { upload } = await import('@vercel/blob/client');
+              const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload-blob',
+              });
+              blobData = {
+                url: blob.url,
+                name: uploadedFile.file.name,
+                size: uploadedFile.file.size,
+                type: uploadedFile.file.type || 'application/octet-stream',
+              };
+            } catch (clientError) {
+              // Fallback to API route upload (has 6MB limit per file)
+              console.warn('Client-side upload failed, using API route:', clientError);
+              const formData = new FormData();
+              formData.append('file', uploadedFile.file);
+              formData.append('filename', uploadedFile.file.name);
+
+              const uploadResponse = await fetch('/api/upload-blob', {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                let errorMessage = `Failed to upload ${uploadedFile.file.name}: ${uploadResponse.statusText}`;
+                try {
+                  const errorData = JSON.parse(errorText);
+                  errorMessage = errorData.error || errorData.details || errorMessage;
+                } catch (e) {
+                  errorMessage = errorText || errorMessage;
+                }
+                throw new Error(errorMessage);
+              }
+
+              blobData = await uploadResponse.json();
+            }
 
             return {
-              url: blob.url,
+              url: blobData.url,
               name: uploadedFile.file.name,
               size: uploadedFile.file.size,
               type: uploadedFile.file.type || 'application/octet-stream',

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob';
+import { put } from '@vercel/blob';
 
 export const maxDuration = 300;
 
-// Handle upload from @vercel/blob/client (bypasses API body size limit)
+// Accept file upload and store in Vercel Blob (for large files, client uploads directly)
 export async function POST(request: NextRequest) {
   try {
     // Check if token is available
@@ -18,41 +18,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const filename = formData.get('filename') as string;
 
-    // Use handleUpload to process the upload request from client
-    // handleUpload automatically uses BLOB_READ_WRITE_TOKEN from environment
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async (pathname) => {
-        // Allow all MHTML files and other common types
-        return {
-          allowedContentTypes: [
-            'application/x-mimearchive',
-            'message/rfc822',
-            'application/octet-stream',
-            'text/html',
-            'application/mhtml',
-          ],
-          tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
-        };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('Upload completed:', blob.url, tokenPayload);
-      },
+    if (!file || !filename) {
+      return NextResponse.json(
+        { error: 'File and filename are required' },
+        { status: 400 }
+      );
+    }
+
+    // Upload to Vercel Blob Storage
+    const blob = await put(filename, file, {
+      access: 'public',
+      addRandomSuffix: true, // Prevent filename conflicts
     });
 
-    return NextResponse.json(jsonResponse);
+    return NextResponse.json({
+      url: blob.url,
+      name: filename,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+    });
   } catch (error) {
-    console.error('Blob upload handler error:', error);
+    console.error('Blob upload error:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     // Check if it's a token/configuration error
-    if (errorMessage.includes('token') || errorMessage.includes('BLOB_READ_WRITE_TOKEN')) {
+    if (errorMessage.includes('token') || errorMessage.includes('BLOB_READ_WRITE_TOKEN') || errorMessage.includes('Access denied')) {
       return NextResponse.json(
         {
-          error: 'Blob Storage not configured. Please create Blob Storage in Vercel Dashboard and ensure BLOB_READ_WRITE_TOKEN is set.',
+          error: 'Blob Storage access denied. Please check BLOB_READ_WRITE_TOKEN in Vercel environment variables.',
           details: errorMessage,
         },
         { status: 500 }
@@ -61,7 +58,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(
       {
-        error: 'Failed to handle blob upload',
+        error: 'Failed to upload file to blob storage',
         details: errorMessage,
       },
       { status: 500 }
