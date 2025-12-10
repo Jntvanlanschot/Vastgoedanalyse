@@ -132,27 +132,52 @@ export default function UploadRealworksPage() {
       const csvData =
         sessionStorage.getItem('csvData') || 'address_full,street_name\n';
 
-      // Upload files to Vercel Blob via API route (public access for server-side download)
+      // Upload files using signed URLs (bypasses API body size limit)
       const uploadedBlobs = await Promise.all(
         uploadedFiles.map(async (uploadedFile) => {
-          const formData = new FormData();
-          formData.append('file', uploadedFile.file);
-          formData.append('filename', uploadedFile.file.name);
-
-          const uploadResponse = await fetch('/api/upload-blob', {
+          // Step 1: Get signed URL from our API (only metadata, no file)
+          const signedUrlResponse = await fetch('/api/upload-blob', {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: uploadedFile.file.name,
+              contentType: uploadedFile.file.type || 'application/octet-stream',
+              size: uploadedFile.file.size,
+            }),
           });
 
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json().catch(() => ({}));
+          if (!signedUrlResponse.ok) {
+            const errorData = await signedUrlResponse.json().catch(() => ({}));
             throw new Error(
               errorData.error ||
-                `Failed to upload ${uploadedFile.file.name}: ${uploadResponse.statusText}`
+                `Failed to get signed URL for ${uploadedFile.file.name}: ${signedUrlResponse.statusText}`
             );
           }
 
-          return await uploadResponse.json();
+          const { uploadUrl, url: publicUrl } = await signedUrlResponse.json();
+
+          // Step 2: Upload directly to Blob Storage using signed URL (bypasses our API)
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': uploadedFile.file.type || 'application/octet-stream',
+            },
+            body: uploadedFile.file,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(
+              `Failed to upload ${uploadedFile.file.name} to blob storage: ${uploadResponse.statusText}`
+            );
+          }
+
+          // Step 3: Return blob info with public URL
+          return {
+            url: publicUrl,
+            name: uploadedFile.file.name,
+            size: uploadedFile.file.size,
+            type: uploadedFile.file.type || 'application/octet-stream',
+          };
         })
       );
 
