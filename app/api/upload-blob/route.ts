@@ -11,10 +11,12 @@ export async function POST(request: NextRequest) {
     // Check if token is available
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
-      console.error('BLOB_READ_WRITE_TOKEN not found in environment variables');
+      console.error('CRITICAL: BLOB_READ_WRITE_TOKEN not found in environment variables');
+      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('BLOB')));
       return NextResponse.json(
         {
           error: 'BLOB_READ_WRITE_TOKEN not configured. Please set it in Vercel environment variables.',
+          details: 'The BLOB_READ_WRITE_TOKEN environment variable is required for file uploads. Please configure it in your Vercel project settings under Environment Variables.',
         },
         { status: 500 }
       );
