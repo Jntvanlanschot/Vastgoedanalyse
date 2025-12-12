@@ -154,28 +154,45 @@ async function handleWithBlobs(
     );
 
     // Upload PDF and Excel to Vercel Blob if generated
+    console.log('Checking for PDF buffer in artifacts...');
+    console.log('Artifacts keys:', Object.keys(result.artifacts || {}));
+    console.log('Has pdf_buffer?', !!result.artifacts?.pdf_buffer);
+    
     if (result.artifacts?.pdf_buffer) {
       try {
         console.log('Uploading PDF to Vercel Blob...');
         const pdfBuffer = Buffer.from(result.artifacts.pdf_buffer, 'base64');
         console.log(`PDF buffer size: ${pdfBuffer.length} bytes`);
+        
+        if (pdfBuffer.length === 0) {
+          throw new Error('PDF buffer is empty!');
+        }
+        
         const pdfFilename = `Taxatierapport_${Date.now()}.pdf`;
+        console.log(`Uploading PDF with filename: ${pdfFilename}`);
+        
         const pdfBlob = await put(pdfFilename, pdfBuffer, {
           access: 'public',
           contentType: 'application/pdf',
         });
+        
         console.log(`PDF uploaded successfully: ${pdfBlob.url}`);
         result.artifacts.pdf_report = pdfBlob.url;
         result.summary = result.summary || {};
         (result.summary as any).pdf_file = pdfBlob.url;
+        console.log('PDF URL set in result:', pdfBlob.url);
       } catch (pdfError) {
-        console.error('Error uploading PDF to blob:', pdfError);
+        console.error('CRITICAL ERROR uploading PDF to blob:', pdfError);
         if (pdfError instanceof Error) {
           console.error('PDF upload error details:', pdfError.message, pdfError.stack);
         }
+        // Don't fail the whole request, but log clearly
+        result.artifacts.pdf_upload_error = pdfError instanceof Error ? pdfError.message : String(pdfError);
       }
     } else {
-      console.warn('No PDF buffer found in artifacts. PDF generation may have failed.');
+      console.error('ERROR: No PDF buffer found in artifacts!');
+      console.error('Result artifacts:', JSON.stringify(result.artifacts, null, 2));
+      console.error('Full result:', JSON.stringify(result, null, 2));
     }
 
     if (result.artifacts?.excel_buffer) {
@@ -258,28 +275,45 @@ async function handleWithFiles(
     );
 
     // Upload PDF and Excel to Vercel Blob if generated
+    console.log('Checking for PDF buffer in artifacts...');
+    console.log('Artifacts keys:', Object.keys(result.artifacts || {}));
+    console.log('Has pdf_buffer?', !!result.artifacts?.pdf_buffer);
+    
     if (result.artifacts?.pdf_buffer) {
       try {
         console.log('Uploading PDF to Vercel Blob...');
         const pdfBuffer = Buffer.from(result.artifacts.pdf_buffer, 'base64');
         console.log(`PDF buffer size: ${pdfBuffer.length} bytes`);
+        
+        if (pdfBuffer.length === 0) {
+          throw new Error('PDF buffer is empty!');
+        }
+        
         const pdfFilename = `Taxatierapport_${Date.now()}.pdf`;
+        console.log(`Uploading PDF with filename: ${pdfFilename}`);
+        
         const pdfBlob = await put(pdfFilename, pdfBuffer, {
           access: 'public',
           contentType: 'application/pdf',
         });
+        
         console.log(`PDF uploaded successfully: ${pdfBlob.url}`);
         result.artifacts.pdf_report = pdfBlob.url;
         result.summary = result.summary || {};
         (result.summary as any).pdf_file = pdfBlob.url;
+        console.log('PDF URL set in result:', pdfBlob.url);
       } catch (pdfError) {
-        console.error('Error uploading PDF to blob:', pdfError);
+        console.error('CRITICAL ERROR uploading PDF to blob:', pdfError);
         if (pdfError instanceof Error) {
           console.error('PDF upload error details:', pdfError.message, pdfError.stack);
         }
+        // Don't fail the whole request, but log clearly
+        result.artifacts.pdf_upload_error = pdfError instanceof Error ? pdfError.message : String(pdfError);
       }
     } else {
-      console.warn('No PDF buffer found in artifacts. PDF generation may have failed.');
+      console.error('ERROR: No PDF buffer found in artifacts!');
+      console.error('Result artifacts:', JSON.stringify(result.artifacts, null, 2));
+      console.error('Full result:', JSON.stringify(result, null, 2));
     }
 
     if (result.artifacts?.excel_buffer) {

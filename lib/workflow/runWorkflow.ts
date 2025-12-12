@@ -351,30 +351,33 @@ export async function runWorkflow(
     
     // Step 5: Generate reports
     console.log('STEP 5: Generating reports...');
+    console.log(`Top 15 count: ${top15Result.top_15_count}, Top15 array length: ${top15Result.top15.length}`);
     
     let pdfBuffer: Buffer | null = null;
     let excelBuffer: Buffer | null = null;
     
-    try {
-      if (top15Result.top15.length > 0) {
+    if (top15Result.top15.length === 0) {
+      console.error('ERROR: No top 15 properties available for report generation!');
+      console.error('Top15Result:', JSON.stringify(top15Result, null, 2));
+    } else {
+      try {
         console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
+        console.log('First property sample:', JSON.stringify(top15Result.top15[0], null, 2));
         pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
         console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
         
         console.log(`Generating Excel report for ${top15Result.top15.length} properties...`);
         excelBuffer = await generateExcelReport(top15Result.top15, referenceData);
         console.log(`Excel generated successfully: ${excelBuffer.length} bytes`);
-      } else {
-        console.warn('No top 15 data to generate reports from');
+      } catch (reportError) {
+        console.error('CRITICAL ERROR generating reports:', reportError);
+        if (reportError instanceof Error) {
+          console.error('Report error message:', reportError.message);
+          console.error('Report error stack:', reportError.stack);
+        }
+        // Don't continue - fail the workflow if reports can't be generated
+        throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`);
       }
-    } catch (reportError) {
-      console.error('Error generating reports:', reportError);
-      if (reportError instanceof Error) {
-        console.error('Report error stack:', reportError.stack);
-      }
-      // Continue without reports - workflow can still succeed
-      // But log the error clearly
-      console.error('PDF/Excel generation failed, but workflow will continue');
     }
     
     const summary = {
