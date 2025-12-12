@@ -15,20 +15,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if this is a handleUpload request by inspecting the request
-    const contentType = request.headers.get('content-type') || '';
-    const url = new URL(request.url);
-    
-    // handleUpload requests can be:
-    // 1. JSON requests for token generation (content-type: application/json)
-    // 2. Multipart requests for file uploads (content-type: multipart/form-data)
-    // 3. Requests with specific query parameters
-    
-    // Try handleUpload - it will throw if it's not a handleUpload request
+    // handleUpload automatically handles both token generation and file uploads
     const jsonResponse = await handleUpload({
       request,
       onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-        console.log('Generating token for:', pathname);
+        console.log('Generating token for:', pathname, 'multipart:', multipart);
         return {
           allowedContentTypes: [
             'application/x-mimearchive',
@@ -50,7 +41,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(jsonResponse);
   } catch (error: any) {
-    // Check if this is a "not a handleUpload request" error
     const errorMsg = error?.message || String(error);
     
     // If it's explicitly not a handleUpload request, try FormData
@@ -61,26 +51,26 @@ export async function POST(request: NextRequest) {
         const file = formData.get('file') as File;
         const filename = formData.get('filename') as string;
 
-      if (!file || !filename) {
-        return NextResponse.json(
-          { error: 'File and filename are required' },
-          { status: 400 }
-        );
-      }
+        if (!file || !filename) {
+          return NextResponse.json(
+            { error: 'File and filename are required' },
+            { status: 400 }
+          );
+        }
 
-      if (file.size > 6 * 1024 * 1024) {
-        return NextResponse.json(
-          {
-            error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload.`,
-          },
-          { status: 413 }
-        );
-      }
+        if (file.size > 6 * 1024 * 1024) {
+          return NextResponse.json(
+            {
+              error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload.`,
+            },
+            { status: 413 }
+          );
+        }
 
-      const blob = await put(filename, file, {
-        access: 'public',
-        addRandomSuffix: true,
-      });
+        const blob = await put(filename, file, {
+          access: 'public',
+          addRandomSuffix: true,
+        });
 
         return NextResponse.json({
           url: blob.url,
@@ -100,7 +90,7 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // If it's a handleUpload error (not "not a handleUpload request"), return the error
+    // If it's a handleUpload error, return the error
     console.error('handleUpload error:', errorMsg);
     return NextResponse.json(
       {
@@ -124,7 +114,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('GET request received for token generation');
     const jsonResponse = await handleUpload({
       request,
       onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
@@ -145,12 +134,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log('Token generated successfully');
     return NextResponse.json(jsonResponse);
   } catch (error) {
     console.error('Token generation error:', error);
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('Error details:', errorMsg, error instanceof Error ? error.stack : '');
     return NextResponse.json(
       {
         error: 'Failed to generate token',
