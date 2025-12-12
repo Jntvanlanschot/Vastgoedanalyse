@@ -60,9 +60,24 @@ async function runHouseAnalysisWithRealworks(
     console.log('Realworks files:', realworksFiles);
 
     // Spawn Python process with all file paths
-    // Use 'python' on Windows locally, 'python3' on Unix/Vercel
-    // On Vercel, always use python3
-    const pythonCmd = process.env.VERCEL ? 'python3' : (process.platform === 'win32' ? 'python' : 'python3');
+    // Use 'python' on Windows locally, 'python3' on Unix
+    // NOTE: Python is NOT available in Vercel serverless functions
+    // This will fail on Vercel - Python workflows must run on a server with Python installed
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    
+    // Check if we're on Vercel and Python is not available
+    if (process.env.VERCEL) {
+      console.error('ERROR: Python is not available in Vercel serverless functions');
+      resolve({
+        status: 'error',
+        message: 'Python workflow cannot run on Vercel. Python is not available in serverless functions. Please run this workflow on a server with Python installed, or use a different deployment platform that supports Python.',
+        step1_result: null,
+        step2_result: null,
+        step3_result: null,
+        step4_result: null,
+      });
+      return;
+    }
     
     // Build command arguments - use absolute paths for file arguments
     const args = [
@@ -266,11 +281,22 @@ async function runHouseAnalysisWithRealworks(
       }
     });
 
-    pythonProcess.on('error', (err) => {
+    pythonProcess.on('error', (err: any) => {
       console.error('Failed to start Python subprocess:', err);
+      
+      // Check if it's an ENOENT error (command not found)
+      let errorMessage = `Failed to start Python subprocess: ${err.message}`;
+      if (err.code === 'ENOENT' || err.message.includes('ENOENT')) {
+        if (process.env.VERCEL) {
+          errorMessage = 'Python is not available on Vercel. The Python workflow cannot run in serverless functions. Please deploy to a platform that supports Python (e.g., Railway, Render, or a VPS) or run the analysis locally.';
+        } else {
+          errorMessage = `Python not found. Please ensure Python is installed and available in your PATH. Tried command: ${pythonCmd}`;
+        }
+      }
+
       resolve({ 
         status: 'error', 
-        message: `Failed to start Python subprocess: ${err.message}`, 
+        message: errorMessage, 
         step1_result: null, 
         step2_result: null, 
         step3_result: null, 
