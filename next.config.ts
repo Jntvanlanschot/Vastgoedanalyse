@@ -13,12 +13,9 @@ const nextConfig: NextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
-  // Keep Turbopack for faster builds
-  turbopack: {
-    // Enable Turbopack for faster builds
-  },
-  // Increase body size limit for large file uploads (50MB)
+  // Force webpack (disable Turbopack)
   experimental: {
+    turbo: false,
     serverActions: {
       bodySizeLimit: '50mb',
     },
