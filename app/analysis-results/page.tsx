@@ -69,13 +69,19 @@ export default function AnalysisResultsPage() {
         // Automatische PDF download in nieuwe tab
         const pdfPath = analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file;
         if (pdfPath) {
-          const filename = pdfPath.split(/[/\\]/).pop() || 'top15_perfect_report_final.pdf';
           // Small delay to ensure page is loaded, then open PDF in new tab
           setTimeout(() => {
-            const link = document.createElement('a');
-            link.href = `/api/download-artifact?file=${encodeURIComponent(filename)}`;
-            link.target = '_blank';
-            link.click();
+            // If it's a full URL (from Vercel Blob), open it directly
+            if (pdfPath.startsWith('http')) {
+              window.open(pdfPath, '_blank');
+            } else {
+              // Otherwise, try to download via API
+              const filename = pdfPath.split(/[/\\]/).pop() || 'top15_perfect_report_final.pdf';
+              const link = document.createElement('a');
+              link.href = `/api/download-artifact?file=${encodeURIComponent(filename)}`;
+              link.target = '_blank';
+              link.click();
+            }
           }, 1000);
         }
       } catch (e) {

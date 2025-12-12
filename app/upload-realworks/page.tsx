@@ -265,6 +265,21 @@ export default function UploadRealworksPage() {
             result.summary?.top_15_matches ||
             0,
         },
+        step4_result: {
+          ...result.step4_result,
+          pdf_file: result.artifacts?.pdf_report || result.summary?.pdf_file,
+          excel_file: result.artifacts?.excel_report || result.summary?.excel_file,
+        },
+        summary: {
+          ...result.summary,
+          pdf_file: result.artifacts?.pdf_report || result.summary?.pdf_file,
+          excel_file: result.artifacts?.excel_report || result.summary?.excel_file,
+        },
+        artifacts: {
+          ...result.artifacts,
+          pdf: result.artifacts?.pdf_report || result.summary?.pdf_file,
+          excel: result.artifacts?.excel_report || result.summary?.excel_file,
+        },
       };
 
       // Store the transformed results in sessionStorage

@@ -357,19 +357,24 @@ export async function runWorkflow(
     
     try {
       if (top15Result.top15.length > 0) {
-        console.log('Generating PDF report...');
+        console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
         pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
-        console.log(`PDF generated: ${pdfBuffer.length} bytes`);
+        console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
         
-        console.log('Generating Excel report...');
+        console.log(`Generating Excel report for ${top15Result.top15.length} properties...`);
         excelBuffer = await generateExcelReport(top15Result.top15, referenceData);
-        console.log(`Excel generated: ${excelBuffer.length} bytes`);
+        console.log(`Excel generated successfully: ${excelBuffer.length} bytes`);
       } else {
         console.warn('No top 15 data to generate reports from');
       }
     } catch (reportError) {
       console.error('Error generating reports:', reportError);
+      if (reportError instanceof Error) {
+        console.error('Report error stack:', reportError.stack);
+      }
       // Continue without reports - workflow can still succeed
+      // But log the error clearly
+      console.error('PDF/Excel generation failed, but workflow will continue');
     }
     
     const summary = {

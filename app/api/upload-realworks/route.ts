@@ -156,34 +156,50 @@ async function handleWithBlobs(
     // Upload PDF and Excel to Vercel Blob if generated
     if (result.artifacts?.pdf_buffer) {
       try {
+        console.log('Uploading PDF to Vercel Blob...');
         const pdfBuffer = Buffer.from(result.artifacts.pdf_buffer, 'base64');
+        console.log(`PDF buffer size: ${pdfBuffer.length} bytes`);
         const pdfFilename = `Taxatierapport_${Date.now()}.pdf`;
         const pdfBlob = await put(pdfFilename, pdfBuffer, {
           access: 'public',
           contentType: 'application/pdf',
         });
+        console.log(`PDF uploaded successfully: ${pdfBlob.url}`);
         result.artifacts.pdf_report = pdfBlob.url;
         result.summary = result.summary || {};
         (result.summary as any).pdf_file = pdfBlob.url;
       } catch (pdfError) {
         console.error('Error uploading PDF to blob:', pdfError);
+        if (pdfError instanceof Error) {
+          console.error('PDF upload error details:', pdfError.message, pdfError.stack);
+        }
       }
+    } else {
+      console.warn('No PDF buffer found in artifacts. PDF generation may have failed.');
     }
 
     if (result.artifacts?.excel_buffer) {
       try {
+        console.log('Uploading Excel to Vercel Blob...');
         const excelBuffer = Buffer.from(result.artifacts.excel_buffer, 'base64');
+        console.log(`Excel buffer size: ${excelBuffer.length} bytes`);
         const excelFilename = `Top15_Woningen_${Date.now()}.xlsx`;
         const excelBlob = await put(excelFilename, excelBuffer, {
           access: 'public',
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         });
+        console.log(`Excel uploaded successfully: ${excelBlob.url}`);
         result.artifacts.excel_report = excelBlob.url;
         result.summary = result.summary || {};
         (result.summary as any).excel_file = excelBlob.url;
       } catch (excelError) {
         console.error('Error uploading Excel to blob:', excelError);
+        if (excelError instanceof Error) {
+          console.error('Excel upload error details:', excelError.message, excelError.stack);
+        }
       }
+    } else {
+      console.warn('No Excel buffer found in artifacts. Excel generation may have failed.');
     }
 
     return NextResponse.json(result);
@@ -244,34 +260,50 @@ async function handleWithFiles(
     // Upload PDF and Excel to Vercel Blob if generated
     if (result.artifacts?.pdf_buffer) {
       try {
+        console.log('Uploading PDF to Vercel Blob...');
         const pdfBuffer = Buffer.from(result.artifacts.pdf_buffer, 'base64');
+        console.log(`PDF buffer size: ${pdfBuffer.length} bytes`);
         const pdfFilename = `Taxatierapport_${Date.now()}.pdf`;
         const pdfBlob = await put(pdfFilename, pdfBuffer, {
           access: 'public',
           contentType: 'application/pdf',
         });
+        console.log(`PDF uploaded successfully: ${pdfBlob.url}`);
         result.artifacts.pdf_report = pdfBlob.url;
         result.summary = result.summary || {};
         (result.summary as any).pdf_file = pdfBlob.url;
       } catch (pdfError) {
         console.error('Error uploading PDF to blob:', pdfError);
+        if (pdfError instanceof Error) {
+          console.error('PDF upload error details:', pdfError.message, pdfError.stack);
+        }
       }
+    } else {
+      console.warn('No PDF buffer found in artifacts. PDF generation may have failed.');
     }
 
     if (result.artifacts?.excel_buffer) {
       try {
+        console.log('Uploading Excel to Vercel Blob...');
         const excelBuffer = Buffer.from(result.artifacts.excel_buffer, 'base64');
+        console.log(`Excel buffer size: ${excelBuffer.length} bytes`);
         const excelFilename = `Top15_Woningen_${Date.now()}.xlsx`;
         const excelBlob = await put(excelFilename, excelBuffer, {
           access: 'public',
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         });
+        console.log(`Excel uploaded successfully: ${excelBlob.url}`);
         result.artifacts.excel_report = excelBlob.url;
         result.summary = result.summary || {};
         (result.summary as any).excel_file = excelBlob.url;
       } catch (excelError) {
         console.error('Error uploading Excel to blob:', excelError);
+        if (excelError instanceof Error) {
+          console.error('Excel upload error details:', excelError.message, excelError.stack);
+        }
       }
+    } else {
+      console.warn('No Excel buffer found in artifacts. Excel generation may have failed.');
     }
 
     return NextResponse.json(result);
