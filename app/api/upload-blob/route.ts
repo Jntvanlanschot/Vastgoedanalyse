@@ -6,6 +6,15 @@ export const maxDuration = 300;
 // Handle upload requests from @vercel/blob/client
 // This endpoint supports both handleUpload (for client-side uploads) and direct uploads
 export async function POST(request: NextRequest) {
+  return handleRequest(request);
+}
+
+export async function GET(request: NextRequest) {
+  // handleUpload also handles GET requests for token generation
+  return handleRequest(request);
+}
+
+async function handleRequest(request: NextRequest) {
   try {
     // Check if token is available
     const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -24,8 +33,10 @@ export async function POST(request: NextRequest) {
     // Check if this is a handleUpload request by examining headers and URL
     // handleUpload requests from @vercel/blob/client have specific characteristics
     const contentType = request.headers.get('content-type') || '';
-    const userAgent = request.headers.get('user-agent') || '';
     const url = request.url;
+    
+    // Clone request for handleUpload (in case we need to fall back to FormData)
+    const clonedRequest = request.clone();
     
     // Try to handle as handleUpload request first (for client-side uploads from @vercel/blob/client)
     // handleUpload can handle both token generation requests and actual file uploads
@@ -34,7 +45,7 @@ export async function POST(request: NextRequest) {
       console.log('Attempting handleUpload, contentType:', contentType, 'url:', url);
       
       const jsonResponse = await handleUpload({
-        request,
+        request: clonedRequest,
         onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
           console.log('Generating token for:', pathname, 'multipart:', multipart, 'clientPayload:', clientPayload);
           // Allow MHTML and related multipart types coming from Realworks exports
@@ -69,8 +80,8 @@ export async function POST(request: NextRequest) {
       
       // If it's a JSON request (likely a handleUpload token request), return the error
       // Don't fall through to FormData for handleUpload requests
-      if (contentType.includes('application/json') || url.includes('upload-blob')) {
-        console.error('This appears to be a handleUpload request that failed, returning error');
+      if (contentType.includes('application/json')) {
+        console.error('This appears to be a handleUpload token request that failed, returning error');
         return NextResponse.json(
           {
             error: 'Failed to handle upload request',
@@ -82,7 +93,7 @@ export async function POST(request: NextRequest) {
       
       // Only fall through to FormData if it's clearly not a handleUpload request
       console.log('Not a handleUpload request, trying FormData');
-      // Continue to FormData handling below
+      // Continue to FormData handling below (use original request, not cloned)
     }
 
     // Direct file upload via FormData (fallback for small files or if handleUpload not available)
