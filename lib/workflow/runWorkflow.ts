@@ -10,6 +10,8 @@
 import { parseMhtmlFile, ParsedProperty } from './parseRealworksMhtml';
 import { calculateSimpleSimilarityScore, ReferenceData, CandidateProperty } from './calculateSimilarity';
 import Papa from 'papaparse';
+import { generatePdfReport } from './generatePdfReport';
+import { generateExcelReport } from './generateExcelReport';
 
 export interface WorkflowResult {
   status: 'success' | 'error';
@@ -347,10 +349,28 @@ export async function runWorkflow(
       top_15_count: top15Result.top_15_count,
     };
     
-    // Step 5: Generate reports (TODO: implement PDF/Excel generation)
+    // Step 5: Generate reports
     console.log('STEP 5: Generating reports...');
-    // For now, just return the top 15 data
-    // PDF/Excel generation will be implemented next
+    
+    let pdfBuffer: Buffer | null = null;
+    let excelBuffer: Buffer | null = null;
+    
+    try {
+      if (top15Result.top15.length > 0) {
+        console.log('Generating PDF report...');
+        pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
+        console.log(`PDF generated: ${pdfBuffer.length} bytes`);
+        
+        console.log('Generating Excel report...');
+        excelBuffer = await generateExcelReport(top15Result.top15, referenceData);
+        console.log(`Excel generated: ${excelBuffer.length} bytes`);
+      } else {
+        console.warn('No top 15 data to generate reports from');
+      }
+    } catch (reportError) {
+      console.error('Error generating reports:', reportError);
+      // Continue without reports - workflow can still succeed
+    }
     
     const summary = {
       total_realworks: realworksResult.processed_records,
@@ -379,7 +399,8 @@ export async function runWorkflow(
       summary,
       artifacts: {
         top15_csv: top15Csv,
-        // PDF and Excel will be added later
+        pdf_buffer: pdfBuffer ? pdfBuffer.toString('base64') : undefined,
+        excel_buffer: excelBuffer ? excelBuffer.toString('base64') : undefined,
       },
     };
   } catch (error) {

@@ -153,6 +153,39 @@ async function handleWithBlobs(
       streetSimilarityCache
     );
 
+    // Upload PDF and Excel to Vercel Blob if generated
+    if (result.artifacts?.pdf_buffer) {
+      try {
+        const pdfBuffer = Buffer.from(result.artifacts.pdf_buffer, 'base64');
+        const pdfFilename = `Taxatierapport_${Date.now()}.pdf`;
+        const pdfBlob = await put(pdfFilename, pdfBuffer, {
+          access: 'public',
+          contentType: 'application/pdf',
+        });
+        result.artifacts.pdf_report = pdfBlob.url;
+        result.summary = result.summary || {};
+        (result.summary as any).pdf_file = pdfBlob.url;
+      } catch (pdfError) {
+        console.error('Error uploading PDF to blob:', pdfError);
+      }
+    }
+
+    if (result.artifacts?.excel_buffer) {
+      try {
+        const excelBuffer = Buffer.from(result.artifacts.excel_buffer, 'base64');
+        const excelFilename = `Top15_Woningen_${Date.now()}.xlsx`;
+        const excelBlob = await put(excelFilename, excelBuffer, {
+          access: 'public',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        result.artifacts.excel_report = excelBlob.url;
+        result.summary = result.summary || {};
+        (result.summary as any).excel_file = excelBlob.url;
+      } catch (excelError) {
+        console.error('Error uploading Excel to blob:', excelError);
+      }
+    }
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error processing Realworks blobs:', error);
@@ -207,6 +240,39 @@ async function handleWithFiles(
       realworksFileBuffers,
       streetSimilarityCache
     );
+
+    // Upload PDF and Excel to Vercel Blob if generated
+    if (result.artifacts?.pdf_buffer) {
+      try {
+        const pdfBuffer = Buffer.from(result.artifacts.pdf_buffer, 'base64');
+        const pdfFilename = `Taxatierapport_${Date.now()}.pdf`;
+        const pdfBlob = await put(pdfFilename, pdfBuffer, {
+          access: 'public',
+          contentType: 'application/pdf',
+        });
+        result.artifacts.pdf_report = pdfBlob.url;
+        result.summary = result.summary || {};
+        (result.summary as any).pdf_file = pdfBlob.url;
+      } catch (pdfError) {
+        console.error('Error uploading PDF to blob:', pdfError);
+      }
+    }
+
+    if (result.artifacts?.excel_buffer) {
+      try {
+        const excelBuffer = Buffer.from(result.artifacts.excel_buffer, 'base64');
+        const excelFilename = `Top15_Woningen_${Date.now()}.xlsx`;
+        const excelBlob = await put(excelFilename, excelBuffer, {
+          access: 'public',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        result.artifacts.excel_report = excelBlob.url;
+        result.summary = result.summary || {};
+        (result.summary as any).excel_file = excelBlob.url;
+      } catch (excelError) {
+        console.error('Error uploading Excel to blob:', excelError);
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error) {

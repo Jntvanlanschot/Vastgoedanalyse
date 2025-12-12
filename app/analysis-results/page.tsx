@@ -198,10 +198,24 @@ export default function AnalysisResultsPage() {
             Nieuwe Analyse
           </Link>
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const pdfPath = analysisResult?.summary?.pdf_file || analysisResult?.artifacts?.pdf || analysisResult?.step4_result?.pdf_file;
+              if (pdfPath) {
+                // If it's a URL, open it directly
+                if (pdfPath.startsWith('http')) {
+                  window.open(pdfPath, '_blank');
+                } else {
+                  // Otherwise, try to download via API
+                  const filename = pdfPath.split(/[/\\]/).pop() || 'top15_perfect_report_final.pdf';
+                  window.open(`/api/download-artifact?file=${encodeURIComponent(filename)}`, '_blank');
+                }
+              } else {
+                alert('PDF rapport is nog niet beschikbaar. Probeer het later opnieuw.');
+              }
+            }}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Print Rapport
+            Download PDF Rapport
           </button>
         </div>
       </div>
