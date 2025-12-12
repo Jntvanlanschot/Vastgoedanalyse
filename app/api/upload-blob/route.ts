@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put, handleUpload } from '@vercel/blob';
+import { put } from '@vercel/blob';
 
 export const maxDuration = 300;
 
@@ -15,101 +15,109 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log request details for debugging
     const contentType = request.headers.get('content-type') || '';
     console.log('POST request received, contentType:', contentType);
     
-    // Clone request to inspect body without consuming it
-    const clonedRequest = request.clone();
-    
-    // If it's a JSON request, log the body
+    // Check if this is a token generation request (from @vercel/blob/client)
     if (contentType.includes('application/json')) {
       try {
-        const body = await clonedRequest.json();
+        const body = await request.json();
         console.log('Request body:', JSON.stringify(body));
-      } catch (e) {
-        console.log('Could not parse request body as JSON');
+        
+        // Check if it's a token generation request
+        if (body?.type === 'blob.generate-client-token') {
+          console.log('Token generation request detected');
+          
+          const { pathname, clientPayload, multipart } = body.payload || {};
+          console.log('Generating token for:', pathname, 'multipart:', multipart);
+          
+          // Generate client token using Vercel Blob API
+          const response = await fetch('https://vercel.com/api/blob/generate-client-token', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              pathname,
+              clientPayload,
+              multipart,
+              allowedContentTypes: [
+                'application/x-mimearchive',
+                'message/rfc822',
+                'multipart/related',
+                'multipart/mixed',
+                'application/octet-stream',
+                'text/html',
+                'application/zip',
+              ],
+              addRandomSuffix: true,
+              tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Token generation failed:', response.status, errorText);
+            throw new Error(`Failed to generate token: ${response.status}`);
+          }
+
+          const tokenData = await response.json();
+          console.log('Token generated successfully');
+          return NextResponse.json({ clientToken: tokenData.clientToken });
+        }
+      } catch (jsonError) {
+        console.error('Error handling token generation:', jsonError);
+        // Continue to file upload handling below
       }
     }
 
-    // handleUpload automatically handles both token generation and file uploads
-    const jsonResponse = await handleUpload({
-      request,
-      onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-        console.log('Generating token for:', pathname, 'multipart:', multipart, 'clientPayload:', clientPayload);
-        return {
-          allowedContentTypes: [
-            'application/x-mimearchive',
-            'message/rfc822',
-            'multipart/related',
-            'multipart/mixed',
-            'application/octet-stream',
-            'text/html',
-            'application/zip',
-          ],
-          addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
-        };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('Upload completed:', blob.url);
-      },
-    });
+    // Handle file upload (FormData)
+    try {
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+      const filename = formData.get('filename') as string;
 
-    console.log('handleUpload response:', JSON.stringify(jsonResponse));
-    return NextResponse.json(jsonResponse);
-  } catch (error: any) {
-    const errorMsg = error?.message || String(error);
-    
-    // If it's explicitly not a handleUpload request, try FormData
-    if (errorMsg.includes('not a handleUpload request') || errorMsg.includes('Invalid request')) {
-      console.log('Not a handleUpload request, trying FormData');
-      try {
-        const formData = await request.formData();
-        const file = formData.get('file') as File;
-        const filename = formData.get('filename') as string;
-
-        if (!file || !filename) {
-          return NextResponse.json(
-            { error: 'File and filename are required' },
-            { status: 400 }
-          );
-        }
-
-        if (file.size > 6 * 1024 * 1024) {
-          return NextResponse.json(
-            {
-              error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload.`,
-            },
-            { status: 413 }
-          );
-        }
-
-        const blob = await put(filename, file, {
-          access: 'public',
-          addRandomSuffix: true,
-        });
-
-        return NextResponse.json({
-          url: blob.url,
-          name: filename,
-          size: file.size,
-          type: file.type || 'application/octet-stream',
-        });
-      } catch (formDataError) {
-        console.error('FormData upload error:', formDataError);
+      if (!file || !filename) {
         return NextResponse.json(
-          {
-            error: 'Failed to upload file',
-            details: formDataError instanceof Error ? formDataError.message : String(formDataError),
-          },
-          { status: 500 }
+          { error: 'File and filename are required' },
+          { status: 400 }
         );
       }
+
+      if (file.size > 6 * 1024 * 1024) {
+        return NextResponse.json(
+          {
+            error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload.`,
+          },
+          { status: 413 }
+        );
+      }
+
+      const blob = await put(filename, file, {
+        access: 'public',
+        addRandomSuffix: true,
+      });
+
+      return NextResponse.json({
+        url: blob.url,
+        name: filename,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+      });
+    } catch (formDataError) {
+      console.error('FormData upload error:', formDataError);
+      return NextResponse.json(
+        {
+          error: 'Failed to upload file',
+          details: formDataError instanceof Error ? formDataError.message : String(formDataError),
+        },
+        { status: 500 }
+      );
     }
-    
-    // If it's a handleUpload error, return the error
-    console.error('handleUpload error:', errorMsg);
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    const errorMsg = error?.message || String(error);
     return NextResponse.json(
       {
         error: 'Failed to handle upload request',
@@ -132,33 +140,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const jsonResponse = await handleUpload({
-      request,
-      onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-        console.log('Generating token for GET request:', pathname);
-        return {
-          allowedContentTypes: [
-            'application/x-mimearchive',
-            'message/rfc822',
-            'multipart/related',
-            'multipart/mixed',
-            'application/octet-stream',
-            'text/html',
-            'application/zip',
-          ],
-          addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
-        };
-      },
-    });
-
-    return NextResponse.json(jsonResponse);
+    // GET requests are not used for token generation, but handle gracefully
+    return NextResponse.json(
+      { error: 'Token generation requires POST request' },
+      { status: 405 }
+    );
   } catch (error) {
-    console.error('Token generation error:', error);
+    console.error('GET handler error:', error);
     const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       {
-        error: 'Failed to generate token',
+        error: 'Failed to handle request',
         details: errorMsg,
       },
       { status: 500 }
