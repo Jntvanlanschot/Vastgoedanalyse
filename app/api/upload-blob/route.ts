@@ -34,11 +34,13 @@ export async function POST(request: NextRequest) {
           request,
           token,
           onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-            // Allow all MHTML files and common binary types
+            // Allow MHTML and related multipart types coming from Realworks exports
             return {
               allowedContentTypes: [
                 'application/x-mimearchive', // .mhtml
                 'message/rfc822', // .mht
+                'multipart/related', // some exporters send this for mhtml
+                'multipart/mixed',
                 'application/octet-stream', // Generic binary
                 'text/html', // HTML files
                 'application/zip', // If user zips files
