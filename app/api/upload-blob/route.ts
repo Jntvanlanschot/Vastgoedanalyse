@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put, handleUpload } from '@vercel/blob';
+import { put } from '@vercel/blob';
+import { handleUpload } from '@vercel/blob/client';
 
 export const maxDuration = 300;
 
@@ -23,13 +24,16 @@ export async function POST(request: NextRequest) {
     const contentType = request.headers.get('content-type') || '';
     
     // Try to use handleUpload if this is a request from @vercel/blob/client
-    if (contentType.includes('application/json') || request.headers.get('x-vercel-blob-handle-upload')) {
+    if (contentType.includes('application/json')) {
       try {
+        const body = await request.json();
+        
         // Use handleUpload for client-side uploads (bypasses 6MB limit)
         const jsonResponse = await handleUpload({
-          body: await request.json(),
+          body,
           request,
-          onBeforeGenerateToken: async (pathname) => {
+          token,
+          onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
             // Allow all MHTML files and common binary types
             return {
               allowedContentTypes: [
@@ -39,6 +43,7 @@ export async function POST(request: NextRequest) {
                 'text/html', // HTML files
                 'application/zip', // If user zips files
               ],
+              addRandomSuffix: true, // Prevent filename conflicts
               tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
             };
           },
@@ -51,6 +56,7 @@ export async function POST(request: NextRequest) {
       } catch (handleUploadError) {
         // If handleUpload fails, fall back to direct upload
         console.warn('handleUpload failed, falling back to direct upload:', handleUploadError);
+        // Continue to FormData handling below
       }
     }
 
