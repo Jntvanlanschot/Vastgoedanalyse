@@ -223,14 +223,18 @@ export default function UploadRealworksPage() {
       if (!response.ok) {
         // try json, fall back to text
         let errorMessage = 'Upload failed';
+        let errorDetails: any = {};
         try {
           const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          errorDetails = errorData;
         } catch (e) {
           const text = await response.text();
           errorMessage = text?.slice(0, 300) || errorMessage;
         }
-        throw new Error(errorMessage);
+        console.error('Upload failed with status:', response.status);
+        console.error('Error response:', errorDetails);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
       }
 
       let result: any = {};

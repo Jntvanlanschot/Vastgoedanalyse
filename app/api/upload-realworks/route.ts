@@ -221,10 +221,15 @@ async function handleWithBlobs(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error processing Realworks blobs:', error);
+    console.error('CRITICAL ERROR processing Realworks blobs:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return NextResponse.json(
       {
         status: 'error',
+        error: `Failed to process Realworks files: ${error instanceof Error ? error.message : String(error)}`,
         message: `Failed to process Realworks files: ${error instanceof Error ? error.message : String(error)}`,
         step1_result: null,
         step2_result: null,
