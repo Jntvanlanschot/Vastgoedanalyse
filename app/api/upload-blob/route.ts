@@ -21,14 +21,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if this is a handleUpload request by examining headers and URL
+    // handleUpload requests from @vercel/blob/client have specific characteristics
+    const contentType = request.headers.get('content-type') || '';
+    const userAgent = request.headers.get('user-agent') || '';
+    const url = request.url;
+    
     // Try to handle as handleUpload request first (for client-side uploads from @vercel/blob/client)
     // handleUpload can handle both token generation requests and actual file uploads
     // It automatically detects the request type and handles it accordingly
     try {
+      console.log('Attempting handleUpload, contentType:', contentType, 'url:', url);
+      
       const jsonResponse = await handleUpload({
         request,
         onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-          console.log('Generating token for:', pathname, 'multipart:', multipart);
+          console.log('Generating token for:', pathname, 'multipart:', multipart, 'clientPayload:', clientPayload);
           // Allow MHTML and related multipart types coming from Realworks exports
           return {
             allowedContentTypes: [
@@ -49,15 +57,31 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      console.log('handleUpload successful');
+      console.log('handleUpload successful, response:', JSON.stringify(jsonResponse));
       return NextResponse.json(jsonResponse);
     } catch (handleUploadError) {
-      // If handleUpload fails (not a handleUpload request), continue to FormData handling
+      // Check if this was actually a handleUpload request that failed
       const errorMsg = handleUploadError instanceof Error ? handleUploadError.message : String(handleUploadError);
-      // Only log if it's not a "not a handleUpload request" type error
-      if (!errorMsg.includes('not a handleUpload request') && !errorMsg.includes('Invalid request')) {
-        console.log('handleUpload not applicable, trying FormData:', errorMsg);
+      const errorStack = handleUploadError instanceof Error ? handleUploadError.stack : '';
+      
+      console.error('handleUpload error:', errorMsg, 'stack:', errorStack);
+      console.error('Request details - contentType:', contentType, 'method:', request.method, 'url:', url);
+      
+      // If it's a JSON request (likely a handleUpload token request), return the error
+      // Don't fall through to FormData for handleUpload requests
+      if (contentType.includes('application/json') || url.includes('upload-blob')) {
+        console.error('This appears to be a handleUpload request that failed, returning error');
+        return NextResponse.json(
+          {
+            error: 'Failed to handle upload request',
+            details: errorMsg,
+          },
+          { status: 500 }
+        );
       }
+      
+      // Only fall through to FormData if it's clearly not a handleUpload request
+      console.log('Not a handleUpload request, trying FormData');
       // Continue to FormData handling below
     }
 
