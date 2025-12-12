@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
-import { handleUpload } from '@vercel/blob/client';
+import { put, handleUpload } from '@vercel/blob';
 
 export const maxDuration = 300;
 
