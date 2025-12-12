@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         const jsonResponse = await handleUpload({
           body,
           request,
+          token,
           onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
             console.log('Generating token for:', pathname);
             // Allow MHTML and related multipart types coming from Realworks exports
