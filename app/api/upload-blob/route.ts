@@ -8,42 +8,58 @@ export async function POST(request: NextRequest) {
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
+      console.error('BLOB_READ_WRITE_TOKEN not found');
       return NextResponse.json(
         { error: 'BLOB_READ_WRITE_TOKEN not configured' },
         { status: 500 }
       );
     }
 
-    // Try handleUpload first (for client-side uploads)
-    try {
-      const jsonResponse = await handleUpload({
-        request,
-        onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-          return {
-            allowedContentTypes: [
-              'application/x-mimearchive',
-              'message/rfc822',
-              'multipart/related',
-              'multipart/mixed',
-              'application/octet-stream',
-              'text/html',
-              'application/zip',
-            ],
-            addRandomSuffix: true,
-            tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
-          };
-        },
-        onUploadCompleted: async ({ blob, tokenPayload }) => {
-          console.log('Upload completed:', blob.url);
-        },
-      });
+    // Check if this is a handleUpload request by inspecting the request
+    const contentType = request.headers.get('content-type') || '';
+    const url = new URL(request.url);
+    
+    // handleUpload requests can be:
+    // 1. JSON requests for token generation (content-type: application/json)
+    // 2. Multipart requests for file uploads (content-type: multipart/form-data)
+    // 3. Requests with specific query parameters
+    
+    // Try handleUpload - it will throw if it's not a handleUpload request
+    const jsonResponse = await handleUpload({
+      request,
+      onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
+        console.log('Generating token for:', pathname);
+        return {
+          allowedContentTypes: [
+            'application/x-mimearchive',
+            'message/rfc822',
+            'multipart/related',
+            'multipart/mixed',
+            'application/octet-stream',
+            'text/html',
+            'application/zip',
+          ],
+          addRandomSuffix: true,
+          tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('Upload completed:', blob.url);
+      },
+    });
 
-      return NextResponse.json(jsonResponse);
-    } catch (handleUploadError) {
-      // If handleUpload fails, try direct FormData upload
-      const formData = await request.formData();
-      const file = formData.get('file') as File;
-      const filename = formData.get('filename') as string;
+    return NextResponse.json(jsonResponse);
+  } catch (error: any) {
+    // Check if this is a "not a handleUpload request" error
+    const errorMsg = error?.message || String(error);
+    
+    // If it's explicitly not a handleUpload request, try FormData
+    if (errorMsg.includes('not a handleUpload request') || errorMsg.includes('Invalid request')) {
+      console.log('Not a handleUpload request, trying FormData');
+      try {
+        const formData = await request.formData();
+        const file = formData.get('file') as File;
+        const filename = formData.get('filename') as string;
 
       if (!file || !filename) {
         return NextResponse.json(
@@ -66,19 +82,30 @@ export async function POST(request: NextRequest) {
         addRandomSuffix: true,
       });
 
-      return NextResponse.json({
-        url: blob.url,
-        name: filename,
-        size: file.size,
-        type: file.type || 'application/octet-stream',
-      });
+        return NextResponse.json({
+          url: blob.url,
+          name: filename,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+        });
+      } catch (formDataError) {
+        console.error('FormData upload error:', formDataError);
+        return NextResponse.json(
+          {
+            error: 'Failed to upload file',
+            details: formDataError instanceof Error ? formDataError.message : String(formDataError),
+          },
+          { status: 500 }
+        );
+      }
     }
-  } catch (error) {
-    console.error('Blob upload error:', error);
+    
+    // If it's a handleUpload error (not "not a handleUpload request"), return the error
+    console.error('handleUpload error:', errorMsg);
     return NextResponse.json(
       {
-        error: 'Failed to upload file',
-        details: error instanceof Error ? error.message : String(error),
+        error: 'Failed to handle upload request',
+        details: errorMsg,
       },
       { status: 500 }
     );
@@ -86,11 +113,22 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // Handle token generation requests
+  // Handle token generation requests from @vercel/blob/client
   try {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      console.error('BLOB_READ_WRITE_TOKEN not found in GET handler');
+      return NextResponse.json(
+        { error: 'BLOB_READ_WRITE_TOKEN not configured' },
+        { status: 500 }
+      );
+    }
+
+    console.log('GET request received for token generation');
     const jsonResponse = await handleUpload({
       request,
       onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
+        console.log('Generating token for GET request:', pathname);
         return {
           allowedContentTypes: [
             'application/x-mimearchive',
@@ -107,13 +145,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    console.log('Token generated successfully');
     return NextResponse.json(jsonResponse);
   } catch (error) {
     console.error('Token generation error:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Error details:', errorMsg, error instanceof Error ? error.stack : '');
     return NextResponse.json(
       {
         error: 'Failed to generate token',
-        details: error instanceof Error ? error.message : String(error),
+        details: errorMsg,
       },
       { status: 500 }
     );
