@@ -21,57 +21,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if this is a handleUpload request (from @vercel/blob/client)
-    // handleUpload requests come as JSON with specific structure
-    const contentType = request.headers.get('content-type') || '';
-    
-    // Try to handle as handleUpload request first
-    if (contentType.includes('application/json')) {
-      try {
-        // Clone request to read body without consuming it
-        const clonedRequest = request.clone();
-        const body = await clonedRequest.json();
-        
-        // Check if this looks like a handleUpload request
-        // handleUpload sends requests with 'multipart' or 'pathname' in body
-        if (body && (body.multipart || body.pathname || body.action)) {
-          console.log('handleUpload request detected');
-          console.log('Request body keys:', Object.keys(body));
-          
-          // Use handleUpload for client-side uploads (bypasses 6MB limit)
-          const jsonResponse = await handleUpload({
-            body,
-            request,
-            onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-              console.log('Generating token for:', pathname, 'multipart:', multipart);
-              // Allow MHTML and related multipart types coming from Realworks exports
-              return {
-                allowedContentTypes: [
-                  'application/x-mimearchive', // .mhtml
-                  'message/rfc822', // .mht
-                  'multipart/related', // some exporters send this for mhtml
-                  'multipart/mixed',
-                  'application/octet-stream', // Generic binary
-                  'text/html', // HTML files
-                  'application/zip', // If user zips files
-                ],
-                addRandomSuffix: true, // Prevent filename conflicts
-                tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
-              };
-            },
-            onUploadCompleted: async ({ blob, tokenPayload }) => {
-              console.log('Upload completed:', blob.url, tokenPayload);
-            },
-          });
+    // Try to handle as handleUpload request first (for client-side uploads from @vercel/blob/client)
+    // handleUpload can handle both token generation requests and actual file uploads
+    // It automatically detects the request type and handles it accordingly
+    try {
+      const jsonResponse = await handleUpload({
+        request,
+        onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
+          console.log('Generating token for:', pathname, 'multipart:', multipart);
+          // Allow MHTML and related multipart types coming from Realworks exports
+          return {
+            allowedContentTypes: [
+              'application/x-mimearchive', // .mhtml
+              'message/rfc822', // .mht
+              'multipart/related', // some exporters send this for mhtml
+              'multipart/mixed',
+              'application/octet-stream', // Generic binary
+              'text/html', // HTML files
+              'application/zip', // If user zips files
+            ],
+            addRandomSuffix: true, // Prevent filename conflicts
+            tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
+          };
+        },
+        onUploadCompleted: async ({ blob, tokenPayload }) => {
+          console.log('Upload completed:', blob.url, tokenPayload);
+        },
+      });
 
-          console.log('handleUpload successful');
-          return NextResponse.json(jsonResponse);
-        }
-      } catch (handleUploadError) {
-        // If it's not a handleUpload request or handleUpload fails, continue to FormData
-        console.log('Not a handleUpload request or handleUpload failed, trying FormData:', handleUploadError instanceof Error ? handleUploadError.message : String(handleUploadError));
-        // Continue to FormData handling below
+      console.log('handleUpload successful');
+      return NextResponse.json(jsonResponse);
+    } catch (handleUploadError) {
+      // If handleUpload fails (not a handleUpload request), continue to FormData handling
+      const errorMsg = handleUploadError instanceof Error ? handleUploadError.message : String(handleUploadError);
+      // Only log if it's not a "not a handleUpload request" type error
+      if (!errorMsg.includes('not a handleUpload request') && !errorMsg.includes('Invalid request')) {
+        console.log('handleUpload not applicable, trying FormData:', errorMsg);
       }
+      // Continue to FormData handling below
     }
 
     // Direct file upload via FormData (fallback for small files or if handleUpload not available)
