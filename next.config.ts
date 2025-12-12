@@ -14,8 +14,8 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // Force webpack (disable Turbopack)
+  // Note: In Next.js 15, Turbopack is enabled by default. To disable it, we use the buildCommand in vercel.json
   experimental: {
-    turbo: false,
     serverActions: {
       bodySizeLimit: '50mb',
     },
