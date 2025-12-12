@@ -139,13 +139,19 @@ export default function UploadRealworksPage() {
           try {
             let blobData;
             
-            // Try client-side upload using @vercel/blob/client (bypasses 6MB limit)
+            // Try client-side upload first (works for files > 6MB)
+            // If that fails, fall back to direct API upload (only works for files <= 6MB)
             try {
               const { upload } = await import('@vercel/blob/client');
+              console.log(`Attempting client-side upload for ${uploadedFile.file.name} (${(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB)`);
+              
               const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
                 access: 'public',
                 handleUploadUrl: '/api/upload-blob',
+                clientPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
               });
+              
+              console.log(`Client-side upload successful for ${uploadedFile.file.name}: ${blob.url}`);
               blobData = {
                 url: blob.url,
                 name: uploadedFile.file.name,
@@ -153,8 +159,15 @@ export default function UploadRealworksPage() {
                 type: uploadedFile.file.type || 'application/octet-stream',
               };
             } catch (clientError) {
-              // Fallback to API route upload (has 6MB limit per file)
-              console.warn('Client-side upload failed, using API route:', clientError);
+              console.warn(`Client-side upload failed for ${uploadedFile.file.name}, trying API route:`, clientError);
+              
+              // Fallback to API route upload (only works for files <= 6MB)
+              if (uploadedFile.file.size > 6 * 1024 * 1024) {
+                throw new Error(
+                  `${uploadedFile.file.name} is too large (${(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB) and client-side upload failed. Maximum size per file is 6MB for API upload. Please split into smaller files or ensure client-side upload is working.`
+                );
+              }
+              
               const formData = new FormData();
               formData.append('file', uploadedFile.file);
               formData.append('filename', uploadedFile.file.name);
@@ -174,7 +187,6 @@ export default function UploadRealworksPage() {
                   errorMessage = errorText || errorMessage;
                 }
                 
-                // If it's a size error, provide helpful message
                 if (uploadResponse.status === 413 || errorMessage.includes('too large') || errorMessage.includes('FUNCTION_PAYLOAD_TOO_LARGE')) {
                   throw new Error(
                     `${uploadedFile.file.name} is too large (${(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB). Maximum size per file is 6MB. Please split into smaller files or compress the file.`
@@ -185,6 +197,7 @@ export default function UploadRealworksPage() {
               }
 
               blobData = await uploadResponse.json();
+              console.log(`API route upload successful for ${uploadedFile.file.name}`);
             }
 
             return {

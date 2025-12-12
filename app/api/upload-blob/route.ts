@@ -21,20 +21,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check content type to determine request type
+    // Check if this is a handleUpload request (from @vercel/blob/client)
     const contentType = request.headers.get('content-type') || '';
+    const isHandleUploadRequest = contentType.includes('application/json') || 
+                                  request.headers.get('x-vercel-blob-handle-upload') === '1';
     
-    // Try to use handleUpload if this is a request from @vercel/blob/client
-    if (contentType.includes('application/json')) {
+    if (isHandleUploadRequest) {
       try {
         const body = await request.json();
+        
+        console.log('handleUpload request received');
         
         // Use handleUpload for client-side uploads (bypasses 6MB limit)
         const jsonResponse = await handleUpload({
           body,
           request,
-          token,
           onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
+            console.log('Generating token for:', pathname);
             // Allow MHTML and related multipart types coming from Realworks exports
             return {
               allowedContentTypes: [
@@ -55,10 +58,14 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        console.log('handleUpload successful');
         return NextResponse.json(jsonResponse);
       } catch (handleUploadError) {
         // If handleUpload fails, fall back to direct upload
-        console.warn('handleUpload failed, falling back to direct upload:', handleUploadError);
+        console.error('handleUpload failed:', handleUploadError);
+        if (handleUploadError instanceof Error) {
+          console.error('handleUpload error details:', handleUploadError.message, handleUploadError.stack);
+        }
         // Continue to FormData handling below
       }
     }
@@ -75,11 +82,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check file size - reject if > 6MB (Vercel's hard limit)
+    // Check file size - reject if > 6MB (Vercel's hard limit for direct upload)
+    // Note: For files > 6MB, client-side upload should be used
     if (file.size > 6 * 1024 * 1024) {
+      console.warn(`File ${filename} is ${(file.size / 1024 / 1024).toFixed(2)} MB, exceeding 6MB limit for direct upload`);
       return NextResponse.json(
         {
-          error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct upload. Please use client-side upload for larger files.`,
+          error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload. Files larger than 6MB must use client-side upload.`,
+          details: 'Please ensure client-side upload is working correctly for large files.',
         },
         { status: 413 }
       );
