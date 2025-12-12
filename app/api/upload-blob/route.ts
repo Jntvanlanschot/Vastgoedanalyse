@@ -4,168 +4,118 @@ import { put, handleUpload } from '@vercel/blob';
 export const maxDuration = 300;
 
 // Handle upload requests from @vercel/blob/client
-// This endpoint supports both handleUpload (for client-side uploads) and direct uploads
 export async function POST(request: NextRequest) {
-  return handleRequest(request);
-}
-
-export async function GET(request: NextRequest) {
-  // handleUpload also handles GET requests for token generation
-  return handleRequest(request);
-}
-
-async function handleRequest(request: NextRequest) {
   try {
-    // Check if token is available
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
-      console.error('CRITICAL: BLOB_READ_WRITE_TOKEN not found in environment variables');
-      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('BLOB')));
       return NextResponse.json(
-        {
-          error: 'BLOB_READ_WRITE_TOKEN not configured. Please set it in Vercel environment variables.',
-          details: 'The BLOB_READ_WRITE_TOKEN environment variable is required for file uploads. Please configure it in your Vercel project settings under Environment Variables.',
-        },
+        { error: 'BLOB_READ_WRITE_TOKEN not configured' },
         { status: 500 }
       );
     }
 
-    // Check if this is a handleUpload request by examining headers and URL
-    // handleUpload requests from @vercel/blob/client have specific characteristics
-    const contentType = request.headers.get('content-type') || '';
-    const url = request.url;
-    
-    // Clone request for handleUpload (in case we need to fall back to FormData)
-    const clonedRequest = request.clone();
-    
-    // Try to handle as handleUpload request first (for client-side uploads from @vercel/blob/client)
-    // handleUpload can handle both token generation requests and actual file uploads
-    // It automatically detects the request type and handles it accordingly
+    // Try handleUpload first (for client-side uploads)
     try {
-      console.log('Attempting handleUpload, contentType:', contentType, 'url:', url);
-      
       const jsonResponse = await handleUpload({
-        request: clonedRequest,
+        request,
         onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-          console.log('Generating token for:', pathname, 'multipart:', multipart, 'clientPayload:', clientPayload);
-          // Allow MHTML and related multipart types coming from Realworks exports
           return {
             allowedContentTypes: [
-              'application/x-mimearchive', // .mhtml
-              'message/rfc822', // .mht
-              'multipart/related', // some exporters send this for mhtml
+              'application/x-mimearchive',
+              'message/rfc822',
+              'multipart/related',
               'multipart/mixed',
-              'application/octet-stream', // Generic binary
-              'text/html', // HTML files
-              'application/zip', // If user zips files
+              'application/octet-stream',
+              'text/html',
+              'application/zip',
             ],
-            addRandomSuffix: true, // Prevent filename conflicts
+            addRandomSuffix: true,
             tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
           };
         },
         onUploadCompleted: async ({ blob, tokenPayload }) => {
-          console.log('Upload completed:', blob.url, tokenPayload);
+          console.log('Upload completed:', blob.url);
         },
       });
 
-      console.log('handleUpload successful, response:', JSON.stringify(jsonResponse));
       return NextResponse.json(jsonResponse);
     } catch (handleUploadError) {
-      // Check if this was actually a handleUpload request that failed
-      const errorMsg = handleUploadError instanceof Error ? handleUploadError.message : String(handleUploadError);
-      const errorStack = handleUploadError instanceof Error ? handleUploadError.stack : '';
-      
-      console.error('handleUpload error:', errorMsg, 'stack:', errorStack);
-      console.error('Request details - contentType:', contentType, 'method:', request.method, 'url:', url);
-      
-      // If it's a JSON request (likely a handleUpload token request), return the error
-      // Don't fall through to FormData for handleUpload requests
-      if (contentType.includes('application/json')) {
-        console.error('This appears to be a handleUpload token request that failed, returning error');
+      // If handleUpload fails, try direct FormData upload
+      const formData = await request.formData();
+      const file = formData.get('file') as File;
+      const filename = formData.get('filename') as string;
+
+      if (!file || !filename) {
         return NextResponse.json(
-          {
-            error: 'Failed to handle upload request',
-            details: errorMsg,
-          },
-          { status: 500 }
+          { error: 'File and filename are required' },
+          { status: 400 }
         );
       }
-      
-      // Only fall through to FormData if it's clearly not a handleUpload request
-      console.log('Not a handleUpload request, trying FormData');
-      // Continue to FormData handling below (use original request, not cloned)
+
+      if (file.size > 6 * 1024 * 1024) {
+        return NextResponse.json(
+          {
+            error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload.`,
+          },
+          { status: 413 }
+        );
+      }
+
+      const blob = await put(filename, file, {
+        access: 'public',
+        addRandomSuffix: true,
+      });
+
+      return NextResponse.json({
+        url: blob.url,
+        name: filename,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+      });
     }
-
-    // Direct file upload via FormData (fallback for small files or if handleUpload not available)
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const filename = formData.get('filename') as string;
-
-    if (!file || !filename) {
-      return NextResponse.json(
-        { error: 'File and filename are required' },
-        { status: 400 }
-      );
-    }
-
-    // Check file size - reject if > 6MB (Vercel's hard limit for direct upload)
-    // Note: For files > 6MB, client-side upload should be used
-    if (file.size > 6 * 1024 * 1024) {
-      console.warn(`File ${filename} is ${(file.size / 1024 / 1024).toFixed(2)} MB, exceeding 6MB limit for direct upload`);
-      return NextResponse.json(
-        {
-          error: `File too large (${(file.size / 1024 / 1024).toFixed(2)} MB). Maximum size is 6MB for direct API upload. Files larger than 6MB must use client-side upload.`,
-          details: 'Please ensure client-side upload is working correctly for large files.',
-        },
-        { status: 413 }
-      );
-    }
-
-    // Upload to Vercel Blob Storage
-    const blob = await put(filename, file, {
-      access: 'public',
-      addRandomSuffix: true,
-    });
-
-    return NextResponse.json({
-      url: blob.url,
-      name: filename,
-      size: file.size,
-      type: file.type || 'application/octet-stream',
-    });
   } catch (error) {
     console.error('Blob upload error:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Check if it's a size limit error
-    if (errorMessage.includes('Request Entity Too Large') || errorMessage.includes('FUNCTION_PAYLOAD_TOO_LARGE')) {
-      return NextResponse.json(
-        {
-          error: 'File too large for direct upload (>6MB). The client-side upload should be used for files larger than 6MB.',
-          details: errorMessage,
-        },
-        { status: 413 }
-      );
-    }
-    
-    // Check if it's a token/configuration error
-    if (errorMessage.includes('token') || errorMessage.includes('BLOB_READ_WRITE_TOKEN') || errorMessage.includes('Access denied')) {
-      return NextResponse.json(
-        {
-          error: 'Blob Storage access denied. Please check BLOB_READ_WRITE_TOKEN in Vercel environment variables.',
-          details: errorMessage,
-        },
-        { status: 500 }
-      );
-    }
-    
     return NextResponse.json(
       {
-        error: 'Failed to upload file to blob storage',
-        details: errorMessage,
+        error: 'Failed to upload file',
+        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
   }
 }
 
+export async function GET(request: NextRequest) {
+  // Handle token generation requests
+  try {
+    const jsonResponse = await handleUpload({
+      request,
+      onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
+        return {
+          allowedContentTypes: [
+            'application/x-mimearchive',
+            'message/rfc822',
+            'multipart/related',
+            'multipart/mixed',
+            'application/octet-stream',
+            'text/html',
+            'application/zip',
+          ],
+          addRandomSuffix: true,
+          tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
+        };
+      },
+    });
+
+    return NextResponse.json(jsonResponse);
+  } catch (error) {
+    console.error('Token generation error:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to generate token',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
