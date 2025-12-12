@@ -1,8 +1,9 @@
 /**
- * Generate PDF report from top 15 matches
+ * Generate PDF report from top 15 matches using pdfmake
  */
 
-import PDFDocument from 'pdfkit';
+import { TDocumentDefinitions, TFontDictionary } from 'pdfmake/interfaces';
+import PdfPrinter from 'pdfmake';
 import { CandidateProperty } from './calculateSimilarity';
 import { ReferenceData } from './calculateSimilarity';
 
@@ -38,210 +39,285 @@ export async function generatePdfReport(
   top15: CandidateProperty[],
   referenceData: ReferenceData
 ): Promise<Buffer> {
+  // Use default fonts that work in serverless
+  const fonts: TFontDictionary = {
+    Roboto: {
+      normal: 'Helvetica',
+      bold: 'Helvetica-Bold',
+      italics: 'Helvetica-Oblique',
+      bolditalics: 'Helvetica-BoldOblique',
+    },
+  };
+
+  const printer = new PdfPrinter(fonts);
+
+  // Build document content
+  const docDefinition: TDocumentDefinitions = {
+    pageSize: 'A4',
+    pageMargins: [50, 50, 50, 50],
+    defaultStyle: {
+      font: 'Roboto',
+      fontSize: 10,
+      color: '#111827',
+    },
+    content: [],
+  };
+
+  // Title page
+  (docDefinition.content as any[]).push(
+    {
+      text: 'MEEST VERGELIJKBARE PANDEN',
+      fontSize: 24,
+      bold: true,
+      color: '#1F2937',
+      alignment: 'center',
+      margin: [0, 0, 0, 20],
+    }
+  );
+
+  // Reference property info
+  if (referenceData) {
+    (docDefinition.content as any[]).push({
+      text: `Referentie: ${referenceData.address_full || 'Onbekend'} | ${referenceData.area_m2 || 'Onbekend'} m² | Energielabel: ${referenceData.energy_label || 'Onbekend'}`,
+      fontSize: 9,
+      alignment: 'center',
+      margin: [0, 0, 0, 10],
+    });
+  }
+
+  // Price calculation
+  if (top15.length > 0 && referenceData?.area_m2) {
+    const validPrices = top15
+      .filter(p => p.rw_sale_price && p.rw_area_m2 && p.rw_area_m2 > 0)
+      .slice(0, 12)
+      .map(p => ({
+        pricePerM2: (p.rw_sale_price || 0) / (p.rw_area_m2 || 1),
+        score: p.final_score || p.similarity_score || 0,
+      }))
+      .filter(p => p.score >= 0.55);
+
+    if (validPrices.length > 0) {
+      const totalWeight = validPrices.reduce((sum, p) => sum + Math.pow(p.score, 2), 0);
+      const avgPricePerM2 = validPrices.reduce((sum, p) => sum + p.pricePerM2 * Math.pow(p.score, 2), 0) / totalWeight;
+
+      const prices = validPrices.map(p => p.pricePerM2).sort((a, b) => a - b);
+      const conservative = prices.length >= 3 ? prices[Math.floor(prices.length * 0.25)] : avgPricePerM2 * 0.88;
+      const optimistic = prices.length >= 3 ? prices[Math.floor(prices.length * 0.75)] : avgPricePerM2 * 1.12;
+
+      const areaM2 = referenceData.area_m2;
+      const conservativePrice = conservative * areaM2;
+      const neutralPrice = avgPricePerM2 * areaM2;
+      const optimisticPrice = optimistic * areaM2;
+
+      (docDefinition.content as any[]).push(
+        { text: 'Prijsadvies', fontSize: 9, bold: true, alignment: 'center', margin: [0, 10, 0, 5] },
+        {
+          table: {
+            widths: ['*', '*', '*'],
+            body: [
+              [
+                { text: 'Conservatief', fontSize: 9, bold: true, alignment: 'center' },
+                { text: 'Neutraal', fontSize: 9, bold: true, alignment: 'center' },
+                { text: 'Optimistisch', fontSize: 9, bold: true, alignment: 'center' },
+              ],
+              [
+                { text: formatCurrency(conservativePrice), fontSize: 11, alignment: 'center' },
+                { text: formatCurrency(neutralPrice), fontSize: 11, alignment: 'center' },
+                { text: formatCurrency(optimisticPrice), fontSize: 11, alignment: 'center' },
+              ],
+              [
+                { text: `€ ${Math.round(conservative).toLocaleString('nl-NL')}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
+                { text: `€ ${Math.round(avgPricePerM2).toLocaleString('nl-NL')}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
+                { text: `€ ${Math.round(optimistic).toLocaleString('nl-NL')}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
+              ],
+            ],
+          },
+          layout: 'noBorders',
+          margin: [0, 0, 0, 20],
+        }
+      );
+    }
+  }
+
+  // Overview table
+  const overviewRows: any[] = [
+    [
+      { text: '#', fillColor: '#1F2937', color: '#FFFFFF', bold: true, alignment: 'center' },
+      { text: 'Adres', fillColor: '#1F2937', color: '#FFFFFF', bold: true, alignment: 'left' },
+      { text: 'Prijs per m²', fillColor: '#1F2937', color: '#FFFFFF', bold: true, alignment: 'center' },
+      { text: 'Oppervlakte', fillColor: '#1F2937', color: '#FFFFFF', bold: true, alignment: 'center' },
+      { text: 'Verkoopdatum', fillColor: '#1F2937', color: '#FFFFFF', bold: true, alignment: 'center' },
+      { text: 'Score', fillColor: '#1F2937', color: '#FFFFFF', bold: true, alignment: 'center' },
+    ],
+  ];
+
+  top15.forEach((prop, index) => {
+    const pricePerM2 = prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0
+      ? (prop.rw_sale_price / prop.rw_area_m2).toLocaleString('nl-NL')
+      : 'Onbekend';
+
+    const bgColor = index < 10 ? '#EFF6FF' : index % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
+
+    overviewRows.push([
+      { text: String(index + 1), fillColor: bgColor, alignment: 'center' },
+      { text: extractStreetAndNumber(prop.address_full), fillColor: bgColor, alignment: 'left' },
+      { text: pricePerM2 !== 'Onbekend' ? `€ ${pricePerM2}` : 'Onbekend', fillColor: bgColor, alignment: 'center' },
+      { text: prop.rw_area_m2 ? String(Math.round(prop.rw_area_m2)) : 'Onbekend', fillColor: bgColor, alignment: 'center' },
+      { text: formatDate(prop.rw_sale_date || prop.sale_date), fillColor: bgColor, alignment: 'center' },
+      { text: (prop.final_score || prop.similarity_score || 0).toFixed(3), fillColor: bgColor, alignment: 'center' },
+    ]);
+  });
+
+  (docDefinition.content as any[]).push({
+    table: {
+      widths: [30, '*', 80, 60, 80, 60],
+      body: overviewRows,
+    },
+    layout: {
+      hLineWidth: (i: number) => i === 0 || i === overviewRows.length ? 2 : 0.5,
+      vLineWidth: () => 0,
+      hLineColor: (i: number) => i === 0 ? '#374151' : '#E5E7EB',
+      paddingLeft: () => 8,
+      paddingRight: () => 8,
+      paddingTop: () => 8,
+      paddingBottom: () => 8,
+    },
+    margin: [0, 0, 0, 20],
+  });
+
+  // Individual property pages
+  top15.forEach((prop, index) => {
+    (docDefinition.content as any[]).push(
+      { text: '', pageBreak: 'before' },
+      {
+        text: `${index + 1}. ${prop.address_full}`,
+        fontSize: 16,
+        bold: true,
+        margin: [0, 0, 0, 10],
+      }
+    );
+
+    // Comparison table
+    const comparisonRows: any[] = [
+      [
+        { text: 'Eigenschap', fillColor: '#1F2937', color: '#FFFFFF', bold: true },
+        { text: 'Referentie', fillColor: '#1F2937', color: '#FFFFFF', bold: true },
+        { text: 'Huidig pand', fillColor: '#1F2937', color: '#FFFFFF', bold: true },
+      ],
+      [
+        { text: 'Adres', fillColor: '#FFFFFF' },
+        { text: extractStreetAndNumber(referenceData.address_full || 'Onbekend'), fillColor: '#FFFFFF' },
+        { text: extractStreetAndNumber(prop.address_full), fillColor: '#FFFFFF' },
+      ],
+      [
+        { text: 'Verkoopprijs', fillColor: '#F9FAFB' },
+        { text: 'Onbekend', fillColor: '#F9FAFB' },
+        { text: formatCurrency(prop.rw_sale_price || prop.sale_price), fillColor: '#F9FAFB' },
+      ],
+      [
+        { text: 'Verkoopdatum', fillColor: '#FFFFFF' },
+        { text: 'Onbekend', fillColor: '#FFFFFF' },
+        { text: formatDate(prop.rw_sale_date || prop.sale_date), fillColor: '#FFFFFF' },
+      ],
+      [
+        { text: 'Oppervlakte (m²)', fillColor: '#F9FAFB' },
+        { text: String(referenceData.area_m2 || 0), fillColor: '#F9FAFB' },
+        { text: prop.rw_area_m2 ? String(Math.round(prop.rw_area_m2)) : 'Onbekend', fillColor: '#F9FAFB' },
+      ],
+      [
+        { text: 'Kamers', fillColor: '#FFFFFF' },
+        { text: String(referenceData.rooms || 0), fillColor: '#FFFFFF' },
+        { text: prop.rw_rooms ? String(prop.rw_rooms) : 'Onbekend', fillColor: '#FFFFFF' },
+      ],
+      [
+        { text: 'Slaapkamers', fillColor: '#F9FAFB' },
+        { text: String(referenceData.bedrooms || 0), fillColor: '#F9FAFB' },
+        { text: prop.rw_bedrooms ? String(prop.rw_bedrooms) : 'Onbekend', fillColor: '#F9FAFB' },
+      ],
+      [
+        { text: 'Badkamers', fillColor: '#FFFFFF' },
+        { text: String(referenceData.bathrooms || 0), fillColor: '#FFFFFF' },
+        { text: prop.bathrooms ? String(prop.bathrooms) : 'Onbekend', fillColor: '#FFFFFF' },
+      ],
+      [
+        { text: 'Bouwjaar', fillColor: '#F9FAFB' },
+        { text: 'Onbekend', fillColor: '#F9FAFB' },
+        { text: prop.rw_year_built ? String(prop.rw_year_built) : 'Onbekend', fillColor: '#F9FAFB' },
+      ],
+      [
+        { text: 'Energielabel', fillColor: '#FFFFFF' },
+        { text: referenceData.energy_label || 'Onbekend', fillColor: '#FFFFFF' },
+        { text: prop.rw_energy_label || prop.energy_label || 'ONBEKEND', fillColor: '#FFFFFF' },
+      ],
+      [
+        { text: 'Tuin', fillColor: '#F9FAFB' },
+        { text: referenceData.has_garden ? 'Ja' : 'Nee', fillColor: '#F9FAFB' },
+        { text: prop.rw_has_garden || prop.has_garden ? 'Ja' : 'Nee', fillColor: '#F9FAFB' },
+      ],
+      [
+        { text: 'Balkon', fillColor: '#FFFFFF' },
+        { text: referenceData.has_balcony ? 'Ja' : 'Nee', fillColor: '#FFFFFF' },
+        { text: prop.rw_has_balcony || prop.has_balcony ? 'Ja' : 'Nee', fillColor: '#FFFFFF' },
+      ],
+      [
+        { text: 'Terras', fillColor: '#F9FAFB' },
+        { text: referenceData.has_terrace ? 'Ja' : 'Nee', fillColor: '#F9FAFB' },
+        { text: prop.rw_has_terrace || prop.has_terrace ? 'Ja' : 'Nee', fillColor: '#F9FAFB' },
+      ],
+    ];
+
+    (docDefinition.content as any[]).push({
+      table: {
+        widths: ['*', '*', '*'],
+        body: comparisonRows,
+      },
+      layout: {
+        hLineWidth: (i: number) => i === 0 || i === comparisonRows.length ? 2 : 0.5,
+        vLineWidth: () => 0,
+        hLineColor: (i: number) => i === 0 ? '#374151' : '#E5E7EB',
+        paddingLeft: () => 10,
+        paddingRight: () => 10,
+        paddingTop: () => 10,
+        paddingBottom: () => 10,
+      },
+      margin: [0, 0, 0, 10],
+    });
+
+    (docDefinition.content as any[]).push(
+      { text: `Match Score: ${(prop.final_score || prop.similarity_score || 0).toFixed(3)}`, margin: [0, 10, 0, 5] }
+    );
+
+    if (prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0) {
+      const pricePerM2 = prop.rw_sale_price / prop.rw_area_m2;
+      (docDefinition.content as any[]).push({
+        text: `Prijs per m²: ${formatCurrency(pricePerM2)}`,
+        margin: [0, 0, 0, 20],
+      });
+    }
+  });
+
+  // Generate PDF
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      const buffers: Buffer[] = [];
+      const pdfDoc = printer.createPdfKitDocument(docDefinition);
+      const chunks: Buffer[] = [];
 
-      doc.on('data', buffers.push.bind(buffers));
-      doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(buffers);
+      pdfDoc.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+
+      pdfDoc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
         resolve(pdfBuffer);
       });
-      doc.on('error', reject);
 
-      // Title page
-      doc.fontSize(24).font('Helvetica-Bold').fillColor('#1F2937');
-      doc.text('MEEST VERGELIJKBARE PANDEN', { align: 'center' });
-      doc.moveDown(2);
-
-      // Reference property info
-      if (referenceData) {
-        doc.fontSize(9).font('Helvetica').fillColor('#111827');
-        const refInfo = `Referentie: ${referenceData.address_full || 'Onbekend'} | ${referenceData.area_m2 || 'Onbekend'} m² | Energielabel: ${referenceData.energy_label || 'Onbekend'}`;
-        doc.text(refInfo, { align: 'center' });
-        doc.moveDown(1);
-      }
-
-      // Price calculation (simplified)
-      if (top15.length > 0 && referenceData?.area_m2) {
-        const validPrices = top15
-          .filter(p => p.rw_sale_price && p.rw_area_m2 && p.rw_area_m2 > 0)
-          .slice(0, 12)
-          .map(p => ({
-            pricePerM2: (p.rw_sale_price || 0) / (p.rw_area_m2 || 1),
-            score: p.final_score || p.similarity_score || 0,
-          }))
-          .filter(p => p.score >= 0.55);
-
-        if (validPrices.length > 0) {
-          // Calculate weighted average
-          const totalWeight = validPrices.reduce((sum, p) => sum + Math.pow(p.score, 2), 0);
-          const avgPricePerM2 = validPrices.reduce((sum, p) => sum + p.pricePerM2 * Math.pow(p.score, 2), 0) / totalWeight;
-
-          // Calculate percentiles
-          const prices = validPrices.map(p => p.pricePerM2).sort((a, b) => a - b);
-          const conservative = prices.length >= 3 ? prices[Math.floor(prices.length * 0.25)] : avgPricePerM2 * 0.88;
-          const optimistic = prices.length >= 3 ? prices[Math.floor(prices.length * 0.75)] : avgPricePerM2 * 1.12;
-
-          const areaM2 = referenceData.area_m2;
-          const conservativePrice = conservative * areaM2;
-          const neutralPrice = avgPricePerM2 * areaM2;
-          const optimisticPrice = optimistic * areaM2;
-
-          doc.moveDown(1);
-          doc.fontSize(9).font('Helvetica-Bold').fillColor('#111827');
-          doc.text('Prijsadvies', { align: 'center' });
-          doc.moveDown(0.5);
-
-          // Price table
-          const tableTop = doc.y;
-          const colWidth = 150;
-          const startX = (doc.page.width - 3 * colWidth) / 2;
-
-          // Headers
-          doc.fontSize(9).font('Helvetica-Bold').fillColor('#111827');
-          doc.text('Conservatief', startX, tableTop, { width: colWidth, align: 'center' });
-          doc.text('Neutraal', startX + colWidth, tableTop, { width: colWidth, align: 'center' });
-          doc.text('Optimistisch', startX + 2 * colWidth, tableTop, { width: colWidth, align: 'center' });
-
-          // Values
-          doc.fontSize(11).font('Helvetica').fillColor('#1F2937');
-          doc.text(formatCurrency(conservativePrice), startX, tableTop + 20, { width: colWidth, align: 'center' });
-          doc.text(formatCurrency(neutralPrice), startX + colWidth, tableTop + 20, { width: colWidth, align: 'center' });
-          doc.text(formatCurrency(optimisticPrice), startX + 2 * colWidth, tableTop + 20, { width: colWidth, align: 'center' });
-
-          // Per m²
-          doc.fontSize(8).font('Helvetica').fillColor('#6B7280');
-          doc.text(`€ ${Math.round(conservative).toLocaleString('nl-NL')}/m²`, startX, tableTop + 40, { width: colWidth, align: 'center' });
-          doc.text(`€ ${Math.round(avgPricePerM2).toLocaleString('nl-NL')}/m²`, startX + colWidth, tableTop + 40, { width: colWidth, align: 'center' });
-          doc.text(`€ ${Math.round(optimistic).toLocaleString('nl-NL')}/m²`, startX + 2 * colWidth, tableTop + 40, { width: colWidth, align: 'center' });
-
-          doc.y = tableTop + 60;
-        }
-      }
-
-      doc.addPage();
-
-      // Overview table
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#FFFFFF');
-      const tableStartY = doc.y;
-      const tableColWidths = [30, 130, 70, 50, 60, 50];
-      let currentX = 50;
-
-      // Header row
-      doc.rect(currentX, tableStartY, tableColWidths.reduce((a, b) => a + b, 0), 25).fill('#1F2937');
-      doc.text('#', currentX + 5, tableStartY + 8, { width: tableColWidths[0] - 10 });
-      currentX += tableColWidths[0];
-      doc.text('Adres', currentX + 5, tableStartY + 8, { width: tableColWidths[1] - 10 });
-      currentX += tableColWidths[1];
-      doc.text('Prijs/m²', currentX + 5, tableStartY + 8, { width: tableColWidths[2] - 10 });
-      currentX += tableColWidths[2];
-      doc.text('Opp.', currentX + 5, tableStartY + 8, { width: tableColWidths[3] - 10 });
-      currentX += tableColWidths[3];
-      doc.text('Datum', currentX + 5, tableStartY + 8, { width: tableColWidths[4] - 10 });
-      currentX += tableColWidths[4];
-      doc.text('Score', currentX + 5, tableStartY + 8, { width: tableColWidths[5] - 10 });
-
-      // Data rows
-      doc.fontSize(10).font('Helvetica').fillColor('#111827');
-      let rowY = tableStartY + 25;
-      top15.forEach((prop, index) => {
-        if (rowY > doc.page.height - 100) {
-          doc.addPage();
-          rowY = 50;
-        }
-
-        const bgColor = index < 10 ? '#EFF6FF' : index % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
-        doc.rect(50, rowY, tableColWidths.reduce((a, b) => a + b, 0), 20).fill(bgColor);
-
-        currentX = 50;
-        doc.text(String(index + 1), currentX + 5, rowY + 5, { width: tableColWidths[0] - 10, align: 'center' });
-        currentX += tableColWidths[0];
-        doc.text(extractStreetAndNumber(prop.address_full), currentX + 5, rowY + 5, { width: tableColWidths[1] - 10 });
-        currentX += tableColWidths[1];
-        const pricePerM2 = prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0
-          ? (prop.rw_sale_price / prop.rw_area_m2).toLocaleString('nl-NL')
-          : 'Onbekend';
-        doc.text(`€ ${pricePerM2}`, currentX + 5, rowY + 5, { width: tableColWidths[2] - 10, align: 'center' });
-        currentX += tableColWidths[2];
-        doc.text(prop.rw_area_m2 ? String(Math.round(prop.rw_area_m2)) : 'Onbekend', currentX + 5, rowY + 5, { width: tableColWidths[3] - 10, align: 'center' });
-        currentX += tableColWidths[3];
-        doc.text(formatDate(prop.rw_sale_date || prop.sale_date), currentX + 5, rowY + 5, { width: tableColWidths[4] - 10, align: 'center' });
-        currentX += tableColWidths[4];
-        doc.text((prop.final_score || prop.similarity_score || 0).toFixed(3), currentX + 5, rowY + 5, { width: tableColWidths[5] - 10, align: 'center' });
-
-        rowY += 20;
+      pdfDoc.on('error', (error: Error) => {
+        reject(error);
       });
 
-      doc.addPage();
-
-      // Individual property pages
-      top15.forEach((prop, index) => {
-        if (doc.y > doc.page.height - 150) {
-          doc.addPage();
-        }
-
-        doc.fontSize(16).font('Helvetica-Bold').fillColor('#1F2937');
-        doc.text(`${index + 1}. ${prop.address_full}`);
-        doc.moveDown(1);
-
-        // Comparison table
-        doc.fontSize(10).font('Helvetica').fillColor('#111827');
-        const compTableY = doc.y;
-        const compColWidth = 150;
-        const compStartX = 50;
-
-        // Table header
-        doc.rect(compStartX, compTableY, compColWidth * 3, 20).fill('#1F2937');
-        doc.font('Helvetica-Bold').fillColor('#FFFFFF');
-        doc.text('Eigenschap', compStartX + 5, compTableY + 6, { width: compColWidth - 10 });
-        doc.text('Referentie', compStartX + compColWidth + 5, compTableY + 6, { width: compColWidth - 10 });
-        doc.text('Huidig pand', compStartX + 2 * compColWidth + 5, compTableY + 6, { width: compColWidth - 10 });
-
-        // Table rows
-        const rows = [
-          ['Adres', extractStreetAndNumber(referenceData.address_full || 'Onbekend'), extractStreetAndNumber(prop.address_full)],
-          ['Verkoopprijs', 'Onbekend', formatCurrency(prop.rw_sale_price || prop.sale_price)],
-          ['Verkoopdatum', 'Onbekend', formatDate(prop.rw_sale_date || prop.sale_date)],
-          ['Oppervlakte (m²)', String(referenceData.area_m2 || 0), prop.rw_area_m2 ? String(Math.round(prop.rw_area_m2)) : 'Onbekend'],
-          ['Kamers', String(referenceData.rooms || 0), prop.rw_rooms ? String(prop.rw_rooms) : 'Onbekend'],
-          ['Slaapkamers', String(referenceData.bedrooms || 0), prop.rw_bedrooms ? String(prop.rw_bedrooms) : 'Onbekend'],
-          ['Badkamers', String(referenceData.bathrooms || 0), prop.bathrooms ? String(prop.bathrooms) : 'Onbekend'],
-          ['Bouwjaar', 'Onbekend', prop.rw_year_built ? String(prop.rw_year_built) : 'Onbekend'],
-          ['Energielabel', referenceData.energy_label || 'Onbekend', prop.rw_energy_label || prop.energy_label || 'ONBEKEND'],
-          ['Tuin', referenceData.has_garden ? 'Ja' : 'Nee', prop.rw_has_garden || prop.has_garden ? 'Ja' : 'Nee'],
-          ['Balkon', referenceData.has_balcony ? 'Ja' : 'Nee', prop.rw_has_balcony || prop.has_balcony ? 'Ja' : 'Nee'],
-          ['Terras', referenceData.has_terrace ? 'Ja' : 'Nee', prop.rw_has_terrace || prop.has_terrace ? 'Ja' : 'Nee'],
-        ];
-
-        let currentRowY = compTableY + 20;
-        rows.forEach((row, rowIndex) => {
-          const bgColor = rowIndex % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
-          doc.rect(compStartX, currentRowY, compColWidth * 3, 18).fill(bgColor);
-          doc.font('Helvetica').fillColor('#111827');
-          doc.text(row[0], compStartX + 5, currentRowY + 4, { width: compColWidth - 10 });
-          doc.text(row[1], compStartX + compColWidth + 5, currentRowY + 4, { width: compColWidth - 10 });
-          doc.text(row[2], compStartX + 2 * compColWidth + 5, currentRowY + 4, { width: compColWidth - 10 });
-          currentRowY += 18;
-        });
-
-        doc.y = currentRowY + 10;
-        doc.fontSize(10).font('Helvetica').fillColor('#111827');
-        doc.text(`Match Score: ${(prop.final_score || prop.similarity_score || 0).toFixed(3)}`);
-
-        if (prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0) {
-          const pricePerM2 = prop.rw_sale_price / prop.rw_area_m2;
-          doc.text(`Prijs per m²: ${formatCurrency(pricePerM2)}`);
-        }
-
-        doc.moveDown(2);
-      });
-
-      doc.end();
+      pdfDoc.end();
     } catch (error) {
       reject(error);
     }
   });
 }
-
