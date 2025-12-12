@@ -15,11 +15,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Log request details for debugging
+    const contentType = request.headers.get('content-type') || '';
+    console.log('POST request received, contentType:', contentType);
+    
+    // Clone request to inspect body without consuming it
+    const clonedRequest = request.clone();
+    
+    // If it's a JSON request, log the body
+    if (contentType.includes('application/json')) {
+      try {
+        const body = await clonedRequest.json();
+        console.log('Request body:', JSON.stringify(body));
+      } catch (e) {
+        console.log('Could not parse request body as JSON');
+      }
+    }
+
     // handleUpload automatically handles both token generation and file uploads
     const jsonResponse = await handleUpload({
       request,
       onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
-        console.log('Generating token for:', pathname, 'multipart:', multipart);
+        console.log('Generating token for:', pathname, 'multipart:', multipart, 'clientPayload:', clientPayload);
         return {
           allowedContentTypes: [
             'application/x-mimearchive',
@@ -39,6 +56,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log('handleUpload response:', JSON.stringify(jsonResponse));
     return NextResponse.json(jsonResponse);
   } catch (error: any) {
     const errorMsg = error?.message || String(error);
