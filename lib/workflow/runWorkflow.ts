@@ -16,6 +16,7 @@ applyFontkitTriePatch();
 
 import { generatePdfReport } from './generatePdfReport';
 import { generateExcelReport } from './generateExcelReport';
+import { generateHtmlReport } from './generateHtmlReport';
 
 export interface WorkflowResult {
   status: 'success' | 'error';
@@ -55,6 +56,9 @@ export interface WorkflowResult {
     top15_csv?: string;
     pdf_report?: string;
     excel_report?: string;
+    html_report?: string;
+    pdf_buffer?: string;
+    excel_buffer?: string;
   };
 }
 
@@ -359,25 +363,39 @@ export async function runWorkflow(
     
     let pdfBuffer: Buffer | null = null;
     let excelBuffer: Buffer | null = null;
+    let htmlReport: string | null = null;
     
     if (top15Result.top15.length === 0) {
       console.error('ERROR: No top 15 properties available for report generation!');
       console.error('Top15Result:', JSON.stringify(top15Result, null, 2));
     } else {
       try {
-        // Skip PDF generation in Vercel serverless (fontkit/trie files not available)
-        // PDF can be generated via Python workflow (step4_generate_reports.py) or locally
-        if (process.env.VERCEL) {
-          console.log('[workflow] ⚠ Skipping PDF generation in Vercel serverless (fontkit requires .trie files)');
-          console.log('[workflow] 💡 Use Python workflow (step4_generate_reports.py) or run locally for PDF generation');
-          pdfBuffer = null;
+        // Always generate HTML report (works everywhere, no dependencies)
+        console.log(`Generating HTML report for ${top15Result.top15.length} properties...`);
+        htmlReport = generateHtmlReport(top15Result.top15, referenceData);
+        console.log(`HTML report generated successfully: ${htmlReport.length} bytes`);
+        
+        // PDF generation is optional (controlled by GENERATE_PDF env var)
+        const shouldGeneratePdf = process.env.GENERATE_PDF === 'true';
+        if (shouldGeneratePdf) {
+          if (process.env.VERCEL) {
+            console.log('[workflow] ⚠ GENERATE_PDF=true but running on Vercel - PDF generation may fail due to fontkit/trie files');
+            console.log('[workflow] 💡 Consider using Python workflow (step4_generate_reports.py) for PDF on Vercel');
+          }
+          try {
+            console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
+            console.log('First property sample:', JSON.stringify(top15Result.top15[0], null, 2));
+            pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
+            console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
+          } catch (pdfError) {
+            console.warn('[workflow] ⚠ PDF generation failed (non-critical):', pdfError instanceof Error ? pdfError.message : String(pdfError));
+            pdfBuffer = null;
+          }
         } else {
-          console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
-          console.log('First property sample:', JSON.stringify(top15Result.top15[0], null, 2));
-          pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
-          console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
+          console.log('[workflow] ℹ PDF generation skipped (GENERATE_PDF not set to true)');
         }
         
+        // Always generate Excel report (no fontkit dependency)
         console.log(`Generating Excel report for ${top15Result.top15.length} properties...`);
         excelBuffer = await generateExcelReport(top15Result.top15, referenceData);
         console.log(`Excel generated successfully: ${excelBuffer.length} bytes`);
@@ -387,7 +405,7 @@ export async function runWorkflow(
           console.error('Report error message:', reportError.message);
           console.error('Report error stack:', reportError.stack);
         }
-        // Don't continue - fail the workflow if reports can't be generated
+        // Don't continue - fail the workflow if critical reports can't be generated
         throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`);
       }
     }
@@ -421,6 +439,7 @@ export async function runWorkflow(
         top15_csv: top15Csv,
         pdf_buffer: pdfBuffer ? pdfBuffer.toString('base64') : undefined,
         excel_buffer: excelBuffer ? excelBuffer.toString('base64') : undefined,
+        html_report: htmlReport || undefined,
       },
     };
   } catch (error) {
