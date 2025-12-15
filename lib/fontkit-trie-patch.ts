@@ -32,10 +32,18 @@ try {
 // Map trie filenames to embedded buffers (only if loaded)
 const embeddedTries: Map<string, Buffer> = new Map();
 
-if (dataTrie) embeddedTries.set('data.trie', dataTrie);
+if (dataTrie) {
+  embeddedTries.set('data.trie', dataTrie);
+  // If classes.trie is empty or missing, use data.trie as fallback (common pattern in fontkit)
+  if (!classesTrie || classesTrie.length === 0) {
+    embeddedTries.set('classes.trie', dataTrie);
+    console.info('[fontkit-patch] Using data.trie as fallback for classes.trie (classes.trie not found or empty)');
+  } else {
+    embeddedTries.set('classes.trie', classesTrie);
+  }
+}
 if (indicTrie) embeddedTries.set('indic.trie', indicTrie);
 if (useTrie) embeddedTries.set('use.trie', useTrie);
-if (classesTrie !== undefined) embeddedTries.set('classes.trie', classesTrie); // Allow empty buffer
 
 let patchApplied = false;
 
