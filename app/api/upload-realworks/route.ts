@@ -1,3 +1,7 @@
+// CRITICAL: Import fontkit patch BEFORE any other imports
+// This ensures fontkit's fs.readFileSync is patched before pdfmake/fontkit are loaded
+import '@/lib/fontkit-trie-patch';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 
@@ -103,11 +107,20 @@ export async function POST(request: NextRequest) {
     const csvData = (formData.get('csvData') as string) || '';
     return await handleWithFiles(referenceData, csvData, realworksFiles);
   } catch (error) {
-    console.error('Error in upload-realworks API:', error);
+    console.error('[upload-realworks] Error in API:', error);
+    if (error instanceof Error) {
+      console.error('[upload-realworks] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        cwd: process.cwd(),
+        routeDir: __dirname,
+      });
+    }
     return NextResponse.json(
       {
         status: 'error',
-        message: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Internal server error',
+        error: error instanceof Error ? error.message : String(error),
         step1_result: null,
         step2_result: null,
         step3_result: null,
@@ -230,10 +243,19 @@ async function handleWithBlobs(
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('CRITICAL ERROR processing Realworks blobs:', error);
+    console.error('[upload-realworks] CRITICAL ERROR processing Realworks blobs:', error);
     if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('[upload-realworks] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        cwd: process.cwd(),
+        routeDir: __dirname,
+      });
+      
+      // Check if this is a fontkit/data.trie error
+      if (error.message.includes('data.trie') || error.message.includes('ENOENT')) {
+        console.error('[upload-realworks] FONTKIT TRIE ERROR DETECTED - fontkit-trie-patch may not have loaded correctly');
+      }
     }
     return NextResponse.json(
       {
