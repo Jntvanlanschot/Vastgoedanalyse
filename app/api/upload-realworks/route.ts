@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 
 // Increase max duration for long-running Python workflows (5 minutes)
 export const maxDuration = 300;

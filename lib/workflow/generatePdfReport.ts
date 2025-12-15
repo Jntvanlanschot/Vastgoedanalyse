@@ -30,9 +30,14 @@ function formatDate(dateStr: string | null | undefined): string {
   }
 }
 
+// Custom number formatter that doesn't require locale data (works in serverless)
+function formatNumberNL(num: number): string {
+  return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 function formatCurrency(amount: number | null | undefined): string {
   if (!amount || amount === 0) return 'Onbekend';
-  return `€ ${Math.round(amount).toLocaleString('nl-NL')}`;
+  return `€ ${formatNumberNL(amount)}`;
 }
 
 export async function generatePdfReport(
@@ -126,9 +131,9 @@ export async function generatePdfReport(
                 { text: formatCurrency(optimisticPrice), fontSize: 11, alignment: 'center' },
               ],
               [
-                { text: `€ ${Math.round(conservative).toLocaleString('nl-NL')}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
-                { text: `€ ${Math.round(avgPricePerM2).toLocaleString('nl-NL')}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
-                { text: `€ ${Math.round(optimistic).toLocaleString('nl-NL')}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
+                { text: `€ ${formatNumberNL(Math.round(conservative))}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
+                { text: `€ ${formatNumberNL(Math.round(avgPricePerM2))}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
+                { text: `€ ${formatNumberNL(Math.round(optimistic))}/m²`, fontSize: 8, color: '#6B7280', alignment: 'center' },
               ],
             ],
           },
@@ -153,7 +158,7 @@ export async function generatePdfReport(
 
   top15.forEach((prop, index) => {
     const pricePerM2 = prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0
-      ? (prop.rw_sale_price / prop.rw_area_m2).toLocaleString('nl-NL')
+      ? formatNumberNL(Math.round(prop.rw_sale_price / prop.rw_area_m2))
       : 'Onbekend';
 
     const bgColor = index < 10 ? '#EFF6FF' : index % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
