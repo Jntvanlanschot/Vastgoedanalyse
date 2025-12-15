@@ -1,6 +1,7 @@
-// CRITICAL: Import fontkit patch BEFORE any other imports
+// CRITICAL: Apply fontkit patch BEFORE any other imports
 // This ensures fontkit's fs.readFileSync is patched before pdfmake/fontkit are loaded
-import '@/lib/fontkit-trie-patch';
+import { applyFontkitTriePatch } from '@/lib/fontkit-trie-patch';
+applyFontkitTriePatch();
 
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
