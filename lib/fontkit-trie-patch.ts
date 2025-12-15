@@ -3,10 +3,10 @@
  * when reading data.trie in Vercel serverless environments.
  * 
  * Problem: fontkit does fs.readFileSync(__dirname + '/data.trie')
- * In serverless, __dirname points to .next/server/chunks/... where the file doesn't exist.
+ * In serverless, __dirname points to .next/server/chunks/... where the file may not exist.
  * 
- * Solution: Pre-load trie files using hardcoded known paths (require.resolve
- * doesn't work in Next.js bundled serverless runtime - it returns module IDs).
+ * Solution: Pre-load trie files from all known locations and intercept fs.readFileSync.
+ * If cache miss, allow disk read (don't block) - trie files may be bundled by Next.js.
  */
 
 import fs from 'fs';
@@ -18,19 +18,21 @@ const trieCache: TrieCache = new Map();
 const TRIE_FILES = ['data.trie', 'indic.trie', 'use.trie'];
 
 /**
- * Try to load a trie file from known locations
- * Uses hardcoded paths because require.resolve doesn't work in Next.js bundled runtime
+ * Try to load a trie file from all known valid locations
  */
 function tryLoadTrie(trieName: string): Buffer | null {
   const candidates = [
-    // Vercel serverless runtime (most common)
-    `/var/task/node_modules/@foliojs-fork/fontkit/${trieName}`,
     // Vercel build-time path
     `/vercel/path0/node_modules/@foliojs-fork/fontkit/${trieName}`,
+    // Vercel serverless runtime
+    `/var/task/node_modules/@foliojs-fork/fontkit/${trieName}`,
+    // Next.js bundled chunks (if outputFileTracingIncludes worked)
+    `/var/task/.next/server/chunks/${trieName}`,
     // Local dev fallback
     path.join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit', trieName),
-    // Alternative serverless path
+    // Alternative serverless paths
     path.join('/var/task', 'node_modules', '@foliojs-fork', 'fontkit', trieName),
+    path.join(process.cwd(), '.next', 'server', 'chunks', trieName),
   ];
 
   for (const candidatePath of candidates) {
@@ -45,7 +47,7 @@ function tryLoadTrie(trieName: string): Buffer | null {
     }
   }
 
-  console.warn(`[fontkit-patch] ⚠ Could not load ${trieName} from any known location`);
+  console.warn(`[fontkit-patch] ⚠ Could not preload ${trieName} from known locations (will try on-demand)`);
   return null;
 }
 
@@ -55,7 +57,7 @@ function tryLoadTrie(trieName: string): Buffer | null {
  */
 export function applyFontkitTriePatch(): void {
   if (trieCache.size > 0) {
-    // Already applied
+    // Already applied (idempotent)
     return;
   }
 
@@ -65,7 +67,7 @@ export function applyFontkitTriePatch(): void {
     nodeEnv: process.env.NODE_ENV,
   });
 
-  // Pre-load all trie files
+  // Pre-load all trie files from all known locations
   for (const trie of TRIE_FILES) {
     const buf = tryLoadTrie(trie);
     if (buf) {
@@ -90,12 +92,13 @@ export function applyFontkitTriePatch(): void {
     if (p.endsWith('.trie') && (p.includes('data.trie') || p.includes('indic.trie') || p.includes('use.trie'))) {
       const name = path.basename(p);
       
+      // Try cache first
       if (trieCache.has(name)) {
         console.info(`[fontkit-patch] ✅ Intercepted readFileSync(${p}) -> returning cached ${name} (${trieCache.get(name)!.length} bytes)`);
         return trieCache.get(name)!;
       }
 
-      // Try to load on-demand if not in cache
+      // If not in cache, try to load on-demand from known locations
       const buf = tryLoadTrie(name);
       if (buf) {
         trieCache.set(name, buf);
@@ -103,18 +106,21 @@ export function applyFontkitTriePatch(): void {
         return buf;
       }
 
-      // Block the access
-      console.error('[fontkit-patch] ❌ BLOCKED trie access attempt:', {
-        attemptedPath: p,
-        cwd: process.cwd(),
-        cacheKeys: Array.from(trieCache.keys()),
-        stack: new Error().stack,
-      });
-      throw new Error(
-        `Fontkit attempted to read ${p} from disk — blocked. ` +
-        `Trie file ${name} was not preloaded and could not be found in known locations. ` +
-        `This should not happen if fontkit-trie-patch is initialized correctly.`
-      );
+      // If still not found, allow original readFileSync to proceed
+      // (file may be in .next/server/chunks if outputFileTracingIncludes worked)
+      console.warn(`[fontkit-patch] ⚠ Cache miss for ${name}, allowing disk read for ${p}`);
+      try {
+        return originalReadFileSync(filePath, ...args);
+      } catch (error) {
+        // If disk read also fails, log and rethrow
+        console.error('[fontkit-patch] ❌ Disk read also failed:', {
+          attemptedPath: p,
+          cwd: process.cwd(),
+          cacheKeys: Array.from(trieCache.keys()),
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
     }
 
     // For all other files, use original readFileSync
