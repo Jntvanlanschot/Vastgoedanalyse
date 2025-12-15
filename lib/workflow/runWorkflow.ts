@@ -10,6 +10,10 @@
 import { parseMhtmlFile, ParsedProperty } from './parseRealworksMhtml';
 import { calculateSimpleSimilarityScore, ReferenceData, CandidateProperty } from './calculateSimilarity';
 import Papa from 'papaparse';
+// CRITICAL: Apply fontkit patch BEFORE pdfmake/fontkit imports
+import { applyFontkitTriePatch } from '@/lib/fontkit-trie-patch';
+applyFontkitTriePatch();
+
 import { generatePdfReport } from './generatePdfReport';
 import { generateExcelReport } from './generateExcelReport';
 
