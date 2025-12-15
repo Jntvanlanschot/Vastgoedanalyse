@@ -1,13 +1,14 @@
 /**
- * Runtime monkey-patch for @foliojs-fork/fontkit and @foliojs-fork/linebreak
- * to prevent ENOENT errors when reading .trie files in Vercel serverless environments.
+ * Runtime monkey-patch for @foliojs-fork/fontkit to prevent ENOENT errors
+ * when reading .trie files in Vercel serverless environments.
  * 
- * Problem: fontkit/linebreak do fs.readFileSync(__dirname + '/data.trie' or '/classes.trie')
+ * Problem: fontkit does fs.readFileSync(__dirname + '/data.trie')
  * In serverless, __dirname points to .next/server/chunks/... where the file doesn't exist.
  * 
  * Solution: Use embedded trie bytes from memory (no filesystem dependency).
  * 
- * This patch intercepts ALL .trie file reads and serves them from embedded buffers.
+ * NOTE: @foliojs-fork/linebreak is replaced via webpack alias (see next.config.ts)
+ * to avoid classes.trie issues entirely.
  */
 
 import fs from 'fs';
@@ -18,31 +19,23 @@ import { fileURLToPath } from 'url';
 let dataTrie: Buffer | undefined;
 let indicTrie: Buffer | undefined;
 let useTrie: Buffer | undefined;
-let classesTrie: Buffer | undefined;
 
 try {
   const trieBytes = require('./fontkit-trie-bytes');
   dataTrie = trieBytes.dataTrie;
   indicTrie = trieBytes.indicTrie;
   useTrie = trieBytes.useTrie;
-  classesTrie = trieBytes.classesTrie;
 } catch (error) {
   console.warn('[fontkit-patch] Failed to import embedded trie bytes:', error);
 }
 
 // Map trie filenames to embedded buffers (only if loaded)
+// NOTE: classes.trie is handled via webpack alias (linebreak-fallback.ts)
 const embeddedTries: Map<string, Buffer> = new Map();
 
 if (dataTrie) embeddedTries.set('data.trie', dataTrie);
 if (indicTrie) embeddedTries.set('indic.trie', indicTrie);
 if (useTrie) embeddedTries.set('use.trie', useTrie);
-if (classesTrie && classesTrie.length > 0) {
-  embeddedTries.set('classes.trie', classesTrie);
-} else if (classesTrie !== undefined) {
-  // Empty buffer - log warning but still add it
-  console.warn('[fontkit-patch] ⚠ classes.trie is empty, but adding to cache anyway');
-  embeddedTries.set('classes.trie', classesTrie);
-}
 
 let patchApplied = false;
 
@@ -63,7 +56,6 @@ export function applyFontkitTriePatch(): void {
       dataTrie: !!dataTrie,
       indicTrie: !!indicTrie,
       useTrie: !!useTrie,
-      classesTrie: classesTrie !== undefined,
     });
     // Don't throw - just skip patching
     return;
@@ -75,7 +67,6 @@ export function applyFontkitTriePatch(): void {
       'data.trie': dataTrie?.length ?? 0,
       'indic.trie': indicTrie?.length ?? 0,
       'use.trie': useTrie?.length ?? 0,
-      'classes.trie': classesTrie?.length ?? 0,
     });
 
     // Monkey-patch fs.readFileSync
@@ -101,7 +92,8 @@ export function applyFontkitTriePatch(): void {
       }
 
       // GENERIC: Intercept ALL .trie file requests (not just specific names)
-      if (p.endsWith('.trie') || p.includes('classes.trie') || p.includes('data.trie') || p.includes('indic.trie') || p.includes('use.trie')) {
+      // NOTE: classes.trie is handled via webpack alias, so we only intercept fontkit tries
+      if (p.endsWith('.trie') && (p.includes('data.trie') || p.includes('indic.trie') || p.includes('use.trie'))) {
         const name = path.basename(p);
         
         // Return embedded buffer if available

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   // Disable ESLint during builds (but keep it in development)
@@ -17,6 +18,19 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "50mb",
     },
+  },
+  /**
+   * Replace @foliojs-fork/linebreak with fallback in serverless
+   * This prevents classes.trie filesystem access issues in Vercel
+   */
+  webpack(config, { isServer }) {
+    if (isServer) {
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        '@foliojs-fork/linebreak': path.resolve(__dirname, 'lib/linebreak-fallback.ts'),
+      };
+    }
+    return config;
   },
   /**
    * Ensure fontkit's trie data files are bundled into the serverless functions
