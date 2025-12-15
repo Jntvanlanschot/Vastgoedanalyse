@@ -4,6 +4,8 @@ import '@/lib/fontkit-trie-patch';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 // Force Node.js runtime (required for Buffer, fs, and other Node.js APIs)
 export const runtime = 'nodejs';
@@ -42,11 +44,13 @@ function extractStreetName(address: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Starting Realworks file upload and workflow...');
-    console.log('[upload-realworks] env debug:', {
+    console.log('[upload-realworks] Starting Realworks file upload and workflow...');
+    console.log('[upload-realworks] Runtime environment:', {
       cwd: process.cwd(),
-      // __dirname is resolved at build-time in the bundled route file
       routeDir: __dirname,
+      // Check if trie files exist in expected locations
+      chunkDataTrie: existsSync(join(__dirname, 'data.trie')),
+      nodeModulesDataTrie: existsSync(join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit', 'data.trie')),
     });
 
     const contentType = request.headers.get('content-type') || '';

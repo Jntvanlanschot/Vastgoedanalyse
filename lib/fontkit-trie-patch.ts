@@ -5,13 +5,12 @@
  * Problem: fontkit does fs.readFileSync(__dirname + '/data.trie')
  * In serverless, __dirname points to .next/server/chunks/... where the file doesn't exist.
  * 
- * Solution: Pre-load trie files from node_modules into memory and intercept
- * fs.readFileSync calls for these specific files.
+ * Solution: Pre-load trie files from node_modules into memory using require.resolve
+ * to get the correct package path, and intercept fs.readFileSync calls.
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
+import { join, dirname } from 'path';
 
 // Track if patch has been applied (idempotent)
 let patchApplied = false;
@@ -19,52 +18,62 @@ let patchApplied = false;
 // In-memory cache for trie files
 const trieCache: Map<string, Buffer> = new Map();
 
+// Fontkit package root (resolved once)
+let fontkitRoot: string | null = null;
+
+/**
+ * Resolve fontkit package root using require.resolve (works in serverless)
+ */
+function getFontkitRoot(): string | null {
+  if (fontkitRoot) {
+    return fontkitRoot;
+  }
+
+  try {
+    // Use require.resolve to get the actual package.json location
+    // This works even in bundled serverless environments
+    const packageJsonPath = require.resolve('@foliojs-fork/fontkit/package.json');
+    fontkitRoot = dirname(packageJsonPath);
+    console.log('[fontkit-patch] Resolved fontkit root:', fontkitRoot);
+    return fontkitRoot;
+  } catch (error) {
+    console.error('[fontkit-patch] Failed to resolve fontkit package:', error);
+    // Fallback to cwd-based path
+    const fallback = join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit');
+    if (existsSync(fallback)) {
+      fontkitRoot = fallback;
+      console.log('[fontkit-patch] Using fallback fontkit root:', fontkitRoot);
+      return fontkitRoot;
+    }
+    return null;
+  }
+}
+
 /**
  * Resolve fontkit trie file path from node_modules
  */
 function resolveFontkitTrie(filename: string): string | null {
-  try {
-    // Strategy 1: Try require.resolve to get package root
-    let fontkitRoot: string | null = null;
-    try {
-      const packageJsonPath = require.resolve('@foliojs-fork/fontkit/package.json');
-      fontkitRoot = join(packageJsonPath, '..');
-    } catch (e) {
-      // Fallback to cwd-based path
-      fontkitRoot = join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit');
-    }
-
-    if (fontkitRoot) {
-      // Try root directory first (for data.trie, indic.trie, use.trie)
-      const rootPath = join(fontkitRoot, filename);
-      if (existsSync(rootPath)) {
-        return rootPath;
-      }
-
-      // Try shapers directory (for ArabicShaper.js which uses src/opentype/shapers/data.trie)
-      const shapersPath = join(fontkitRoot, 'src', 'opentype', 'shapers', filename);
-      if (existsSync(shapersPath)) {
-        return shapersPath;
-      }
-    }
-
-    // Strategy 2: Try cwd-based paths (for local dev)
-    const cwdPaths = [
-      join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit', filename),
-      join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit', 'src', 'opentype', 'shapers', filename),
-    ];
-
-    for (const path of cwdPaths) {
-      if (existsSync(path)) {
-        return path;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`[fontkit-patch] Error resolving ${filename}:`, error);
+  const root = getFontkitRoot();
+  if (!root) {
     return null;
   }
+
+  // Try root directory first (for data.trie, indic.trie, use.trie)
+  const rootPath = join(root, filename);
+  if (existsSync(rootPath)) {
+    console.log(`[fontkit-patch] Resolved ${filename} to root: ${rootPath}`);
+    return rootPath;
+  }
+
+  // Try shapers directory (for ArabicShaper.js which uses src/opentype/shapers/data.trie)
+  const shapersPath = join(root, 'src', 'opentype', 'shapers', filename);
+  if (existsSync(shapersPath)) {
+    console.log(`[fontkit-patch] Resolved ${filename} to shapers: ${shapersPath}`);
+    return shapersPath;
+  }
+
+  console.warn(`[fontkit-patch] Could not resolve ${filename} in fontkit root: ${root}`);
+  return null;
 }
 
 /**
@@ -73,22 +82,34 @@ function resolveFontkitTrie(filename: string): string | null {
 function preloadTrieFiles(): void {
   const trieFiles = ['data.trie', 'indic.trie', 'use.trie'];
   
+  console.log('[fontkit-patch] Pre-loading trie files...');
+  console.log('[fontkit-patch] Runtime environment:', {
+    cwd: process.cwd(),
+    fontkitRoot: getFontkitRoot(),
+  });
+  
   for (const filename of trieFiles) {
     const resolvedPath = resolveFontkitTrie(filename);
     if (resolvedPath) {
       try {
         const buffer = readFileSync(resolvedPath);
+        // Cache by multiple keys for different path formats fontkit might use
         trieCache.set(filename, buffer);
-        trieCache.set(join(process.cwd(), filename), buffer); // Also cache by absolute path
         trieCache.set(resolvedPath, buffer);
-        console.log(`[fontkit-patch] Pre-loaded ${filename} from ${resolvedPath} (${buffer.length} bytes)`);
+        trieCache.set(join(process.cwd(), filename), buffer);
+        // Also cache common __dirname patterns
+        trieCache.set(`./${filename}`, buffer);
+        trieCache.set(`/${filename}`, buffer);
+        console.log(`[fontkit-patch] ✓ Pre-loaded ${filename} from ${resolvedPath} (${buffer.length} bytes)`);
       } catch (error) {
-        console.error(`[fontkit-patch] Failed to pre-load ${filename}:`, error);
+        console.error(`[fontkit-patch] ✗ Failed to pre-load ${filename}:`, error);
       }
     } else {
-      console.warn(`[fontkit-patch] Could not resolve ${filename}, fontkit may fail at runtime`);
+      console.warn(`[fontkit-patch] ⚠ Could not resolve ${filename}, fontkit may fail at runtime`);
     }
   }
+  
+  console.log(`[fontkit-patch] Pre-load complete. Cache size: ${trieCache.size} entries`);
 }
 
 /**
@@ -103,6 +124,8 @@ function patchFsReadFileSync(): void {
     
     // Check if this is a fontkit trie file request
     if (pathStr.includes('data.trie') || pathStr.includes('indic.trie') || pathStr.includes('use.trie')) {
+      console.log(`[fontkit-patch] 🔍 Intercepted readFileSync attempt for: ${pathStr}`);
+      
       // Try to find in cache by various path formats
       let cached = trieCache.get(pathStr);
       
@@ -110,33 +133,60 @@ function patchFsReadFileSync(): void {
         // Try to match by filename only
         const filename = pathStr.split(/[/\\]/).pop() || '';
         cached = trieCache.get(filename);
+        if (cached) {
+          console.log(`[fontkit-patch] ✓ Found in cache by filename: ${filename}`);
+        }
+      }
+      
+      if (!cached) {
+        // Try common path variations
+        const variations = [
+          `./${pathStr.split(/[/\\]/).pop()}`,
+          `/${pathStr.split(/[/\\]/).pop()}`,
+          pathStr.replace(/^.*[/\\]/, ''),
+        ];
+        for (const variant of variations) {
+          cached = trieCache.get(variant);
+          if (cached) {
+            console.log(`[fontkit-patch] ✓ Found in cache by variant: ${variant}`);
+            break;
+          }
+        }
       }
       
       if (!cached) {
         // Try to resolve and load on-demand
-        const resolvedPath = resolveFontkitTrie(pathStr.split(/[/\\]/).pop() || '');
+        const filename = pathStr.split(/[/\\]/).pop() || '';
+        const resolvedPath = resolveFontkitTrie(filename);
         if (resolvedPath && existsSync(resolvedPath)) {
-          cached = readFileSync(resolvedPath);
-          trieCache.set(pathStr, cached);
-          console.log(`[fontkit-patch] Loaded trie on-demand: ${pathStr} -> ${resolvedPath}`);
+          try {
+            cached = readFileSync(resolvedPath);
+            trieCache.set(pathStr, cached);
+            console.log(`[fontkit-patch] ✓ Loaded trie on-demand: ${pathStr} -> ${resolvedPath} (${cached.length} bytes)`);
+          } catch (error) {
+            console.error(`[fontkit-patch] ✗ Failed to load on-demand:`, error);
+          }
         }
       }
       
       if (cached) {
-        console.log(`[fontkit-patch] Intercepted readFileSync(${pathStr}), returning cached buffer (${cached.length} bytes)`);
+        console.log(`[fontkit-patch] ✅ Returning cached buffer for ${pathStr} (${cached.length} bytes)`);
         return cached;
       }
       
-      // If we can't find it, log and throw a clear error
-      console.error('[fontkit-patch] BLOCKED disk access attempt:', {
+      // If we can't find it, log detailed error and throw
+      console.error('[fontkit-patch] ❌ BLOCKED disk access attempt:', {
         attemptedPath: pathStr,
         cwd: process.cwd(),
-        __dirname: typeof __dirname !== 'undefined' ? __dirname : 'N/A',
+        fontkitRoot: getFontkitRoot(),
+        cacheKeys: Array.from(trieCache.keys()),
         stack: new Error().stack,
       });
       throw new Error(
         `Fontkit attempted to read ${pathStr} from disk — blocked. ` +
-        `This file should be loaded from node_modules, not from .next/server/chunks. ` +
+        `Trie file should be loaded from node_modules (@foliojs-fork/fontkit), ` +
+        `not from .next/server/chunks. ` +
+        `Fontkit root: ${getFontkitRoot() || 'NOT RESOLVED'}. ` +
         `Check fontkit-trie-patch.ts initialization.`
       );
     }
@@ -145,7 +195,7 @@ function patchFsReadFileSync(): void {
     return originalReadFileSync.call(this, path, ...args);
   };
   
-  console.log('[fontkit-patch] fs.readFileSync monkey-patch applied');
+  console.log('[fontkit-patch] ✅ fs.readFileSync monkey-patch applied');
 }
 
 /**
@@ -156,7 +206,7 @@ export function applyFontkitPatch(): void {
     return;
   }
   
-  console.log('[fontkit-patch] Applying fontkit trie patch...');
+  console.log('[fontkit-patch] 🚀 Applying fontkit trie patch...');
   console.log('[fontkit-patch] Environment:', {
     cwd: process.cwd(),
     nodeEnv: process.env.NODE_ENV,
@@ -169,9 +219,8 @@ export function applyFontkitPatch(): void {
   patchFsReadFileSync();
   
   patchApplied = true;
-  console.log('[fontkit-patch] Patch applied successfully');
+  console.log('[fontkit-patch] ✅ Patch applied successfully');
 }
 
 // Auto-apply on module load
 applyFontkitPatch();
-

@@ -1,3 +1,7 @@
+// CRITICAL: Import fontkit patch BEFORE any other imports
+// This ensures fontkit's fs.readFileSync is patched before pdfmake/fontkit are loaded
+import '@/lib/fontkit-trie-patch';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdtemp } from 'fs/promises';
 import { rmSync, existsSync, readFileSync, statSync } from 'fs';
@@ -299,7 +303,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: Invalid or missing API key' }, { status: 401 });
     }
     
-    console.log('Starting Realworks file upload and workflow (public API)...');
+    console.log('[upload-realworks-public] Starting Realworks file upload and workflow (public API)...');
+    console.log('[upload-realworks-public] Runtime environment:', {
+      cwd: process.cwd(),
+      routeDir: __dirname,
+      // Check if trie files exist in expected locations
+      chunkDataTrie: existsSync(join(__dirname, 'data.trie')),
+      nodeModulesDataTrie: existsSync(join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit', 'data.trie')),
+    });
     
     const formData = await request.formData();
     console.log('FormData received, checking for required fields...');
