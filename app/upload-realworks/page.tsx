@@ -145,7 +145,6 @@ export default function UploadRealworksPage() {
               access: 'public',
               handleUploadUrl: '/api/upload-blob',
               multipart: uploadedFile.file.size > 5 * 1024 * 1024, // Use multipart for files > 5MB
-              addRandomSuffix: true, // Add random suffix to avoid overwriting existing files
               clientPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
             });
             
