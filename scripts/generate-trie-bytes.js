@@ -1,5 +1,5 @@
 /**
- * Temporary script to generate embedded trie bytes for fontkit
+ * Temporary script to generate embedded trie bytes for fontkit and linebreak
  * Run: node scripts/generate-trie-bytes.js
  */
 
@@ -7,14 +7,15 @@ const fs = require('fs');
 const path = require('path');
 
 const fontkitPath = path.join(process.cwd(), 'node_modules', '@foliojs-fork', 'fontkit');
-const trieFiles = ['data.trie', 'indic.trie', 'use.trie', 'classes.trie'];
+const linebreakPath = path.join(process.cwd(), 'node_modules', '@foliojs-fork', 'linebreak');
 
-console.log('Reading trie files from:', fontkitPath);
+console.log('Reading trie files from fontkit and linebreak...');
 
 const trieData = {};
 
-for (const trieFile of trieFiles) {
-  // Try multiple possible locations
+// Fontkit tries
+const fontkitTries = ['data.trie', 'indic.trie', 'use.trie'];
+for (const trieFile of fontkitTries) {
   const candidates = [
     path.join(fontkitPath, trieFile),
     path.join(fontkitPath, 'data', trieFile),
@@ -26,7 +27,6 @@ for (const trieFile of trieFiles) {
     if (fs.existsSync(candidatePath)) {
       const buffer = fs.readFileSync(candidatePath);
       const base64 = buffer.toString('base64');
-      // Convert filename to camelCase export name (e.g., "data.trie" -> "dataTrie")
       const varName = trieFile.replace('.trie', '');
       const camelCaseName = varName.charAt(0).toLowerCase() + varName.slice(1) + 'Trie';
       trieData[trieFile] = {
@@ -41,24 +41,34 @@ for (const trieFile of trieFiles) {
   }
   
   if (!found) {
-    // If classes.trie doesn't exist, create empty placeholder
-    if (trieFile === 'classes.trie') {
-      console.warn(`⚠ classes.trie not found - creating empty placeholder buffer`);
-      trieData[trieFile] = {
-        varName: 'classesTrie',
-        base64: Buffer.alloc(0).toString('base64'), // Empty buffer
-        size: 0
-      };
-    } else {
-      console.warn(`⚠ File not found: ${trieFile} (tried: ${candidates.join(', ')})`);
-    }
+    console.warn(`⚠ File not found: ${trieFile} (tried: ${candidates.join(', ')})`);
   }
+}
+
+// Linebreak classes.trie (used by @foliojs-fork/linebreak)
+const classesTriePath = path.join(linebreakPath, 'src', 'classes.trie');
+if (fs.existsSync(classesTriePath)) {
+  const buffer = fs.readFileSync(classesTriePath);
+  const base64 = buffer.toString('base64');
+  trieData['classes.trie'] = {
+    varName: 'classesTrie',
+    base64,
+    size: buffer.length
+  };
+  console.log(`✓ Loaded classes.trie from ${classesTriePath}: ${buffer.length} bytes`);
+} else {
+  console.warn(`⚠ classes.trie not found at ${classesTriePath} - creating empty placeholder`);
+  trieData['classes.trie'] = {
+    varName: 'classesTrie',
+    base64: Buffer.alloc(0).toString('base64'),
+    size: 0
+  };
 }
 
 // Generate TypeScript file content
 const tsContent = `/**
- * Embedded trie files for @foliojs-fork/fontkit
- * Generated from node_modules/@foliojs-fork/fontkit/*.trie
+ * Embedded trie files for @foliojs-fork/fontkit and @foliojs-fork/linebreak
+ * Generated from node_modules/@foliojs-fork/fontkit/*.trie and node_modules/@foliojs-fork/linebreak/src/classes.trie
  * These are embedded to avoid filesystem dependency in Vercel serverless runtime
  */
 

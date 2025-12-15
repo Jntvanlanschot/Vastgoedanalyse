@@ -1,8 +1,8 @@
 /**
- * Runtime monkey-patch for @foliojs-fork/fontkit to prevent ENOENT errors
- * when reading .trie files in Vercel serverless environments.
+ * Runtime monkey-patch for @foliojs-fork/fontkit and @foliojs-fork/linebreak
+ * to prevent ENOENT errors when reading .trie files in Vercel serverless environments.
  * 
- * Problem: fontkit does fs.readFileSync(__dirname + '/data.trie')
+ * Problem: fontkit/linebreak do fs.readFileSync(__dirname + '/data.trie' or '/classes.trie')
  * In serverless, __dirname points to .next/server/chunks/... where the file doesn't exist.
  * 
  * Solution: Use embedded trie bytes from memory (no filesystem dependency).
@@ -12,6 +12,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Import embedded trie bytes with error handling
 let dataTrie: Buffer | undefined;
@@ -32,18 +33,16 @@ try {
 // Map trie filenames to embedded buffers (only if loaded)
 const embeddedTries: Map<string, Buffer> = new Map();
 
-if (dataTrie) {
-  embeddedTries.set('data.trie', dataTrie);
-  // If classes.trie is empty or missing, use data.trie as fallback (common pattern in fontkit)
-  if (!classesTrie || classesTrie.length === 0) {
-    embeddedTries.set('classes.trie', dataTrie);
-    console.info('[fontkit-patch] Using data.trie as fallback for classes.trie (classes.trie not found or empty)');
-  } else {
-    embeddedTries.set('classes.trie', classesTrie);
-  }
-}
+if (dataTrie) embeddedTries.set('data.trie', dataTrie);
 if (indicTrie) embeddedTries.set('indic.trie', indicTrie);
 if (useTrie) embeddedTries.set('use.trie', useTrie);
+if (classesTrie && classesTrie.length > 0) {
+  embeddedTries.set('classes.trie', classesTrie);
+} else if (classesTrie !== undefined) {
+  // Empty buffer - log warning but still add it
+  console.warn('[fontkit-patch] ⚠ classes.trie is empty, but adding to cache anyway');
+  embeddedTries.set('classes.trie', classesTrie);
+}
 
 let patchApplied = false;
 
@@ -86,10 +85,23 @@ export function applyFontkitTriePatch(): void {
       filePath: any,
       ...args: any[]
     ): any {
-      const p = String(filePath);
+      // Robust handling of different readFileSync argument types
+      let p: string;
+      
+      // Handle different argument types
+      if (typeof filePath === 'number') {
+        // File descriptor - pass through to original
+        return originalReadFileSync(filePath, ...args);
+      } else if (Buffer.isBuffer(filePath)) {
+        p = filePath.toString();
+      } else if (filePath instanceof URL) {
+        p = fileURLToPath(filePath);
+      } else {
+        p = String(filePath);
+      }
 
       // GENERIC: Intercept ALL .trie file requests (not just specific names)
-      if (p.endsWith('.trie')) {
+      if (p.endsWith('.trie') || p.includes('classes.trie') || p.includes('data.trie') || p.includes('indic.trie') || p.includes('use.trie')) {
         const name = path.basename(p);
         
         // Return embedded buffer if available
