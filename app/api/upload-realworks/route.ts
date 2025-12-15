@@ -217,9 +217,38 @@ async function handleWithBlobs(
         result.artifacts.pdf_upload_error = pdfError instanceof Error ? pdfError.message : String(pdfError);
       }
     } else {
-      console.error('ERROR: No PDF buffer found in artifacts!');
-      console.error('Result artifacts:', JSON.stringify(result.artifacts, null, 2));
-      console.error('Full result:', JSON.stringify(result, null, 2));
+      // PDF is optional - only warn if GENERATE_PDF was explicitly requested
+      const generatePdfRequested = process.env.GENERATE_PDF === 'true';
+      if (generatePdfRequested) {
+        console.warn('[upload-realworks] ⚠ PDF generation was requested (GENERATE_PDF=true) but no PDF buffer found');
+      } else {
+        console.log('[upload-realworks] ℹ PDF generation skipped (GENERATE_PDF not set to true)');
+      }
+    }
+
+    // Upload HTML report (always available)
+    if (result.artifacts?.html_report) {
+      try {
+        console.log('Uploading HTML report to Vercel Blob...');
+        const htmlBuffer = Buffer.from(result.artifacts.html_report, 'utf-8');
+        console.log(`HTML report size: ${htmlBuffer.length} bytes`);
+        const htmlFilename = `Rapport_${Date.now()}.html`;
+        const htmlBlob = await put(htmlFilename, htmlBuffer, {
+          access: 'public',
+          contentType: 'text/html',
+        });
+        console.log(`HTML report uploaded successfully: ${htmlBlob.url}`);
+        result.artifacts.html_report = htmlBlob.url;
+        result.summary = result.summary || {};
+        (result.summary as any).html_file = htmlBlob.url;
+      } catch (htmlError) {
+        console.error('Error uploading HTML report to blob:', htmlError);
+        if (htmlError instanceof Error) {
+          console.error('HTML upload error details:', htmlError.message, htmlError.stack);
+        }
+      }
+    } else {
+      console.warn('No HTML report found in artifacts. HTML generation may have failed.');
     }
 
     if (result.artifacts?.excel_buffer) {
