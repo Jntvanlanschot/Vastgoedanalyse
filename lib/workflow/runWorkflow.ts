@@ -365,10 +365,18 @@ export async function runWorkflow(
       console.error('Top15Result:', JSON.stringify(top15Result, null, 2));
     } else {
       try {
-        console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
-        console.log('First property sample:', JSON.stringify(top15Result.top15[0], null, 2));
-        pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
-        console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
+        // Skip PDF generation in Vercel serverless (fontkit/trie files not available)
+        // PDF can be generated via Python workflow (step4_generate_reports.py) or locally
+        if (process.env.VERCEL) {
+          console.log('[workflow] ⚠ Skipping PDF generation in Vercel serverless (fontkit requires .trie files)');
+          console.log('[workflow] 💡 Use Python workflow (step4_generate_reports.py) or run locally for PDF generation');
+          pdfBuffer = null;
+        } else {
+          console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
+          console.log('First property sample:', JSON.stringify(top15Result.top15[0], null, 2));
+          pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
+          console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
+        }
         
         console.log(`Generating Excel report for ${top15Result.top15.length} properties...`);
         excelBuffer = await generateExcelReport(top15Result.top15, referenceData);
