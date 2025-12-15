@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleUpload } from '@vercel/blob/client';
 
+// Force Node.js runtime (required for handleUpload and token generation)
+export const runtime = 'nodejs';
+
 export const maxDuration = 300;
 
 // Handle upload requests from @vercel/blob/client

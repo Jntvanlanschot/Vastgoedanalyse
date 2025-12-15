@@ -5,6 +5,9 @@ import { join } from 'path';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 
+// Force Node.js runtime (required for fs, child_process, and other Node.js APIs)
+export const runtime = 'nodejs';
+
 // Increase max duration for long-running Python workflows (5 minutes)
 export const maxDuration = 300;
 

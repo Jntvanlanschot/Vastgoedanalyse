@@ -6,6 +6,9 @@ import { tmpdir } from 'os';
 import { homedir } from 'os';
 import Papa from 'papaparse';
 
+// Force Node.js runtime (required for fs, child_process, and other Node.js APIs)
+export const runtime = 'nodejs';
+
 // Increase max duration for long-running street analysis (10 minutes)
 export const maxDuration = 600;
 

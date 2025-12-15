@@ -31,7 +31,7 @@ export function makeStreetKey(name?: string, adminArea?: string): string {
 /**
  * Normalize a selection array for consistent comparison
  * - Deduplicate using Set
- * - Sort alphabetically using Intl.Collator
+ * - Sort alphabetically (case-insensitive, without locale data dependency)
  */
 export function normalizeSelection(selection: string[]): string[] {
   const normalized = selection
@@ -40,12 +40,15 @@ export function normalizeSelection(selection: string[]): string[] {
   
   const unique = Array.from(new Set(normalized));
   
-  const collator = new Intl.Collator('en', { 
-    sensitivity: 'base', 
-    ignorePunctuation: true 
+  // Custom sort without Intl.Collator to avoid locale data dependencies in serverless
+  return unique.sort((a, b) => {
+    // Case-insensitive comparison, ignore punctuation (pure string comparison, no Intl)
+    const aClean = a.replace(/[^\w\s]/g, '').toLowerCase();
+    const bClean = b.replace(/[^\w\s]/g, '').toLowerCase();
+    if (aClean < bClean) return -1;
+    if (aClean > bClean) return 1;
+    return 0;
   });
-  
-  return unique.sort(collator.compare);
 }
 
 /**

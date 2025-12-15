@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 
-// Increase max duration for long-running Python workflows (5 minutes)
+// Force Node.js runtime (required for Buffer, fs, and other Node.js APIs)
+export const runtime = 'nodejs';
+
+// Increase max duration for long-running Realworks workflow (5 minutes)
 export const maxDuration = 300;
 
 type BlobRef = {
@@ -36,6 +39,11 @@ function extractStreetName(address: string): string {
 export async function POST(request: NextRequest) {
   try {
     console.log('Starting Realworks file upload and workflow...');
+    console.log('[upload-realworks] env debug:', {
+      cwd: process.cwd(),
+      // __dirname is resolved at build-time in the bundled route file
+      routeDir: __dirname,
+    });
 
     const contentType = request.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');

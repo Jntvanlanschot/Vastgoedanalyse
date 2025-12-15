@@ -13,11 +13,27 @@ const nextConfig: NextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
-  // Force webpack (disable Turbopack)
-  // Note: In Next.js 15, Turbopack is enabled by default. To disable it, we use the buildCommand in vercel.json
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: "50mb",
+    },
+    /**
+     * Ensure fontkit's trie data files are bundled into the serverless function
+     * for the Realworks workflow API route. At runtime, fontkit does:
+     *
+     *   fs.readFileSync(__dirname + '/data.trie')
+     *
+     * When Next.js bundles this into .next/server/chunks, __dirname points to
+     * that chunk directory, so the corresponding data.trie must be traced and
+     * copied there. These includes guarantee that.
+     */
+    outputFileTracingIncludes: {
+      "app/api/upload-realworks/route": [
+        "./node_modules/@foliojs-fork/fontkit/data.trie",
+        "./node_modules/@foliojs-fork/fontkit/src/opentype/shapers/data.trie",
+        "./node_modules/@foliojs-fork/fontkit/src/opentype/shapers/indic.trie",
+        "./node_modules/@foliojs-fork/fontkit/src/opentype/shapers/use.trie",
+      ],
     },
   },
 };

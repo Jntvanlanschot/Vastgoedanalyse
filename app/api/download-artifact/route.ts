@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
+// Force Node.js runtime (required for fs APIs)
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

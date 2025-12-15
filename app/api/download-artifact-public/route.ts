@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
+// Force Node.js runtime (required for fs APIs)
+export const runtime = 'nodejs';
+
 // API Key validation
 function validateApiKey(request: NextRequest): boolean {
   // Check for API key in query parameter or headers
