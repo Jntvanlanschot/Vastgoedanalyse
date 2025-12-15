@@ -1,11 +1,13 @@
 /**
  * Runtime monkey-patch for @foliojs-fork/fontkit to prevent ENOENT errors
- * when reading data.trie in Vercel serverless environments.
+ * when reading .trie files in Vercel serverless environments.
  * 
  * Problem: fontkit does fs.readFileSync(__dirname + '/data.trie')
  * In serverless, __dirname points to .next/server/chunks/... where the file doesn't exist.
  * 
  * Solution: Use embedded trie bytes from memory (no filesystem dependency).
+ * 
+ * This patch intercepts ALL .trie file reads and serves them from embedded buffers.
  */
 
 import fs from 'fs';
@@ -15,12 +17,14 @@ import path from 'path';
 let dataTrie: Buffer | undefined;
 let indicTrie: Buffer | undefined;
 let useTrie: Buffer | undefined;
+let classesTrie: Buffer | undefined;
 
 try {
   const trieBytes = require('./fontkit-trie-bytes');
   dataTrie = trieBytes.dataTrie;
   indicTrie = trieBytes.indicTrie;
   useTrie = trieBytes.useTrie;
+  classesTrie = trieBytes.classesTrie;
 } catch (error) {
   console.warn('[fontkit-patch] Failed to import embedded trie bytes:', error);
 }
@@ -31,6 +35,7 @@ const embeddedTries: Map<string, Buffer> = new Map();
 if (dataTrie) embeddedTries.set('data.trie', dataTrie);
 if (indicTrie) embeddedTries.set('indic.trie', indicTrie);
 if (useTrie) embeddedTries.set('use.trie', useTrie);
+if (classesTrie !== undefined) embeddedTries.set('classes.trie', classesTrie); // Allow empty buffer
 
 let patchApplied = false;
 
@@ -44,13 +49,14 @@ export function applyFontkitTriePatch(): void {
     return;
   }
 
-  // Guard: check if embedded bytes are available
+  // Guard: check if critical embedded bytes are available
   if (!dataTrie || !indicTrie || !useTrie) {
-    console.warn('[fontkit-patch] ⚠ Embedded trie bytes missing (exports undefined). Patch will NOT intercept trie loads.');
+    console.warn('[fontkit-patch] ⚠ Critical embedded trie bytes missing (exports undefined). Patch will NOT intercept trie loads.');
     console.warn('[fontkit-patch] Available:', {
       dataTrie: !!dataTrie,
       indicTrie: !!indicTrie,
       useTrie: !!useTrie,
+      classesTrie: classesTrie !== undefined,
     });
     // Don't throw - just skip patching
     return;
@@ -62,6 +68,7 @@ export function applyFontkitTriePatch(): void {
       'data.trie': dataTrie?.length ?? 0,
       'indic.trie': indicTrie?.length ?? 0,
       'use.trie': useTrie?.length ?? 0,
+      'classes.trie': classesTrie?.length ?? 0,
     });
 
     // Monkey-patch fs.readFileSync
@@ -73,8 +80,8 @@ export function applyFontkitTriePatch(): void {
     ): any {
       const p = String(filePath);
 
-      // Check if this is a trie file request
-      if (p.endsWith('.trie') && (p.includes('data.trie') || p.includes('indic.trie') || p.includes('use.trie'))) {
+      // GENERIC: Intercept ALL .trie file requests (not just specific names)
+      if (p.endsWith('.trie')) {
         const name = path.basename(p);
         
         // Return embedded buffer if available
@@ -84,9 +91,14 @@ export function applyFontkitTriePatch(): void {
           return buffer;
         }
 
-        // If not in embedded cache, try original readFileSync (fallback)
-        console.warn(`[fontkit-patch] ⚠ Requested trie file ${name} not in embedded cache, attempting disk read for ${p}`);
-        return originalReadFileSync(filePath, ...args);
+        // If not in embedded cache, fail fast with clear error (no disk fallback)
+        const error = new Error(
+          `[fontkit-patch] ❌ TRIE FILE NOT EMBEDDED: ${name} requested from ${p}\n` +
+          `Available embedded tries: ${Array.from(embeddedTries.keys()).join(', ')}\n` +
+          `This file must be added to lib/fontkit-trie-bytes.ts and embedded in the patch.`
+        );
+        console.error(error.message);
+        throw error;
       }
 
       // For all other files, use original readFileSync
