@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         console.log('Generating token for:', pathname, 'multipart:', multipart);
         return {
           maximumSizeInBytes: 200 * 1024 * 1024, // 200MB max
+          addRandomSuffix: true, // Add random suffix to avoid overwriting existing files
           tokenPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
           allowedContentTypes: [
             'application/x-mimearchive',
