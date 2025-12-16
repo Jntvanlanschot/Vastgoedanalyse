@@ -279,6 +279,7 @@ export function generateHtmlReport(
         </div>
 
               ${aanbiedingstekstHtml}
+              ${aanbiedingstekstHtml}
               ${imagesHtml}
             </div>
           `;
