@@ -487,30 +487,30 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     let transactiePrice: number | null = null;
     
     // Strategy 1: Direct pattern match in decoded HTML
-    let match = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-    if (!match) {
+    let priceMatch = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+    if (!priceMatch) {
       // Strategy 2: Without € symbol (might be encoded differently)
-      match = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+      priceMatch = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
     }
-    if (!match) {
+    if (!priceMatch) {
       // Strategy 3: Look for any price near "Transactie" (within 100 chars)
       const transactieIndex = decodedPropertyHtml.search(/Transactie/i);
       if (transactieIndex >= 0) {
         const afterTransactie = decodedPropertyHtml.substring(transactieIndex, transactieIndex + 150);
-        match = afterTransactie.match(/€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+        priceMatch = afterTransactie.match(/€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
       }
     }
-    if (!match) {
+    if (!priceMatch) {
       // Strategy 4: Try in text version
-      match = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+      priceMatch = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
     }
-    if (!match) {
+    if (!priceMatch) {
       // Strategy 5: Try without € in text
-      match = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+      priceMatch = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
     }
     
-    if (match) {
-      let priceStr = match[1];
+    if (priceMatch) {
+      let priceStr = priceMatch[1];
       // Remove dots (thousand separators) and replace comma with dot for decimal
       priceStr = priceStr.replace(/\./g, '').replace(',', '.');
       const price = parseFloat(priceStr);
@@ -518,7 +518,7 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
         transactiePrice = Math.round(price);
         console.log(`✅ Found Transactieprijs for ${addressFull}: €${transactiePrice}`);
       } else {
-        console.warn(`⚠ Found Transactieprijs match but price too low: ${price} (string: ${match[1]})`);
+        console.warn(`⚠ Found Transactieprijs match but price too low: ${price} (string: ${priceMatch[1]})`);
       }
     } else {
       // Debug: show what we're searching in
