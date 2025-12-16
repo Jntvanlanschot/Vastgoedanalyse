@@ -453,6 +453,20 @@ async function handleWithFiles(
       console.warn('No Excel buffer found in artifacts. Excel generation may have failed.');
     }
 
+    // Ensure summary fields are always present (null instead of undefined)
+    if (!result.summary) {
+      result.summary = {};
+    }
+    if (result.summary.pdf_file === undefined) {
+      (result.summary as any).pdf_file = null;
+    }
+    if (result.summary.html_file === undefined) {
+      (result.summary as any).html_file = null;
+    }
+    if (result.summary.excel_file === undefined) {
+      (result.summary as any).excel_file = null;
+    }
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error processing Realworks files:', error);
