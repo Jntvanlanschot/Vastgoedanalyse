@@ -283,7 +283,13 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
   const mhtmlImages = extractImagesFromMhtml(mhtmlBuffer);
   
   // Decode HTML entities (quoted-printable, etc.)
-  htmlContent = htmlContent.replace(/=3D/g, '=').replace(/=\r?\n/g, '');
+  // MHTML uses quoted-printable: =3D is =, =0A is newline, etc.
+  htmlContent = htmlContent
+    .replace(/=3D/g, '=')
+    .replace(/=0A/g, '\n')
+    .replace(/=0D/g, '\r')
+    .replace(/=([0-9A-F]{2})/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/=\r?\n/g, ''); // Remove soft line breaks
   
   // Find all addresses
   const addressPatterns = [
