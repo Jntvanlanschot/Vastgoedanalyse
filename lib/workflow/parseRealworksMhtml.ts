@@ -296,11 +296,13 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     // Add image if we found one and haven't seen it before
     if (imageBase64) {
-      // Create a hash of first 100 chars to detect duplicates
-      const imageHash = imageBase64.substring(0, 100);
+      // Use full base64 string for duplicate detection (more accurate)
+      // Or use a longer hash (first 500 chars) to be more accurate
+      const imageHash = imageBase64.length > 500 ? imageBase64.substring(0, 500) : imageBase64;
       if (!seenImageHashes.has(imageHash)) {
         seenImageHashes.add(imageHash);
         images.push(imageBase64);
+        console.log(`✅ Added image ${images.length} (${imageBase64.length} bytes base64)`);
       } else {
         console.log(`⏭ Skipped duplicate image (hash match)`);
       }

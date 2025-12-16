@@ -232,11 +232,13 @@ function processRealworksForTop15(
       };
     }
     
-    // Fill missing sale_price with ask_price
+    // IMPORTANT: Use sale_price (Transactieprijs) directly, NOT ask_price
+    // Vraagprijs should be separate
     const processedProperties: CandidateProperty[] = properties.map(prop => {
       const candidate: CandidateProperty = {
         ...prop,
-        rw_sale_price: prop.sale_price || prop.ask_price || null,
+        rw_sale_price: prop.sale_price || null, // Transactieprijs - DO NOT use ask_price as fallback
+        rw_ask_price: prop.ask_price || null, // Vraagprijs - keep separate
         rw_area_m2: prop.area_m2 || null,
         rw_bedrooms: prop.bedrooms || null,
         rw_rooms: prop.rooms || null,

@@ -196,9 +196,14 @@ export function generateHtmlReport(
               <td>${extractStreetAndNumber(prop.address_full)}</td>
             </tr>
             <tr>
-              <td>Verkoopprijs</td>
+              <td>Transactieprijs</td>
               <td>Onbekend</td>
               <td>${formatCurrency(prop.rw_sale_price || prop.sale_price)}</td>
+            </tr>
+            <tr>
+              <td>Vraagprijs</td>
+              <td>Onbekend</td>
+              <td>${formatCurrency((prop as any).rw_ask_price || (prop as any).ask_price)}</td>
             </tr>
             <tr>
               <td>Verkoopdatum</td>
