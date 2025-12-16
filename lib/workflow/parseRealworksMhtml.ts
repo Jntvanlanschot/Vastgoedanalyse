@@ -170,33 +170,27 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   const images: string[] = [];
   const seenImageHashes = new Set<string>(); // Prevent duplicates using hash
   
-  // Python: Find "Foto's" section
+  // Python: Find "Foto's" section - EXACT match
   const fotosMatch = htmlContent.match(/Foto['s]*/i);
   if (!fotosMatch) {
-    console.debug("No 'Foto's' section found in HTML");
+    console.log("No 'Foto's' section found in HTML");
     return [];
   }
   
-  // Python: Get content after "Foto's" - but stop at next address or end of propertyHtml
-  // The propertyHtml should already be limited to one property, but let's be extra safe
-  let contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
+  // Python: Get content after "Foto's" - propertyHtml is already limited to one property
+  // So we just take everything after "Foto's" until end of propertyHtml
+  const contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
   
-  // Stop at next address pattern (to prevent taking images from next property)
-  const nextAddressMatch = contentAfterFotos.match(/<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)<\/b>/i);
-  if (nextAddressMatch) {
-    contentAfterFotos = contentAfterFotos.substring(0, nextAddressMatch.index);
-  }
-  
-  // Python: Find image references (img tags with src)
+  // Python: Find image references (img tags with src) - EXACT match
   // img_pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  const imgMatches: Array<{ src: string }> = [];
+  const imgMatches: Array<{ src: string; index: number }> = [];
   let match;
   while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
-    imgMatches.push({ src: match[1] });
+    imgMatches.push({ src: match[1], index: match.index });
   }
   
-  // Python: Also look for base64 encoded images
+  // Python: Also look for base64 encoded images - EXACT match
   // base64_pattern = r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)'
   const base64Regex = /data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/gi;
   const base64Matches: Array<{ data: string }> = [];
@@ -205,60 +199,26 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     base64Matches.push({ data: base64Match[1] });
   }
   
-  // Track which MHTML images we've already used (to prevent duplicates across properties)
-  const usedMhtmlKeys = new Set<string>();
+  console.log(`Found ${imgMatches.length} img tags and ${base64Matches.length} base64 images after "Foto's"`);
   
-  // Filter out logo/icon patterns from image sources
-  const isLogoOrIcon = (src: string): boolean => {
-    const srcLower = src.toLowerCase();
-    return srcLower.includes('logo') || 
-           srcLower.includes('icon') || 
-           srcLower.includes('print') ||
-           srcLower.includes('vastgoed') ||
-           srcLower.includes('nvh') ||
-           srcLower.match(/\.(ico|svg)$/);
-  };
-  
-  // Python: Process regular image URLs - try to match with MHTML images
+  // Python: Process regular image URLs - try to match with MHTML images - EXACT match
   for (const imgMatch of imgMatches) {
     const src = imgMatch.src;
-    
-    // Skip logos and icons
-    if (isLogoOrIcon(src)) {
-      console.log(`⏭ Skipped logo/icon: ${src.substring(0, 80)}`);
-      continue;
-    }
-    
     // Python: Clean up src (remove query parameters, decode entities)
     const srcClean = src.split('?')[0].split('&')[0];
     
-    // Python: Try to find matching image in mhtml_images
+    // Python: Try to find matching image in mhtml_images - EXACT match
     let matched = false;
     for (const [key, imgData] of mhtmlImages.entries()) {
-      // Skip if we've already used this image
-      if (usedMhtmlKeys.has(key)) {
-        continue;
-      }
-      
-      // Skip if key suggests it's a logo/icon
-      if (isLogoOrIcon(key)) {
-        continue;
-      }
-      
-      // Only include reasonably sized images (at least 10KB to filter out tiny icons)
-      if (imgData.length < 10000) {
-        continue;
-      }
-      
-      // Python: Check if src matches any part of the key
+      // Python: Check if src matches any part of the key - EXACT match
       const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
       const srcCleanLower = srcClean.toLowerCase();
       
-      // Python: Extract filename from both
+      // Python: Extract filename from both - EXACT match
       const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
       const keyFilename = keyClean.split('/').pop() || keyClean;
       
-      // Python matching logic:
+      // Python matching logic - EXACT match:
       // if (src_clean_lower in key_clean or 
       //     key_clean in src_clean_lower or
       //     src_filename == key_filename or
@@ -275,31 +235,44 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         if (!seenImageHashes.has(imageHash)) {
           seenImageHashes.add(imageHash);
           images.push(imgBase64);
-          usedMhtmlKeys.add(key);
           matched = true;
-          console.log(`✅ Matched image: ${src.substring(0, 80)} -> ${key.substring(0, 80)} (${Math.round(imgData.length/1024)}KB)`);
+          console.log(`✅ Matched image ${images.length}: ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
         }
         break;
       }
     }
     
-    // DON'T use fallback - only use matched images to avoid logos/icons
+    // Python: If not matched and we have images, just take the first available ones - EXACT match
+    if (!matched && mhtmlImages.size > 0) {
+      // Python: remaining_images = [img for key, img in mhtml_images.items() if img not in images]
+      // Find first unused image that we haven't added yet
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        const imgBase64 = imgData.toString('base64');
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (!seenImageHashes.has(imageHash)) {
+          seenImageHashes.add(imageHash);
+          images.push(imgBase64);
+          console.log(`✅ Added unmatched image ${images.length} from MHTML: ${key.substring(0, 60)}`);
+          break;
+        }
+      }
+    }
   }
   
-  // Python: Process base64 images
+  // Python: Process base64 images - EXACT match
   for (const base64Match of base64Matches) {
     try {
       const base64Data = base64Match.data;
       const imageBytes = Buffer.from(base64Data, 'base64');
       
       // Python: if pil_image.width > 50 and pil_image.height > 50
-      // We can't easily check dimensions, so just check size
-      // Require at least 10KB to filter out tiny icons/logos
-      if (imageBytes.length > 10000) {
+      // We can't easily check dimensions, so just check size (at least 1KB like before)
+      if (imageBytes.length > 1000) {
         const imageHash = base64Data.length > 500 ? base64Data.substring(0, 500) : base64Data;
         if (!seenImageHashes.has(imageHash)) {
           seenImageHashes.add(imageHash);
           images.push(base64Data);
+          console.log(`✅ Added base64 image ${images.length}`);
         }
       }
     } catch (e) {
@@ -308,10 +281,21 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
   }
   
-  // DON'T use fallback - only use matched images to avoid logos/icons
-  // If no images matched, return empty array (better than wrong images)
+  // Python: If we still don't have images, just take any available images from MHTML - EXACT match
+  if (images.length === 0 && mhtmlImages.size > 0) {
+    // Python: remaining = [img for key, img in mhtml_images.items() if img not in images]
+    for (const [key, imgData] of mhtmlImages.entries()) {
+      const imgBase64 = imgData.toString('base64');
+      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+      if (!seenImageHashes.has(imageHash)) {
+        seenImageHashes.add(imageHash);
+        images.push(imgBase64);
+        console.log(`✅ Added fallback image ${images.length} from MHTML: ${key.substring(0, 60)}`);
+      }
+    }
+  }
   
-  console.log(`✅ Found ${images.length} unique images for property`);
+  console.log(`✅ Found ${images.length} total images for property`);
   return images; // Python: Return all images
 }
 
