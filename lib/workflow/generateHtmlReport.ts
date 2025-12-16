@@ -238,7 +238,11 @@ export function generateHtmlReport(
             <tr>
               <td>Energielabel</td>
               <td>${referenceData.energy_label || 'Onbekend'}</td>
-              <td>${prop.rw_energy_label || prop.energy_label || 'Onbekend'}</td>
+              <td>${(() => {
+                const label = prop.rw_energy_label || prop.energy_label || 'Onbekend';
+                const endDate = (prop as any).rw_energy_label_end_date || (prop as any).energy_label_end_date;
+                return endDate ? `${label} (einddatum: ${formatDate(endDate)})` : label;
+              })()}</td>
             </tr>
             <tr>
               <td>Tuin</td>

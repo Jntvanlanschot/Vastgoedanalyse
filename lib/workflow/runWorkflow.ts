@@ -243,6 +243,7 @@ function processRealworksForTop15(
         rw_bedrooms: prop.bedrooms || null,
         rw_rooms: prop.rooms || null,
         rw_energy_label: prop.energy_label || null,
+        rw_energy_label_end_date: prop.energy_label_end_date || null,
         rw_has_garden: prop.has_garden || false,
         rw_has_balcony: prop.has_balcony || false,
         rw_has_terrace: prop.has_terrace || false,

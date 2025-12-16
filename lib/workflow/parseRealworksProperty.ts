@@ -25,6 +25,7 @@ export interface ParsedProperty {
   type: string | null;
   subtype: string | null;
   energy_label: string | null;
+  energy_label_end_date: string | null;
   maintenance_inside: number | null;
   maintenance_outside: number | null;
   vve_monthly_fee: number | null;
@@ -161,6 +162,7 @@ export function parseRealworksProperty(text: string): ParsedProperty {
     type: null,
     subtype: null,
     energy_label: null,
+    energy_label_end_date: null,
     maintenance_inside: null,
     maintenance_outside: null,
     vve_monthly_fee: null,
@@ -280,10 +282,14 @@ export function parseRealworksProperty(text: string): ParsedProperty {
     record.toilets = parseInt(toiletsMatch[1], 10);
   }
   
-  // Energy label
-  const energyMatch = text.match(/Energielabel.*?([A-G][\+]{0,3})/i);
+  // Energy label with end date
+  // Pattern: "Energielabel: A (einddatum: 13-03-2030)" or "Energielabel: A"
+  const energyMatch = text.match(/Energielabel.*?([A-G][\+]{0,3})(?:\s*\(einddatum:\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\))?/i);
   if (energyMatch) {
     record.energy_label = energyMatch[1].toUpperCase();
+    if (energyMatch[2]) {
+      record.energy_label_end_date = parseDate(energyMatch[2]);
+    }
   }
   
   // Maintenance
@@ -297,20 +303,20 @@ export function parseRealworksProperty(text: string): ParsedProperty {
     record.maintenance_outside = parseCurrency(maintOutsideMatch[1]);
   }
   
-  // Garden
-  if (/tuin/i.test(text)) {
-    record.has_garden = true;
-    
-    const gardenTypeMatch = text.match(/Soort\s+tuin.*?([^\r\n]+)/i);
-    if (gardenTypeMatch) {
-      record.garden_type = gardenTypeMatch[1].trim();
-    }
-    
-    const gardenAreaMatch = text.match(/Tuin.*?(\d+(?:[.,]\d+)?)\s*m²?/i);
-    if (gardenAreaMatch) {
-      const areaText = gardenAreaMatch[1].replace(',', '.');
-      record.garden_area_m2 = parseFloat(areaText);
-    }
+  // Garden - EXACT Python version
+  // Python: garden_match = re.search(r'Tuin.*?(Geen tuin|Achtertuin|Voortuin|Plaats|Patio)', text, re.IGNORECASE)
+  const gardenMatch = text.match(/Tuin.*?(Geen tuin|Achtertuin|Voortuin|Plaats|Patio|Zonneterras)/i);
+  if (gardenMatch) {
+    const gardenType = gardenMatch[1];
+    record.garden_type = gardenType;
+    // Python: record['has_garden'] = garden_type.lower() != 'geen tuin'
+    record.has_garden = gardenType.toLowerCase() !== 'geen tuin';
+  }
+  
+  // Garden area - Python: garden_area_match = re.search(r'Achtertuin.*?(\d+)\s*m²', text, re.IGNORECASE)
+  const gardenAreaMatch = text.match(/Achtertuin.*?(\d+)\s*m²/i);
+  if (gardenAreaMatch) {
+    record.garden_area_m2 = parseInt(gardenAreaMatch[1], 10);
   }
   
   // Balcony
