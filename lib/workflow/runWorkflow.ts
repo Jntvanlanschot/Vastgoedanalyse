@@ -247,6 +247,9 @@ function processRealworksForTop15(
         rw_year_built: prop.year_built || null,
         rw_sale_date: prop.sale_date || null,
         street: prop.street || '',
+        // Preserve images if available (from ParsedProperty)
+        images: (prop as any).images || undefined,
+        image_count: (prop as any).image_count || undefined,
       };
       return candidate;
     });
