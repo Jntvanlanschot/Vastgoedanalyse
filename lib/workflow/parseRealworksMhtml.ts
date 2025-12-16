@@ -436,6 +436,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     // Python: If not matched and we have images, just take the first available ones - EXACT match
     // BUT: Skip logos/icons - CRITICAL: Do this for EVERY img tag, not just once
+    // ALWAYS add a fallback image if we have MHTML images available
     if (!matched && mhtmlImages.size > 0) {
       const nextUnused = getNextUnusedMhtmlImage();
       if (nextUnused) {
@@ -444,9 +445,18 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         if (!seenImageHashes.has(imageHash)) {
           seenImageHashes.add(imageHash);
           images.push(imgBase64);
-          console.log(`✅ Added unmatched image ${images.length} from MHTML: ${nextUnused.key.substring(0, 60)}`);
+          const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+          console.log(`✅ Added fallback image ${images.length} from MHTML (for img tag ${imgIndex}/${imgMatches.length}): ${nextUnused.key.substring(0, 60)}`);
+        } else {
+          console.log(`⏭ Skipped duplicate fallback image (hash match)`);
         }
+      } else {
+        const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+        console.log(`⚠ No more unused MHTML images available for img tag ${imgIndex}/${imgMatches.length}`);
       }
+    } else if (!matched) {
+      const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+      console.log(`⚠ No match found and no MHTML images available for img tag ${imgIndex}/${imgMatches.length}`);
     }
   }
   
