@@ -254,28 +254,36 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     // Check for HTTP/HTTPS URLs (like https://images.realworks.nl/...)
     // These might be in the mhtml as Content-Location
     if (!imageData && (src.startsWith('http://') || src.startsWith('https://'))) {
-      // Extract filename from URL
-      const urlMatch = src.match(/\/([^\/\?]+\.(jpg|jpeg|png|gif))/i);
-      if (urlMatch) {
-        const urlFilename = urlMatch[1];
-        // Try to match with mhtml images by filename
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          const keyClean = key.replace(/^<|>$/g, '').trim();
-          const keyFilename = keyClean.split('/').pop() || keyClean;
-          if (urlFilename === keyFilename || 
-              keyClean.includes(urlFilename) ||
-              urlFilename.includes(keyFilename)) {
-            imageData = imgData;
-            console.log(`✅ Matched HTTP URL image by filename: ${urlFilename} -> ${keyFilename}`);
-            break;
-          }
-        }
+      // First try to match by full URL (might be stored as Content-Location)
+      // Remove query params for matching
+      const urlWithoutParams = src.split('?')[0];
+      imageData = mhtmlImages.get(src) || mhtmlImages.get(`<${src}>`) || 
+                  mhtmlImages.get(urlWithoutParams) || mhtmlImages.get(`<${urlWithoutParams}>`);
+      if (imageData) {
+        console.log(`✅ Matched HTTP URL image by full URL: ${src.substring(0, 80)}`);
       }
-      // Also try to match by full URL (might be stored as Content-Location)
+      
+      // If not found, try by filename
       if (!imageData) {
-        imageData = mhtmlImages.get(src) || mhtmlImages.get(`<${src}>`);
-        if (imageData) {
-          console.log(`✅ Matched HTTP URL image by full URL`);
+        const urlMatch = urlWithoutParams.match(/\/([^\/]+\.(jpg|jpeg|png|gif))/i);
+        if (urlMatch) {
+          const urlFilename = urlMatch[1];
+          // Try to match with mhtml images by filename
+          for (const [key, imgData] of mhtmlImages.entries()) {
+            const keyClean = key.replace(/^<|>$/g, '').trim();
+            const keyFilename = keyClean.split('/').pop() || keyClean;
+            // Remove query params from key filename too
+            const keyFilenameClean = keyFilename.split('?')[0];
+            if (urlFilename === keyFilenameClean || 
+                keyFilenameClean === urlFilename ||
+                keyClean === urlWithoutParams ||
+                keyClean.includes(urlFilename) ||
+                urlFilename.includes(keyFilenameClean)) {
+              imageData = imgData;
+              console.log(`✅ Matched HTTP URL image by filename: ${urlFilename} -> ${keyFilenameClean}`);
+              break;
+            }
+          }
         }
       }
     }
