@@ -98,7 +98,14 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       if (base64Match) {
         try {
           const imageData = Buffer.from(base64Match[1].replace(/\s/g, ''), 'base64');
-          images.set(contentId, imageData);
+          // Store with both keys for easier lookup
+          images.set(contentIdWithBrackets, imageData);
+          images.set(contentIdWithoutBrackets, imageData);
+          // Also try just the filename part if it's a URL
+          if (contentId.includes('/')) {
+            const filename = contentId.split('/').pop() || contentId;
+            images.set(filename, imageData);
+          }
         } catch (e) {
           console.warn(`Failed to decode base64 image ${contentId}:`, e);
         }
@@ -124,12 +131,24 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   while ((match = imgRegex.exec(htmlContent)) !== null) {
     const src = match[1];
     
-    // Check for cid: URLs
-    if (src.startsWith('cid:')) {
-      const contentId = src.substring(4);
-      const imageData = mhtmlImages.get(contentId);
-      if (imageData) {
-        images.push(imageData.toString('base64'));
+    // Check for cid: URLs (remove < and > if present)
+    if (src.startsWith('cid:') || src.includes('cid:')) {
+      const cidMatch = src.match(/cid:([^"'>\s]+)/i);
+      if (cidMatch) {
+        let contentId = cidMatch[1];
+        // Remove < and > if present
+        contentId = contentId.replace(/^<|>$/g, '');
+        const imageData = mhtmlImages.get(contentId);
+        if (imageData) {
+          images.push(imageData.toString('base64'));
+          continue;
+        }
+        // Try without < >
+        const imageData2 = mhtmlImages.get(`<${contentId}>`);
+        if (imageData2) {
+          images.push(imageData2.toString('base64'));
+          continue;
+        }
       }
     }
     
@@ -139,6 +158,16 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       if (base64Match) {
         images.push(base64Match[1]);
       }
+    }
+  }
+  
+  // Also try to find images by searching for common image patterns in HTML
+  // Sometimes images are referenced differently
+  if (images.length === 0) {
+    // Look for any image references in the HTML section
+    const allImageRefs = htmlContent.match(/[Ii]mage[^<]*\.(jpg|jpeg|png|gif)/gi);
+    if (allImageRefs) {
+      console.log(`Found ${allImageRefs.length} image references in HTML (but no matching images in mhtml)`);
     }
   }
   
