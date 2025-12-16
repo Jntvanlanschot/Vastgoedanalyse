@@ -212,7 +212,6 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
     const src = match[1];
-    foundImageRefs.push(src);
     
     let imageData: Buffer | null = null;
     let imageBase64: string | null = null;
@@ -441,12 +440,11 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     // Override address with the one we extracted
     record.address_full = addressFull;
     
-    // IMPORTANT: Clear sale_price from parseRealworksProperty if it's wrong (€2)
-    // We'll extract it properly below
-    if (record.sale_price && record.sale_price < 1000) {
-      console.warn(`Clearing invalid sale_price ${record.sale_price} for ${addressFull} - will re-extract`);
-      record.sale_price = null;
-    }
+    // IMPORTANT: ALWAYS clear sale_price from parseRealworksProperty
+    // We'll extract Transactieprijs properly from HTML below
+    // parseRealworksProperty might extract wrong price (€2) or Vraagprijs instead
+    record.sale_price = null;
+    console.log(`Cleared sale_price from parseRealworksProperty for ${addressFull} - will extract from HTML`);
     
     // Extract address components
     const addressParts = addressFull.match(/^([^,]+),\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/);
@@ -467,52 +465,64 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     // Extract Transactieprijs directly from HTML/text (more reliable)
     // HTML is already decoded (quoted-printable), so € symbol should be visible
     // Look for "Transactieprijs: € 550.000" or "Transactieprijs €550.000" or "Transactieprijs: € 550.000,-"
-    // Try multiple patterns to catch different formats
     // IMPORTANT: Search in decoded HTML first (propertyHtml is already decoded), then text version
     const decodedPropertyHtml = propertyHtml; // Already decoded above
-    const searchTexts = [decodedPropertyHtml, propertyTextWithBreaks];
     
+    // Try multiple search strategies
     let transactiePrice: number | null = null;
     
-    for (const searchText of searchTexts) {
-      // Try to find Transactieprijs in various formats
-      // Pattern 1: "Transactieprijs: € 550.000" or "Transactieprijs € 550.000"
-      let match = searchText.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-      if (!match) {
-        // Pattern 2: "Transactieprijs: 550.000" (without €, but € might be encoded)
-        match = searchText.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+    // Strategy 1: Direct pattern match in decoded HTML
+    let match = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+    if (!match) {
+      // Strategy 2: Without € symbol (might be encoded differently)
+      match = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+    }
+    if (!match) {
+      // Strategy 3: Look for any price near "Transactie" (within 100 chars)
+      const transactieIndex = decodedPropertyHtml.search(/Transactie/i);
+      if (transactieIndex >= 0) {
+        const afterTransactie = decodedPropertyHtml.substring(transactieIndex, transactieIndex + 150);
+        match = afterTransactie.match(/€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
       }
-      if (!match) {
-        // Pattern 3: Look for any price near "Transactie"
-        const transactieIndex = searchText.search(/Transactie/i);
-        if (transactieIndex >= 0) {
-          const afterTransactie = searchText.substring(transactieIndex, transactieIndex + 200);
-          match = afterTransactie.match(/€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-        }
+    }
+    if (!match) {
+      // Strategy 4: Try in text version
+      match = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+    }
+    if (!match) {
+      // Strategy 5: Try without € in text
+      match = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+    }
+    
+    if (match) {
+      let priceStr = match[1];
+      // Remove dots (thousand separators) and replace comma with dot for decimal
+      priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+      const price = parseFloat(priceStr);
+      if (!isNaN(price) && price > 1000) { // Sanity check: price should be > 1000 (not €2!)
+        transactiePrice = Math.round(price);
+        console.log(`✅ Found Transactieprijs for ${addressFull}: €${transactiePrice}`);
+      } else {
+        console.warn(`⚠ Found Transactieprijs match but price too low: ${price} (string: ${match[1]})`);
       }
-      
-      if (match) {
-        let priceStr = match[1];
-        // Remove dots (thousand separators) and replace comma with dot for decimal
-        priceStr = priceStr.replace(/\./g, '').replace(',', '.');
-        const price = parseFloat(priceStr);
-        if (!isNaN(price) && price > 1000) { // Sanity check: price should be > 1000 (not €2!)
-          transactiePrice = Math.round(price);
-          console.log(`✅ Found Transactieprijs for ${addressFull}: €${transactiePrice}`);
-          break;
-        } else {
-          console.warn(`⚠ Found Transactieprijs match but price too low: ${price} (string: ${match[1]})`);
-        }
+    } else {
+      // Debug: show what we're searching in
+      const debugSnippet = decodedPropertyHtml.substring(0, 2000);
+      console.warn(`❌ Could not find Transactieprijs for ${addressFull}.`);
+      // Look for "Transactie" in the HTML
+      const transactieIndex = decodedPropertyHtml.toLowerCase().indexOf('transactie');
+      if (transactieIndex >= 0) {
+        const context = decodedPropertyHtml.substring(Math.max(0, transactieIndex - 50), transactieIndex + 200);
+        console.warn(`Context around "Transactie": ${context}`);
+      } else {
+        console.warn(`⚠ "Transactie" not found in HTML at all!`);
+        console.warn(`HTML snippet (first 1000 chars): ${debugSnippet.substring(0, 1000)}`);
       }
     }
     
     if (transactiePrice) {
       record.sale_price = transactiePrice;
     } else {
-      // Debug: show what we're searching in
-      const debugSnippet = propertyTextWithBreaks.substring(0, 1500);
-      console.warn(`❌ Could not find Transactieprijs for ${addressFull}.`);
-      console.warn(`Searching in text (first 500 chars): ${debugSnippet.substring(0, 500)}`);
       // Don't set sale_price to 2 - leave it null if not found
       record.sale_price = null;
     }
