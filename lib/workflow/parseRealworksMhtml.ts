@@ -298,18 +298,15 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     return normalized;
   };
   
-  // Python: Process regular image URLs - try to match with MHTML images - EXACT match
+  // USER REQUIREMENT: Process ALL uitwisseling.objectmedia images - NO FILTERS
+  // These are already filtered to only uitwisseling.objectmedia URLs, so no need to check shouldExcludeImage
   for (const imgMatch of imgMatches) {
     let src = imgMatch.src;
     
     // Normalize the URL (decode HTML entities and quoted-printable)
     src = normalizeUrl(src);
     
-    // Skip logos, icons, and other non-property images
-    if (shouldExcludeImage(src, src)) {
-      console.log(`⏭ Skipped logo/icon: ${src.substring(0, 80)}`);
-      continue;
-    }
+    // NO FILTERS - user explicitly wants ALL images with uitwisseling.objectmedia URL
     
     // Try multiple matching strategies:
     // 1. Direct match with full URL (with or without query params)
