@@ -534,6 +534,14 @@ export function generateHtmlReport(
     // Get PDF URL from sessionStorage (set by analysis results page)
     function downloadPdf() {
       try {
+        // First check sessionStorage for pdfReportUrl (set by analysis results page)
+        const pdfUrl = sessionStorage.getItem('pdfReportUrl');
+        if (pdfUrl) {
+          window.open(pdfUrl, '_blank');
+          return;
+        }
+        
+        // Fallback: check analysisResult in sessionStorage
         const analysisStr = sessionStorage.getItem('analysisResult');
         if (analysisStr) {
           const analysis = JSON.parse(analysisStr);
@@ -560,6 +568,14 @@ export function generateHtmlReport(
     // Show button if PDF is available
     window.addEventListener('DOMContentLoaded', function() {
       try {
+        // First check sessionStorage for pdfReportUrl (set by analysis results page)
+        const pdfUrl = sessionStorage.getItem('pdfReportUrl');
+        if (pdfUrl) {
+          document.getElementById('downloadPdfBtn').style.display = 'block';
+          return;
+        }
+        
+        // Fallback: check analysisResult in sessionStorage
         const analysisStr = sessionStorage.getItem('analysisResult');
         if (analysisStr) {
           const analysis = JSON.parse(analysisStr);

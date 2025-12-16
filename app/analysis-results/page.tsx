@@ -149,10 +149,10 @@ export default function AnalysisResultsPage() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Analyse Resultaten
+            Analyse Succesvol
           </h1>
           <p className="text-lg text-gray-600">
-            Uw vastgoedanalyse is voltooid. Hieronder vindt u de resultaten.
+            Klik hieronder om uw resultaten te bekijken.
           </p>
         </div>
 
