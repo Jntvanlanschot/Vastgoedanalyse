@@ -88,16 +88,25 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       
       // Find Content-ID or Content-Location
       // Content-ID can be with or without < >
-      const contentIdMatch = part.match(/Content-ID:\s*<?([^>\r\n]+)>?/i) || 
-                            part.match(/Content-Location:\s*([^\r\n]+)/i);
-      if (!contentIdMatch) continue;
+      const contentIdMatch = part.match(/Content-ID:\s*<?([^>\r\n]+)>?/i);
+      const contentLocationMatch = part.match(/Content-Location:\s*([^\r\n]+)/i);
       
-      let contentId = contentIdMatch[1].trim();
-      // Remove < > if present in the matched string
-      contentId = contentId.replace(/^<|>$/g, '');
+      let contentId: string | null = null;
+      let contentLocation: string | null = null;
+      
+      if (contentIdMatch) {
+        contentId = contentIdMatch[1].trim().replace(/^<|>$/g, '');
+      }
+      if (contentLocationMatch) {
+        contentLocation = contentLocationMatch[1].trim();
+      }
+      
+      // Use Content-Location if available (often HTTP URLs), otherwise Content-ID
+      const primaryKey = contentLocation || contentId;
+      if (!primaryKey) continue;
       
       // Store both with and without < > for lookup
-      const contentIdWithBrackets = `<${contentId}>`;
+      const contentIdWithBrackets = contentId ? `<${contentId}>` : null;
       const contentIdWithoutBrackets = contentId;
       
       // Extract base64 data - try multiple patterns
@@ -131,19 +140,34 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
           // Only store if it's a reasonable size (not tiny icons)
           if (imageData.length > 1000) {
             // Store with multiple keys for easier lookup
-            images.set(contentIdWithBrackets, imageData);
-            images.set(contentIdWithoutBrackets, imageData);
-            // Also try just the filename part if it's a URL
-            if (contentId.includes('/')) {
-              const filename = contentId.split('/').pop() || contentId;
-              images.set(filename, imageData);
+            // Primary key (Content-Location or Content-ID)
+            images.set(primaryKey, imageData);
+            
+            // If we have Content-ID, store with brackets too
+            if (contentId) {
+              if (contentIdWithBrackets) images.set(contentIdWithBrackets, imageData);
+              if (contentIdWithoutBrackets) images.set(contentIdWithoutBrackets, imageData);
             }
+            
+            // Extract filename from URL for matching
+            if (primaryKey.includes('/')) {
+              const filename = primaryKey.split('/').pop() || primaryKey;
+              // Remove query parameters
+              const filenameClean = filename.split('?')[0];
+              images.set(filenameClean, imageData);
+              // Also store with .jpg/.jpeg/.png extension variations
+              if (filenameClean.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                images.set(filenameClean.toLowerCase(), imageData);
+              }
+            }
+            
             // Also store with just the last part after @ if it's an email-like format
-            if (contentId.includes('@')) {
-              const afterAt = contentId.split('@').pop() || contentId;
+            if (primaryKey.includes('@')) {
+              const afterAt = primaryKey.split('@').pop() || primaryKey;
               images.set(afterAt, imageData);
             }
-            console.log(`Extracted image: ${contentId} (${imageData.length} bytes)`);
+            
+            console.log(`✅ Extracted image: ${primaryKey} (${imageData.length} bytes)`);
           }
         } catch (e) {
           console.warn(`Failed to decode base64 image ${contentId}:`, e);
