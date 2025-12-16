@@ -120,34 +120,60 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
 
 /**
  * Find images in HTML content that match MHTML images
+ * Strategy: Find "Foto's" section and take all images after it (like Python version)
  */
 function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>): string[] {
   const images: string[] = [];
   
+  // Find "Foto's" section (like Python version)
+  const fotosMatch = htmlContent.match(/Foto['s]*/i);
+  if (!fotosMatch) {
+    console.log('No "Foto\'s" section found in HTML');
+    // Fallback: try to find images anyway
+  }
+  
+  // Get content after "Foto's" (or use entire content if no Foto's found)
+  const contentAfterFotos = fotosMatch 
+    ? htmlContent.substring(fotosMatch.index + fotosMatch[0].length)
+    : htmlContent;
+  
   // Find all img tags with src pointing to cid: or data: URLs
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let match;
+  const foundImageRefs: string[] = [];
   
-  while ((match = imgRegex.exec(htmlContent)) !== null) {
+  while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
     const src = match[1];
+    foundImageRefs.push(src);
     
     // Check for cid: URLs (remove < and > if present)
-    if (src.startsWith('cid:') || src.includes('cid:')) {
+    if (src.includes('cid:')) {
       const cidMatch = src.match(/cid:([^"'>\s]+)/i);
       if (cidMatch) {
         let contentId = cidMatch[1];
         // Remove < and > if present
         contentId = contentId.replace(/^<|>$/g, '');
-        const imageData = mhtmlImages.get(contentId);
+        
+        // Try multiple lookup strategies
+        let imageData = mhtmlImages.get(contentId) || 
+                       mhtmlImages.get(`<${contentId}>`) ||
+                       mhtmlImages.get(contentId.replace(/^<|>$/g, ''));
+        
         if (imageData) {
           images.push(imageData.toString('base64'));
           continue;
         }
-        // Try without < >
-        const imageData2 = mhtmlImages.get(`<${contentId}>`);
-        if (imageData2) {
-          images.push(imageData2.toString('base64'));
-          continue;
+        
+        // Try filename matching (like Python version)
+        const srcFilename = contentId.split('/').pop() || contentId;
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          const keyFilename = key.replace(/^<|>$/g, '').split('/').pop() || key;
+          if (srcFilename === keyFilename || 
+              (srcFilename.length > 10 && keyFilename.length > 10 && 
+               srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
+            images.push(imgData.toString('base64'));
+            break;
+          }
         }
       }
     }
@@ -161,15 +187,19 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
   }
   
-  // Also try to find images by searching for common image patterns in HTML
-  // Sometimes images are referenced differently
-  if (images.length === 0) {
-    // Look for any image references in the HTML section
-    const allImageRefs = htmlContent.match(/[Ii]mage[^<]*\.(jpg|jpeg|png|gif)/gi);
-    if (allImageRefs) {
-      console.log(`Found ${allImageRefs.length} image references in HTML (but no matching images in mhtml)`);
+  // If we still don't have images but have mhtml images, take available ones (like Python fallback)
+  if (images.length === 0 && mhtmlImages.size > 0) {
+    console.log(`No images matched from HTML refs, but ${mhtmlImages.size} images available in mhtml - using available images`);
+    // Take first few available images
+    let count = 0;
+    for (const [key, imgData] of mhtmlImages.entries()) {
+      if (count >= 10) break; // Limit to 10 images
+      images.push(imgData.toString('base64'));
+      count++;
     }
   }
+  
+  console.log(`Found ${images.length} images for property (from ${foundImageRefs.length} image refs in HTML)`);
   
   return images;
 }
