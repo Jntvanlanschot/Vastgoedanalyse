@@ -208,9 +208,27 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   // Track which MHTML images we've already used (to prevent duplicates across properties)
   const usedMhtmlKeys = new Set<string>();
   
+  // Filter out logo/icon patterns from image sources
+  const isLogoOrIcon = (src: string): boolean => {
+    const srcLower = src.toLowerCase();
+    return srcLower.includes('logo') || 
+           srcLower.includes('icon') || 
+           srcLower.includes('print') ||
+           srcLower.includes('vastgoed') ||
+           srcLower.includes('nvh') ||
+           srcLower.match(/\.(ico|svg)$/);
+  };
+  
   // Python: Process regular image URLs - try to match with MHTML images
   for (const imgMatch of imgMatches) {
     const src = imgMatch.src;
+    
+    // Skip logos and icons
+    if (isLogoOrIcon(src)) {
+      console.log(`⏭ Skipped logo/icon: ${src.substring(0, 80)}`);
+      continue;
+    }
+    
     // Python: Clean up src (remove query parameters, decode entities)
     const srcClean = src.split('?')[0].split('&')[0];
     
@@ -219,6 +237,16 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     for (const [key, imgData] of mhtmlImages.entries()) {
       // Skip if we've already used this image
       if (usedMhtmlKeys.has(key)) {
+        continue;
+      }
+      
+      // Skip if key suggests it's a logo/icon
+      if (isLogoOrIcon(key)) {
+        continue;
+      }
+      
+      // Only include reasonably sized images (at least 10KB to filter out tiny icons)
+      if (imgData.length < 10000) {
         continue;
       }
       
@@ -249,29 +277,13 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
           images.push(imgBase64);
           usedMhtmlKeys.add(key);
           matched = true;
-          console.log(`✅ Matched image: ${src.substring(0, 80)} -> ${key.substring(0, 80)}`);
+          console.log(`✅ Matched image: ${src.substring(0, 80)} -> ${key.substring(0, 80)} (${Math.round(imgData.length/1024)}KB)`);
         }
         break;
       }
     }
     
-    // Python: If not matched and we have images, just take the first available ones
-    if (!matched && mhtmlImages.size > 0) {
-      // Python: remaining_images = [img for key, img in mhtml_images.items() if img not in images]
-      // Find first unused image
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        if (usedMhtmlKeys.has(key)) continue;
-        
-        const imgBase64 = imgData.toString('base64');
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (!seenImageHashes.has(imageHash)) {
-          seenImageHashes.add(imageHash);
-          images.push(imgBase64);
-          usedMhtmlKeys.add(key);
-          break;
-        }
-      }
-    }
+    // DON'T use fallback - only use matched images to avoid logos/icons
   }
   
   // Python: Process base64 images
@@ -282,7 +294,8 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       
       // Python: if pil_image.width > 50 and pil_image.height > 50
       // We can't easily check dimensions, so just check size
-      if (imageBytes.length > 1000) { // At least 1KB
+      // Require at least 10KB to filter out tiny icons/logos
+      if (imageBytes.length > 10000) {
         const imageHash = base64Data.length > 500 ? base64Data.substring(0, 500) : base64Data;
         if (!seenImageHashes.has(imageHash)) {
           seenImageHashes.add(imageHash);
@@ -295,21 +308,8 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
   }
   
-  // Python: If we still don't have images, just take any available images from MHTML
-  if (images.length === 0 && mhtmlImages.size > 0) {
-    // Python: remaining = [img for key, img in mhtml_images.items() if img not in images]
-    for (const [key, imgData] of mhtmlImages.entries()) {
-      if (usedMhtmlKeys.has(key)) continue;
-      
-      const imgBase64 = imgData.toString('base64');
-      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-      if (!seenImageHashes.has(imageHash)) {
-        seenImageHashes.add(imageHash);
-        images.push(imgBase64);
-        usedMhtmlKeys.add(key);
-      }
-    }
-  }
+  // DON'T use fallback - only use matched images to avoid logos/icons
+  // If no images matched, return empty array (better than wrong images)
   
   console.log(`✅ Found ${images.length} unique images for property`);
   return images; // Python: Return all images
