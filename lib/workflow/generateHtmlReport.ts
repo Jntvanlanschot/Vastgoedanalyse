@@ -270,7 +270,7 @@ export function generateHtmlReport(
             <tr>
               <td>Balkon/dakterras</td>
               <td>${referenceData.has_balcony || referenceData.has_terrace ? 'Ja' : 'Nee'}</td>
-              <td>${(prop as any).rw_balcony_terrace_type || (prop as any).balcony_terrace_type || (prop.rw_has_balcony || prop.has_balcony || prop.rw_has_terrace || prop.has_terrace ? 'Ja' : 'Nee')}</td>
+              <td>${(prop as any).rw_balcony_terrace_type || (prop as any).balcony_terrace_type || 'Onbekend'}</td>
             </tr>
             <tr>
               <td>Onderhoud binnen</td>

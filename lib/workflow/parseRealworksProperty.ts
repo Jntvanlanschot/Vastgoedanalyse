@@ -323,12 +323,14 @@ export function parseRealworksProperty(text: string): ParsedProperty {
   
   // Balkon/dakterras - extract the value after "Balkon/dakterras:"
   // Pattern: "Balkon/dakterras: Balkon aanwezig<br>" or "Balkon/dakterras: Geen balkon<br>"
-  // Stop immediately at <br> or end of line
+  // Stop immediately at <br> or next word (like "Bergruimte")
   const balconyTerraceMatch = text.match(/Balkon\/dakterras:\s*([^<\r\n]+?)(?:\s*<br>|$)/i);
   if (balconyTerraceMatch) {
     let balconyTerraceType = balconyTerraceMatch[1].trim();
-    // Remove any trailing punctuation or extra words
-    // Stop at common separators like periods, commas, or semicolons
+    // Stop at common separators or next section (like "Bergruimte", "Parkeergelegenheid")
+    // Split on common patterns that indicate end of value
+    balconyTerraceType = balconyTerraceType.split(/\s+(?:Bergruimte|Parkeergelegenheid|Garage|VvE|Aanbiedingstekst)/i)[0].trim();
+    // Also stop at punctuation
     balconyTerraceType = balconyTerraceType.split(/[.,;]/)[0].trim();
     // Limit to reasonable length (max 30 chars - should be just "Balkon aanwezig" or similar)
     if (balconyTerraceType.length > 30) {
