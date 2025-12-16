@@ -304,6 +304,28 @@ export function generateHtmlReport(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vastgoedanalyse Rapport - ${referenceAddress}</title>
   <style>
+    .download-pdf-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #0C479D;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 1000;
+      transition: background 0.2s;
+    }
+    .download-pdf-button:hover {
+      background: #0a3a7a;
+    }
+    .download-pdf-button:active {
+      transform: translateY(1px);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
