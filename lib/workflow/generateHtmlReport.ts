@@ -1,6 +1,6 @@
 /**
- * Generate HTML report from top 15 matches
- * This works everywhere (no fontkit/trie dependencies)
+ * Generate comprehensive HTML report matching the PDF structure
+ * Includes individual property pages with photos and all details
  */
 
 import { CandidateProperty } from './calculateSimilarity';
@@ -39,6 +39,26 @@ function formatCurrency(amount: number | null | undefined): string {
   return `€ ${formatNumberNL(amount)}`;
 }
 
+function formatBoolean(value: boolean | null | undefined): string {
+  if (value === null || value === undefined) return 'Onbekend';
+  return value ? 'Ja' : 'Nee';
+}
+
+function formatMaintenance(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return 'Onbekend';
+  if (typeof value === 'number') {
+    const labels: { [key: number]: string } = {
+      1: 'Uitstekend',
+      2: 'Goed',
+      3: 'Redelijk',
+      4: 'Matig',
+      5: 'Slecht',
+    };
+    return labels[value] || 'Onbekend';
+  }
+  return String(value);
+}
+
 export function generateHtmlReport(
   top15: CandidateProperty[],
   referenceData: ReferenceData
@@ -49,6 +69,210 @@ export function generateHtmlReport(
   const referenceBedrooms = referenceData.bedrooms || 0;
   const referenceRooms = referenceData.rooms || 0;
   const referenceEnergyLabel = referenceData.energy_label || 'Onbekend';
+
+  // Calculate price scenarios (same as PDF)
+  const PRICE_CALC_TOP_N = 12;
+  const PRICE_CALC_MIN_SCORE = 0.55;
+  
+  const validPrices = top15
+    .filter(p => p.rw_sale_price && p.rw_area_m2 && p.rw_area_m2 > 0 && (p.final_score || p.similarity_score || 0) >= PRICE_CALC_MIN_SCORE)
+    .slice(0, PRICE_CALC_TOP_N)
+    .map(p => ({
+      pricePerM2: (p.rw_sale_price || 0) / (p.rw_area_m2 || 1),
+      score: p.final_score || p.similarity_score || 0,
+    }));
+
+  let priceScenariosHtml = '';
+  if (validPrices.length > 0 && referenceData.area_m2) {
+    const totalWeight = validPrices.reduce((sum, p) => sum + Math.pow(p.score, 2), 0);
+    const avgPricePerM2 = validPrices.reduce((sum, p) => sum + p.pricePerM2 * Math.pow(p.score, 2), 0) / totalWeight;
+
+    const prices = validPrices.map(p => p.pricePerM2).sort((a, b) => a - b);
+    const conservativePerM2 = prices.length >= 3 
+      ? prices[Math.floor(prices.length * 0.25)] 
+      : avgPricePerM2 * 0.88;
+    const optimisticPerM2 = prices.length >= 3 
+      ? prices[Math.floor(prices.length * 0.75)] 
+      : avgPricePerM2 * 1.12;
+
+    const areaM2 = referenceData.area_m2;
+    const conservativePrice = conservativePerM2 * areaM2;
+    const neutralPrice = avgPricePerM2 * areaM2;
+    const optimisticPrice = optimisticPerM2 * areaM2;
+
+    priceScenariosHtml = `
+      <div class="price-scenarios">
+        <table class="price-table">
+          <thead>
+            <tr>
+              <th>Conservatief</th>
+              <th>Neutraal</th>
+              <th>Optimistisch</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="price-value">${formatCurrency(conservativePrice)}</td>
+              <td class="price-value">${formatCurrency(neutralPrice)}</td>
+              <td class="price-value">${formatCurrency(optimisticPrice)}</td>
+            </tr>
+            <tr>
+              <td class="price-per-m2">€ ${formatNumberNL(Math.round(conservativePerM2))}/m²</td>
+              <td class="price-per-m2">€ ${formatNumberNL(Math.round(avgPricePerM2))}/m²</td>
+              <td class="price-per-m2">€ ${formatNumberNL(Math.round(optimisticPerM2))}/m²</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  // Overview table
+  const overviewRows = top15.map((prop, index) => {
+    const pricePerM2 = prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0
+      ? Math.round(prop.rw_sale_price / prop.rw_area_m2)
+      : null;
+
+    return `
+      <tr class="${index < 10 ? 'top-10' : ''}">
+        <td>${index + 1}</td>
+        <td><a href="#property-${index + 1}">${extractStreetAndNumber(prop.address_full)}</a></td>
+        <td class="price">${pricePerM2 ? `€ ${formatNumberNL(pricePerM2)}` : 'Onbekend'}</td>
+        <td>${prop.rw_area_m2 ? formatNumberNL(prop.rw_area_m2) : 'Onbekend'}</td>
+        <td>${formatDate(prop.rw_sale_date || prop.sale_date)}</td>
+        <td class="score">${(prop.final_score || prop.similarity_score || 0).toFixed(3)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Individual property pages
+  const propertyPages = top15.map((prop, index) => {
+    const pricePerM2 = prop.rw_sale_price && prop.rw_area_m2 && prop.rw_area_m2 > 0
+      ? prop.rw_sale_price / prop.rw_area_m2
+      : null;
+    
+    const estimatedValue = pricePerM2 && referenceData.area_m2 && referenceData.area_m2 > 0
+      ? pricePerM2 * referenceData.area_m2
+      : null;
+
+    // Images HTML
+    let imagesHtml = '';
+    if (prop.images && prop.images.length > 0) {
+      imagesHtml = `
+        <div class="property-images">
+          <h3>Foto's:</h3>
+          <div class="image-grid">
+            ${prop.images.map((imgBase64, imgIndex) => `
+              <img src="data:image/jpeg;base64,${imgBase64}" alt="Foto ${imgIndex + 1}" class="property-image" />
+            `).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      imagesHtml = `
+        <div class="property-images">
+          <h3>Foto's:</h3>
+          <p>Geen foto's beschikbaar</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="property-page" id="property-${index + 1}">
+        <h2>${index + 1}. ${prop.address_full}</h2>
+        
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Eigenschap</th>
+              <th>Referentie</th>
+              <th>Huidig pand</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Adres</td>
+              <td>${extractStreetAndNumber(referenceData.address_full || 'Onbekend')}</td>
+              <td>${extractStreetAndNumber(prop.address_full)}</td>
+            </tr>
+            <tr>
+              <td>Verkoopprijs</td>
+              <td>Onbekend</td>
+              <td>${formatCurrency(prop.rw_sale_price || prop.sale_price)}</td>
+            </tr>
+            <tr>
+              <td>Verkoopdatum</td>
+              <td>Onbekend</td>
+              <td>${formatDate(prop.rw_sale_date || prop.sale_date)}</td>
+            </tr>
+            <tr>
+              <td>Oppervlakte (m²)</td>
+              <td>${referenceData.area_m2 || 0}</td>
+              <td>${prop.rw_area_m2 ? formatNumberNL(prop.rw_area_m2) : 'Onbekend'}</td>
+            </tr>
+            <tr>
+              <td>Kamers</td>
+              <td>${referenceData.rooms || 0}</td>
+              <td>${prop.rw_rooms ? String(prop.rw_rooms) : 'Onbekend'}</td>
+            </tr>
+            <tr>
+              <td>Slaapkamers</td>
+              <td>${referenceData.bedrooms || 0}</td>
+              <td>${prop.rw_bedrooms ? String(prop.rw_bedrooms) : 'Onbekend'}</td>
+            </tr>
+            <tr>
+              <td>Badkamers</td>
+              <td>${referenceData.bathrooms || 0}</td>
+              <td>${prop.bathrooms ? String(prop.bathrooms) : 'Onbekend'}</td>
+            </tr>
+            <tr>
+              <td>Bouwjaar</td>
+              <td>Onbekend</td>
+              <td>${prop.rw_year_built ? String(prop.rw_year_built) : 'Onbekend'}</td>
+            </tr>
+            <tr>
+              <td>Energielabel</td>
+              <td>${referenceData.energy_label || 'Onbekend'}</td>
+              <td>${prop.rw_energy_label || prop.energy_label || 'Onbekend'}</td>
+            </tr>
+            <tr>
+              <td>Tuin</td>
+              <td>${formatBoolean(referenceData.has_garden)}</td>
+              <td>${formatBoolean(prop.rw_has_garden || prop.has_garden)}</td>
+            </tr>
+            <tr>
+              <td>Balkon</td>
+              <td>${formatBoolean(referenceData.has_balcony)}</td>
+              <td>${formatBoolean(prop.rw_has_balcony || prop.has_balcony)}</td>
+            </tr>
+            <tr>
+              <td>Terras</td>
+              <td>${formatBoolean(referenceData.has_terrace)}</td>
+              <td>${formatBoolean(prop.rw_has_terrace || prop.has_terrace)}</td>
+            </tr>
+            <tr>
+              <td>Onderhoud binnen</td>
+              <td>Onbekend</td>
+              <td>${formatMaintenance((prop as any).rw_maintenance_inside || (prop as any).maintenance_inside)}</td>
+            </tr>
+            <tr>
+              <td>Onderhoud buiten</td>
+              <td>Onbekend</td>
+              <td>${formatMaintenance((prop as any).rw_maintenance_outside || (prop as any).maintenance_outside)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="property-scores">
+          <p><strong>Match Score:</strong> ${(prop.final_score || prop.similarity_score || 0).toFixed(3)}</p>
+          ${pricePerM2 ? `<p><strong>Prijs per m²:</strong> ${formatCurrency(pricePerM2)}</p>` : ''}
+          ${estimatedValue ? `<p><strong>Geschatte waarde referentie woning:</strong> ${formatCurrency(estimatedValue)}</p>` : ''}
+        </div>
+
+        ${imagesHtml}
+      </div>
+    `;
+  }).join('');
 
   const html = `<!DOCTYPE html>
 <html lang="nl">
@@ -107,6 +331,34 @@ export function generateHtmlReport(
       font-size: 1.1em;
       color: #2c3e50;
     }
+    .price-scenarios {
+      margin: 30px 0;
+    }
+    .price-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    .price-table th {
+      background: #1F2937;
+      color: white;
+      padding: 12px;
+      text-align: center;
+    }
+    .price-table td {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    .price-value {
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #1F2937;
+    }
+    .price-per-m2 {
+      font-size: 0.9em;
+      color: #6B7280;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -130,6 +382,9 @@ export function generateHtmlReport(
     tbody tr:hover {
       background: #f8f9fa;
     }
+    tbody tr.top-10 {
+      background: #EFF6FF;
+    }
     .score {
       font-weight: bold;
       color: #27ae60;
@@ -137,6 +392,56 @@ export function generateHtmlReport(
     .price {
       color: #e74c3c;
       font-weight: bold;
+    }
+    .property-page {
+      margin: 60px 0;
+      padding: 30px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      page-break-after: always;
+    }
+    .property-page h2 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+    }
+    .comparison-table {
+      margin: 20px 0;
+    }
+    .comparison-table tbody tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+    .property-scores {
+      margin: 20px 0;
+      padding: 15px;
+      background: #ecf0f1;
+      border-radius: 5px;
+    }
+    .property-scores p {
+      margin: 8px 0;
+      font-size: 1.1em;
+    }
+    .property-images {
+      margin: 30px 0;
+    }
+    .property-images h3 {
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .property-image {
+      width: 100%;
+      height: auto;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      object-fit: cover;
     }
     .footer {
       margin-top: 40px;
@@ -149,43 +454,21 @@ export function generateHtmlReport(
     @media print {
       body { background: white; padding: 0; }
       .container { box-shadow: none; padding: 20px; }
+      .property-page { page-break-after: always; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Vastgoedanalyse Rapport</h1>
+    <h1>MEEST VERGELIJKBARE PANDEN</h1>
     <p style="color: #7f8c8d; margin-bottom: 30px;">Gegenereerd op ${new Date().toLocaleString('nl-NL')}</p>
     
     <div class="reference-info">
       <h2>Referentie Object</h2>
-      <div class="info-grid">
-        <div class="info-item">
-          <span class="info-label">Adres</span>
-          <span class="info-value">${referenceAddress}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Vraagprijs</span>
-          <span class="info-value">${formatCurrency(referencePrice)}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Oppervlakte</span>
-          <span class="info-value">${formatNumberNL(referenceArea)} m²</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Slaapkamers</span>
-          <span class="info-value">${referenceBedrooms}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Kamers</span>
-          <span class="info-value">${referenceRooms}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Energielabel</span>
-          <span class="info-value">${referenceEnergyLabel}</span>
-        </div>
-      </div>
+      <p><strong>Referentie:</strong> ${referenceData.address_full || 'Onbekend'} | ${referenceData.area_m2 || 'Onbekend'} m² | Energielabel: ${referenceData.energy_label || 'Onbekend'}</p>
     </div>
+
+    ${priceScenariosHtml}
 
     <h2 style="margin-top: 40px; margin-bottom: 20px;">Top 15 Vergelijkbare Objecten</h2>
     <table>
@@ -193,29 +476,18 @@ export function generateHtmlReport(
         <tr>
           <th>#</th>
           <th>Adres</th>
-          <th>Verkoopprijs</th>
+          <th>Prijs per m²</th>
           <th>Oppervlakte</th>
-          <th>Slaapkamers</th>
-          <th>Kamers</th>
-          <th>Energielabel</th>
-          <th>Similariteit</th>
+          <th>Verkoopdatum</th>
+          <th>Score</th>
         </tr>
       </thead>
       <tbody>
-        ${top15.map((prop, index) => `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${extractStreetAndNumber(prop.address_full)}</td>
-          <td class="price">${formatCurrency(prop.rw_sale_price)}</td>
-          <td>${formatNumberNL(prop.rw_area_m2)} m²</td>
-          <td>${prop.rw_bedrooms || 'Onbekend'}</td>
-          <td>${prop.rw_rooms || 'Onbekend'}</td>
-          <td>${prop.rw_energy_label || 'Onbekend'}</td>
-          <td class="score">${(prop.similarity_score * 100).toFixed(1)}%</td>
-        </tr>
-        `).join('')}
+        ${overviewRows}
       </tbody>
     </table>
+
+    ${propertyPages}
 
     <div class="footer">
       <p>Dit rapport is automatisch gegenereerd door de Vastgoedanalyse Tool</p>
@@ -227,4 +499,3 @@ export function generateHtmlReport(
 
   return html;
 }
-

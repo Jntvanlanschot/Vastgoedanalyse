@@ -192,15 +192,35 @@ export function parseRealworksProperty(text: string): ParsedProperty {
     record.address_full = `${record.street} ${record.house_number}, ${record.postal_code} ${record.city}`;
   }
   
-  // Extract prices
-  const salePriceMatch = text.match(/Verkocht\s+prijs.*?€\s?([\d\.\,]+)/i);
+  // Extract prices - use Transactieprijs (final sold price) like Python version
+  // Accept forms like: "Transactieprijs: € 525.000,-" or "Transactie prijs €525.000"
+  const salePriceMatch = text.match(/Transactie\s*prijs\s*:?[\s\-–]*€?\s*([\d\.\,]+)/i);
   if (salePriceMatch) {
     record.sale_price = parseCurrency(salePriceMatch[1]);
   }
   
-  const askPriceMatch = text.match(/Vraagprijs.*?€\s?([\d\.\,]+)/i);
-  if (askPriceMatch) {
-    record.ask_price = parseCurrency(askPriceMatch[1]);
+  // Fallback to "Verkocht prijs" if Transactieprijs not found
+  if (!record.sale_price) {
+    const verkochtPriceMatch = text.match(/Verkocht\s+prijs.*?€\s?([\d\.\,]+)/i);
+    if (verkochtPriceMatch) {
+      record.sale_price = parseCurrency(verkochtPriceMatch[1]);
+    }
+  }
+  
+  // Ask price variants (Vraagprijs / bieden vanaf)
+  const askPricePatterns = [
+    /Vraag\s*prijs[^\d€]*€?\s*([\d\.\,]+)/i,
+    /Vraagprijs[^\d€]*€?\s*([\d\.\,]+)/i,
+    /Bieden\s*va?n?af[^\d€]*€?\s*([\d\.\,]+)/i,
+    /Vraagprijs\s*bieden\s*va?n?af[^\d€]*€?\s*([\d\.\,]+)/i,
+  ];
+  
+  for (const pattern of askPricePatterns) {
+    const askPriceMatch = text.match(pattern);
+    if (askPriceMatch) {
+      record.ask_price = parseCurrency(askPriceMatch[1]);
+      if (record.ask_price) break;
+    }
   }
   
   // Extract dates
