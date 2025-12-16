@@ -300,7 +300,45 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
   // Python: Decode HTML entities (quoted-printable, etc.)
   // MHTML often uses quoted-printable encoding
   // Python: html_content = html_content.replace('=3D', '=').replace('=\n', '').replace('=\r\n', '')
-  htmlContent = htmlContent.replace(/=3D/g, '=').replace(/=\n/g, '').replace(/=\r\n/g, '');
+  // BUT: Python's email.get_payload(decode=True) automatically decodes ALL quoted-printable!
+  // So we need to decode ALL quoted-printable sequences properly
+  // Strategy: Decode quoted-printable to bytes, then convert to UTF-8 string
+  // First remove soft line breaks (quoted-printable line continuation)
+  htmlContent = htmlContent.replace(/=\r?\n/g, '');
+  
+  // Decode all quoted-printable sequences (=XX where XX is hex)
+  // This handles multi-byte UTF-8 sequences like =E2=82=AC (€)
+  let decoded = '';
+  let i = 0;
+  while (i < htmlContent.length) {
+    if (htmlContent[i] === '=' && i + 2 < htmlContent.length) {
+      // Check if next 2 chars are hex digits
+      const hex1 = htmlContent.substring(i + 1, i + 3);
+      if (/^[0-9A-F]{2}$/i.test(hex1)) {
+        // Decode this byte
+        const byte = parseInt(hex1, 16);
+        decoded += String.fromCharCode(byte);
+        i += 3;
+        continue;
+      }
+    }
+    decoded += htmlContent[i];
+    i++;
+  }
+  
+  // Now convert the byte string to UTF-8
+  // Since we decoded byte-by-byte, we need to reconstruct UTF-8 sequences
+  // But actually, if we just decode each =XX as a byte, we get the correct UTF-8 bytes
+  // So we can use Buffer to convert bytes to UTF-8 string
+  try {
+    // Convert decoded string (which is now byte values) to Buffer, then to UTF-8
+    const bytes = Buffer.from(decoded, 'latin1'); // latin1 preserves byte values
+    htmlContent = bytes.toString('utf-8');
+  } catch (e) {
+    // Fallback: use decoded as-is if conversion fails
+    console.warn('Failed to convert quoted-printable to UTF-8, using fallback');
+    htmlContent = decoded;
+  }
   
   // Python: Find all addresses (similar to PDF parser)
   // Look for address patterns in HTML
