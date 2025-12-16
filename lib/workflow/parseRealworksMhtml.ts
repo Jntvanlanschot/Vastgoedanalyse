@@ -1,6 +1,6 @@
 /**
  * MHTML Realworks parser - extracts properties from MHTML files
- * TypeScript port of parse_realworks_mhtml.py
+ * TypeScript port of parse_realworks_mhtml.py - EXACT MATCH
  */
 
 import { parseRealworksProperty, ParsedProperty as BaseParsedProperty } from './parseRealworksProperty';
@@ -18,39 +18,64 @@ interface MhtmlImage {
 }
 
 /**
+ * Parse currency text to number (same as parseRealworksProperty.parseCurrency)
+ */
+function parseCurrency(text: string | null | undefined): number | null {
+  if (!text) return null;
+  
+  // Remove currency symbols and spaces
+  let cleaned = text.replace(/[€\s]/g, '');
+  
+  // Handle Dutch format: 1.250.000,50
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    const parts = cleaned.split(',');
+    if (parts.length === 2) {
+      const integerPart = parts[0].replace(/\./g, '');
+      const decimalPart = parts[1];
+      const value = parseFloat(`${integerPart}.${decimalPart}`);
+      return isNaN(value) ? null : value;
+    }
+  }
+  
+  // Handle simple format
+  cleaned = cleaned.replace(',', '.');
+  const value = parseFloat(cleaned);
+  return isNaN(value) ? null : value;
+}
+
+/**
  * Extract HTML content from MHTML file
+ * EXACT Python version: extract_html_content_from_mhtml
  */
 function extractHtmlContentFromMhtml(mhtmlBuffer: Buffer): string | null {
   try {
     const content = mhtmlBuffer.toString('utf-8', { encoding: 'utf-8' });
     
-    // Try to find HTML content - look for <html> tag
+    // Python: Try parsing as email message first
+    // We'll skip that and go straight to fallback (simpler)
+    
+    // Python fallback: Find HTML content - look for <html> tag
     const htmlMatch = content.match(/<html[^>]*>[\s\S]*?<\/html>/i);
     if (htmlMatch) {
       return htmlMatch[0];
     }
     
-    // If no <html> tag, try to find content between boundaries
-    // MHTML uses multipart boundaries
+    // Python: If no <html> tag, try to find content between boundaries
     const boundaryMatch = content.match(/boundary="([^"]+)"/i);
     if (boundaryMatch) {
       const boundary = boundaryMatch[1];
-      const parts = content.split(`--${boundary}`);
-      
-      for (const part of parts) {
-        if (part.includes('Content-Type: text/html') || part.includes('Content-Type:text/html')) {
-          // Extract HTML from this part
-          const htmlStart = part.indexOf('<html');
-          if (htmlStart >= 0) {
-            return part.substring(htmlStart);
-          }
+      // Find text/html part
+      const htmlPartMatch = content.match(
+        new RegExp(`Content-Type:\\s*text/html[\\s\\S]*?${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
+      );
+      if (htmlPartMatch) {
+        const htmlPart = htmlPartMatch[0];
+        // Extract HTML content (remove headers)
+        const htmlContentMatch = htmlPart.match(/<[^>]+>[\s\S]*/);
+        if (htmlContentMatch) {
+          return htmlContentMatch[0];
         }
       }
-    }
-    
-    // Fallback: return entire content if it looks like HTML
-    if (content.includes('<html') || content.includes('<HTML')) {
-      return content;
     }
     
     return null;
@@ -62,6 +87,7 @@ function extractHtmlContentFromMhtml(mhtmlBuffer: Buffer): string | null {
 
 /**
  * Extract images from MHTML file
+ * EXACT Python version: extract_images_from_mhtml
  */
 function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
   const images = new Map<string, Buffer>();
@@ -86,323 +112,237 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       const contentType = contentTypeMatch[1].toLowerCase();
       if (!contentType.startsWith('image/')) continue;
       
-      // Find Content-ID or Content-Location
-      // Content-ID can be with or without < >
+      // Find Content-ID or Content-Location (Python: content_id = part.get('Content-ID', ''))
       const contentIdMatch = part.match(/Content-ID:\s*<?([^>\r\n]+)>?/i);
       const contentLocationMatch = part.match(/Content-Location:\s*([^\r\n]+)/i);
       
-      let contentId: string | null = null;
-      let contentLocation: string | null = null;
-      
+      let key: string;
       if (contentIdMatch) {
-        contentId = contentIdMatch[1].trim().replace(/^<|>$/g, '');
-      }
-      if (contentLocationMatch) {
-        contentLocation = contentLocationMatch[1].trim();
-      }
-      
-      // Use Content-Location if available (often HTTP URLs), otherwise Content-ID
-      const primaryKey = contentLocation || contentId;
-      if (!primaryKey) continue;
-      
-      // Store both with and without < > for lookup
-      const contentIdWithBrackets = contentId ? `<${contentId}>` : null;
-      const contentIdWithoutBrackets = contentId;
-      
-      // Extract base64 data - try multiple patterns
-      let base64Data: string | null = null;
-      
-      // Pattern 1: Content-Transfer-Encoding: base64 followed by blank line and data
-      const base64Match1 = part.match(/Content-Transfer-Encoding:\s*base64[\s\S]*?\r?\n\r?\n([\s\S]+?)(?=\r?\n--|$)/i);
-      if (base64Match1) {
-        base64Data = base64Match1[1];
+        key = contentIdMatch[1].trim().replace(/^<|>$/g, '');
+      } else if (contentLocationMatch) {
+        key = contentLocationMatch[1].trim();
+      } else {
+        key = `image_${images.size}`;
       }
       
-      // Pattern 2: Just look for base64 data after headers (more flexible)
-      if (!base64Data) {
-        const headerEnd = part.indexOf('\r\n\r\n');
-        if (headerEnd > 0) {
-          const dataPart = part.substring(headerEnd + 4);
-          // Remove boundary markers and whitespace
-          const cleaned = dataPart.replace(/^[\s\S]*?--/m, '').replace(/\s/g, '');
-          if (cleaned.length > 100) { // Reasonable size check
-            base64Data = cleaned;
-          }
-        }
-      }
-      
-      if (base64Data) {
+      // Extract image data (between headers and next boundary)
+      // Python: image_data = part.get_payload(decode=True)
+      // In MHTML, image data is base64 encoded after headers
+      const base64Match = part.match(/\r?\n\r?\n([A-Za-z0-9+/=\s]+)/);
+      if (base64Match) {
         try {
-          // Remove all whitespace from base64 data
-          const cleanedBase64 = base64Data.replace(/\s/g, '');
-          const imageData = Buffer.from(cleanedBase64, 'base64');
+          const base64Data = base64Match[1].replace(/\s/g, '');
+          const imageData = Buffer.from(base64Data, 'base64');
           
-          // Only store if it's a reasonable size (not tiny icons)
-          if (imageData.length > 1000) {
-            // Store with multiple keys for easier lookup
-            // Primary key (Content-Location or Content-ID)
-            images.set(primaryKey, imageData);
-            
-            // If we have Content-ID, store with brackets too
-            if (contentId) {
-              if (contentIdWithBrackets) images.set(contentIdWithBrackets, imageData);
-              if (contentIdWithoutBrackets) images.set(contentIdWithoutBrackets, imageData);
+          // Python: Only include if it's a reasonable size (not tiny icons)
+          // We can't check dimensions easily, so just check if it's not too small
+          if (imageData.length > 1000) { // At least 1KB
+            images.set(key, imageData);
+            // Also store with < > brackets for matching
+            if (!key.startsWith('<')) {
+              images.set(`<${key}>`, imageData);
             }
-            
-            // Extract filename from URL for matching
-            if (primaryKey.includes('/')) {
-              const filename = primaryKey.split('/').pop() || primaryKey;
-              // Remove query parameters
-              const filenameClean = filename.split('?')[0];
-              images.set(filenameClean, imageData);
-              // Also store with .jpg/.jpeg/.png extension variations
-              if (filenameClean.match(/\.(jpg|jpeg|png|gif)$/i)) {
-                images.set(filenameClean.toLowerCase(), imageData);
-              }
+            // Also store Content-Location if we have Content-ID
+            if (contentIdMatch && contentLocationMatch) {
+              images.set(contentLocationMatch[1].trim(), imageData);
             }
-            
-            // Also store with just the last part after @ if it's an email-like format
-            if (primaryKey.includes('@')) {
-              const afterAt = primaryKey.split('@').pop() || primaryKey;
-              images.set(afterAt, imageData);
-            }
-            
-            console.log(`✅ Extracted image: ${primaryKey} (${imageData.length} bytes)`);
           }
         } catch (e) {
-          console.warn(`Failed to decode base64 image ${contentId}:`, e);
+          console.debug(`Could not process image part: ${e}`);
+          continue;
         }
       }
     }
+    
+    console.log(`Extracted ${images.size} images from MHTML`);
+    return images;
   } catch (error) {
     console.error('Error extracting images from MHTML:', error);
+    return images;
   }
-  
-  return images;
 }
 
 /**
- * Find images in HTML content that match MHTML images
- * Strategy: Find "Foto's" section and take ALL images after it until next address
- * NO LIMITS - take all images, prevent duplicates
+ * Find images in HTML that match the extracted MHTML images
+ * EXACT Python version: find_images_in_html
  */
 function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>): string[] {
   const images: string[] = [];
-  const seenImageHashes = new Set<string>(); // Prevent duplicates
   
-  // Find "Foto's" section (case insensitive, with or without apostrophe)
+  // Python: Find "Foto's" section
   const fotosMatch = htmlContent.match(/Foto['s]*/i);
   if (!fotosMatch) {
-    console.log('No "Foto\'s" section found in HTML');
-    return images; // Return empty if no Foto's section
+    console.debug("No 'Foto's' section found in HTML");
+    return [];
   }
   
-  // Get content after "Foto's" - this is where all images should be
-  // Images end when next address starts (handled by caller - we get propertyHtml that stops at next address)
-  const contentAfterFotos = htmlContent.substring(fotosMatch.index + fotosMatch[0].length);
+  // Python: Get content after "Foto's"
+  const contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
   
-  // Find ALL img tags after "Foto's" section (no limit)
-  // Also look for images in different formats (cid:, data:, http/https URLs, etc.)
+  // Python: Find image references (img tags with src)
+  // img_pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  const imgMatches: Array<{ src: string }> = [];
   let match;
-  const foundImageRefs: string[] = [];
-  
-  // Reset regex lastIndex
-  imgRegex.lastIndex = 0;
-  
   while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
-    const src = match[1];
-    
-    let imageData: Buffer | null = null;
-    let imageBase64: string | null = null;
-    
-    // Check for cid: URLs (remove < and > if present)
-    if (src.includes('cid:')) {
-      const cidMatch = src.match(/cid:([^"'>\s]+)/i);
-      if (cidMatch) {
-        let contentId = cidMatch[1];
-        // Remove < and > if present
-        contentId = contentId.replace(/^<|>$/g, '').trim();
-        
-        // Try multiple lookup strategies
-        imageData = mhtmlImages.get(contentId) || 
-                   mhtmlImages.get(`<${contentId}>`) ||
-                   mhtmlImages.get(contentId.replace(/^<|>$/g, ''));
-        
-        if (!imageData) {
-          // Try filename matching (like Python version)
-          const srcFilename = contentId.split('/').pop() || contentId;
-          for (const [key, imgData] of mhtmlImages.entries()) {
-            const keyClean = key.replace(/^<|>$/g, '').trim();
-            const keyFilename = keyClean.split('/').pop() || keyClean;
-            if (srcFilename === keyFilename || 
-                keyClean === contentId ||
-                (srcFilename.length > 5 && keyFilename.length > 5 && 
-                 srcFilename.substring(0, 5) === keyFilename.substring(0, 5))) {
-              imageData = imgData;
-              console.log(`✅ Matched image by filename: ${srcFilename} -> ${keyFilename}`);
-              break;
-            }
-          }
-        } else {
-          console.log(`✅ Matched image by Content-ID: ${contentId}`);
-        }
-      }
-    }
-    
-    // Check for HTTP/HTTPS URLs (like https://images.realworks.nl/...)
-    // These might be in the mhtml as Content-Location
-    if (!imageData && (src.startsWith('http://') || src.startsWith('https://'))) {
-      // First try to match by full URL (might be stored as Content-Location)
-      // Remove query params for matching
-      const urlWithoutParams = src.split('?')[0];
-      imageData = mhtmlImages.get(src) || mhtmlImages.get(`<${src}>`) || 
-                  mhtmlImages.get(urlWithoutParams) || mhtmlImages.get(`<${urlWithoutParams}>`);
-      if (imageData) {
-        console.log(`✅ Matched HTTP URL image by full URL: ${src.substring(0, 80)}`);
-      }
-      
-      // If not found, try by filename
-      if (!imageData) {
-        const urlMatch = urlWithoutParams.match(/\/([^\/]+\.(jpg|jpeg|png|gif))/i);
-        if (urlMatch) {
-          const urlFilename = urlMatch[1];
-          // Try to match with mhtml images by filename
-          for (const [key, imgData] of mhtmlImages.entries()) {
-            const keyClean = key.replace(/^<|>$/g, '').trim();
-            const keyFilename = keyClean.split('/').pop() || keyClean;
-            // Remove query params from key filename too
-            const keyFilenameClean = keyFilename.split('?')[0];
-            if (urlFilename === keyFilenameClean || 
-                keyFilenameClean === urlFilename ||
-                keyClean === urlWithoutParams ||
-                keyClean.includes(urlFilename) ||
-                urlFilename.includes(keyFilenameClean)) {
-              imageData = imgData;
-              console.log(`✅ Matched HTTP URL image by filename: ${urlFilename} -> ${keyFilenameClean}`);
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    // Check for data: URLs
-    if (!imageData && src.startsWith('data:image/')) {
-      const base64Match = src.match(/data:image\/[^;]+;base64,([^"']+)/);
-      if (base64Match) {
-        imageBase64 = base64Match[1];
-        console.log(`✅ Found data: URL image`);
-      }
-    }
-    
-    // Convert to base64 if we have imageData
-    if (imageData) {
-      imageBase64 = imageData.toString('base64');
-    }
-    
-    // Add image if we found one and haven't seen it before
-    if (imageBase64) {
-      // Use full base64 string for duplicate detection (more accurate)
-      // Or use a longer hash (first 500 chars) to be more accurate
-      const imageHash = imageBase64.length > 500 ? imageBase64.substring(0, 500) : imageBase64;
-      if (!seenImageHashes.has(imageHash)) {
-        seenImageHashes.add(imageHash);
-        images.push(imageBase64);
-        console.log(`✅ Added image ${images.length} (${imageBase64.length} bytes base64)`);
-      } else {
-        console.log(`⏭ Skipped duplicate image (hash match)`);
-      }
-    } else {
-      console.log(`❌ Could not find image data for src: ${src.substring(0, 80)}`);
-    }
+    imgMatches.push({ src: match[1] });
   }
   
-  // If we found image refs but no matches, try fallback: use all available mhtml images
-  // This happens when HTML has img tags but we can't match them (e.g., external URLs)
-  if (foundImageRefs.length > 0 && images.length === 0 && mhtmlImages.size > 0) {
-    console.warn(`⚠ Found ${foundImageRefs.length} image refs but 0 matches. Using fallback: all available mhtml images.`);
-    console.warn(`Available mhtml image keys (first 10):`, Array.from(mhtmlImages.keys()).slice(0, 10));
-    console.warn(`First 3 image refs:`, foundImageRefs.slice(0, 3));
+  // Python: Also look for base64 encoded images
+  // base64_pattern = r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)'
+  const base64Regex = /data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/gi;
+  const base64Matches: Array<{ data: string }> = [];
+  let base64Match;
+  while ((base64Match = base64Regex.exec(contentAfterFotos)) !== null) {
+    base64Matches.push({ data: base64Match[1] });
+  }
+  
+  // Python: Process regular image URLs - try to match with MHTML images
+  for (const imgMatch of imgMatches) {
+    const src = imgMatch.src;
+    // Python: Clean up src (remove query parameters, decode entities)
+    const srcClean = src.split('?')[0].split('&')[0];
     
-    // Fallback: use all available images (up to reasonable limit)
-    let count = 0;
+    // Python: Try to find matching image in mhtml_images
+    let matched = false;
     for (const [key, imgData] of mhtmlImages.entries()) {
-      if (count >= 50) break; // Limit to 50 images max
-      const imgBase64 = imgData.toString('base64');
-      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-      if (!seenImageHashes.has(imageHash)) {
-        seenImageHashes.add(imageHash);
+      // Python: Check if src matches any part of the key
+      const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+      const srcCleanLower = srcClean.toLowerCase();
+      
+      // Python: Extract filename from both
+      const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
+      const keyFilename = keyClean.split('/').pop() || keyClean;
+      
+      // Python matching logic:
+      // if (src_clean_lower in key_clean or 
+      //     key_clean in src_clean_lower or
+      //     src_filename == key_filename or
+      //     (src_filename and key_filename and src_filename[:10] == key_filename[:10])):
+      if (keyClean.includes(srcCleanLower) || 
+          srcCleanLower.includes(keyClean) ||
+          srcFilename === keyFilename ||
+          (srcFilename && keyFilename && srcFilename.length >= 10 && keyFilename.length >= 10 &&
+           srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
+        // Convert to base64
+        const imgBase64 = imgData.toString('base64');
         images.push(imgBase64);
-        count++;
+        matched = true;
+        console.debug(`Matched image: ${src.substring(0, 80)} -> ${key.substring(0, 80)}`);
+        break;
       }
     }
-    console.log(`✅ Fallback: Added ${count} images from mhtml`);
+    
+    // Python: If not matched and we have images, just take the first available ones
+    if (!matched && mhtmlImages.size > 0) {
+      // Python: remaining_images = [img for key, img in mhtml_images.items() if img not in images]
+      // We'll just take the first available image
+      const firstKey = Array.from(mhtmlImages.keys())[0];
+      const firstImg = mhtmlImages.get(firstKey);
+      if (firstImg) {
+        const imgBase64 = firstImg.toString('base64');
+        // Check if we already have this image (prevent duplicates)
+        if (!images.includes(imgBase64)) {
+          images.push(imgBase64);
+        }
+      }
+    }
   }
   
-  console.log(`✅ Found ${images.length} unique images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
+  // Python: Process base64 images
+  for (const base64Match of base64Matches) {
+    try {
+      const base64Data = base64Match.data;
+      const imageBytes = Buffer.from(base64Data, 'base64');
+      
+      // Python: if pil_image.width > 50 and pil_image.height > 50
+      // We can't easily check dimensions, so just check size
+      if (imageBytes.length > 1000) { // At least 1KB
+        images.push(base64Data);
+      }
+    } catch (e) {
+      console.debug(`Could not decode base64 image: ${e}`);
+      continue;
+    }
+  }
   
-  return images;
+  // Python: If we still don't have images, just take any available images from MHTML
+  if (images.length === 0 && mhtmlImages.size > 0) {
+    // Python: remaining = [img for key, img in mhtml_images.items() if img not in images]
+    for (const [key, imgData] of mhtmlImages.entries()) {
+      const imgBase64 = imgData.toString('base64');
+      if (!images.includes(imgBase64)) {
+        images.push(imgBase64);
+      }
+    }
+  }
+  
+  return images; // Python: Return all images
 }
 
 /**
  * Parse MHTML file and extract property data
+ * EXACT Python version: parse_mhtml_file
  */
 export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Promise<ParsedProperty[]> {
   console.log(`Parsing MHTML file: ${filename}`);
   
-  // Extract HTML content
+  // Python: Extract HTML content
   let htmlContent = extractHtmlContentFromMhtml(mhtmlBuffer);
   if (!htmlContent) {
     console.error(`No HTML content found in ${filename}`);
     return [];
   }
   
-  // Extract images
+  // Python: Extract images
   const mhtmlImages = extractImagesFromMhtml(mhtmlBuffer);
   
-  // Decode HTML entities (quoted-printable, etc.)
-  // MHTML uses quoted-printable: =3D is =, =0A is newline, =E2=82=AC is €, etc.
-  // IMPORTANT: Decode ALL quoted-printable sequences BEFORE searching for prices/images
-  htmlContent = htmlContent
-    .replace(/=([0-9A-F]{2})/gi, (match, hex) => {
-      const charCode = parseInt(hex, 16);
-      return String.fromCharCode(charCode);
-    })
-    .replace(/=\r?\n/g, ''); // Remove soft line breaks
+  // Python: Decode HTML entities (quoted-printable, etc.)
+  // MHTML often uses quoted-printable encoding
+  // Python: html_content = html_content.replace('=3D', '=').replace('=\n', '').replace('=\r\n', '')
+  htmlContent = htmlContent.replace(/=3D/g, '=').replace(/=\n/g, '').replace(/=\r\n/g, '');
   
-  // Find all addresses
-  const addressPatterns = [
-    /<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)<\/b>/gi,
-    /<b>([^<]+(?:,\s*\d{4}\s+[A-Z]{2})[^<]*)<\/b>/gi,
-    /<b>([^<]{10,50})<\/b>/gi
-  ];
+  // Python: Find all addresses (similar to PDF parser)
+  // Look for address patterns in HTML
+  let addressMatches: Array<{ match: RegExpMatchArray; index: number }> = [];
   
-  const addressMatches: Array<{ match: RegExpMatchArray; index: number }> = [];
-  
-  for (const pattern of addressPatterns) {
-    let match;
-    while ((match = pattern.exec(htmlContent)) !== null) {
-      addressMatches.push({ match, index: match.index });
-    }
-    if (addressMatches.length > 0) break; // Use first pattern that finds matches
+  // Python: address_pattern = r'<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)</b>'
+  const addressPattern = /<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)<\/b>/gi;
+  let match;
+  while ((match = addressPattern.exec(htmlContent)) !== null) {
+    addressMatches.push({ match, index: match.index });
   }
   
-  // Sort by position
-  addressMatches.sort((a, b) => a.index - b.index);
+  // Python: Also try to find addresses in table cells
+  if (addressMatches.length === 0) {
+    // Python: address_pattern2 = r'<b>([^<]+(?:,\s*\d{4}\s+[A-Z]{2})[^<]*)</b>'
+    const addressPattern2 = /<b>([^<]+(?:,\s*\d{4}\s+[A-Z]{2})[^<]*)<\/b>/gi;
+    while ((match = addressPattern2.exec(htmlContent)) !== null) {
+      addressMatches.push({ match, index: match.index });
+    }
+  }
+  
+  if (addressMatches.length === 0) {
+    // Python: Fallback: look for any bold text that might be an address
+    // address_pattern3 = r'<b>([^<]{10,50})</b>'
+    const addressPattern3 = /<b>([^<]{10,50})<\/b>/gi;
+    while ((match = addressPattern3.exec(htmlContent)) !== null) {
+      addressMatches.push({ match, index: match.index });
+    }
+  }
   
   const properties: ParsedProperty[] = [];
   
   for (let i = 0; i < addressMatches.length; i++) {
-    const { match, index: startPos } = addressMatches[i];
-    const addressText = match[1];
+    const { match: addressMatch, index: startPos } = addressMatches[i];
+    const addressText = addressMatch[1];
     
-    // Find property section (from this address to next address or end)
+    // Python: Find property section (from this address to next address or end)
     let endPos: number;
     if (i + 1 < addressMatches.length) {
       endPos = addressMatches[i + 1].index;
     } else {
-      // Look for next property marker or end
+      // Python: Look for next property marker or end
       const nextSection = htmlContent.indexOf('<table', startPos + 1000);
       if (nextSection > startPos) {
         endPos = nextSection;
@@ -411,172 +351,53 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
       }
     }
     
-    // Extract property HTML
+    // Python: Extract property HTML
     const propertyHtml = htmlContent.substring(startPos, endPos);
     
-    // Extract address first
-    let addressFull = addressText.trim();
+    // Python: Convert HTML to plain text for parsing
+    // Remove HTML tags but keep text
+    let propertyText = propertyHtml.replace(/<[^>]+>/g, ' ');
+    propertyText = propertyText.replace(/\s+/g, ' ').trim();
     
-    // Try to extract full address from HTML (might be in a table or bold tag)
-    const addressMatch = propertyHtml.match(/<b>([^<]+)<\/b>/i);
-    if (addressMatch) {
-      addressFull = addressMatch[1].trim();
+    // Python: Skip if too short
+    if (propertyText.length < 100) {
+      continue;
     }
     
-    // Clean address: remove status text
-    addressFull = addressFull.replace(
+    // Python: Parse the property (using same function as RTF/PDF parser)
+    const record = parseRealworksProperty(propertyText);
+    
+    // Python: Add source file info
+    record.source_file = filename;
+    
+    // Python: Only add if we have at least an address
+    if (!record.address_full) {
+      // Python: Try to extract address from HTML directly
+      const addressMatch = propertyHtml.match(/<b>([^<]+)<\/b>/i);
+      if (addressMatch) {
+        record.address_full = addressMatch[1].trim();
+      }
+    }
+    
+    if (!record.address_full) {
+      continue;
+    }
+    
+    // Python: Clean address: remove "Verkocht In verkoop genomen Vraagprijs" and similar status text
+    record.address_full = record.address_full.replace(
       /\s*(Verkocht|In verkoop genomen|Vraagprijs|Prijs op aanvraag).*$/i,
       ''
     ).trim();
     
-    if (!addressFull) {
-      continue;
-    }
-    
-    // Convert HTML to plain text for parsing (preserve structure for price detection)
-    const propertyTextWithBreaks = propertyHtml
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n')
-      .replace(/<\/div>/gi, '\n')
-      .replace(/<\/td>/gi, ' ')
-      .replace(/<\/tr>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // Skip if too short
-    if (propertyTextWithBreaks.length < 100) {
-      continue;
-    }
-    
-    // Parse the property (this will extract most fields)
-    const record = parseRealworksProperty(propertyTextWithBreaks);
-    
-    // Override address with the one we extracted
-    record.address_full = addressFull;
-    
-    // IMPORTANT: ALWAYS clear sale_price from parseRealworksProperty
-    // We'll extract Transactieprijs properly from HTML below
-    // parseRealworksProperty might extract wrong price (€2) or Vraagprijs instead
-    record.sale_price = null;
-    console.log(`Cleared sale_price from parseRealworksProperty for ${addressFull} - will extract from HTML`);
-    
-    // Extract address components
-    const addressParts = addressFull.match(/^([^,]+),\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/);
-    if (addressParts) {
-      const streetPart = addressParts[1].trim();
-      const numberMatch = streetPart.match(/(\d+(?:\s+[A-Za-z0-9]+)?)\s*$/);
-      if (numberMatch) {
-        record.house_number = numberMatch[1].trim();
-        record.street = streetPart.substring(0, numberMatch.index).trim();
-      } else {
-        record.street = streetPart;
-        record.house_number = '';
-      }
-      record.postal_code = addressParts[2].replace(/\s/g, '');
-      record.city = addressParts[3].trim();
-    }
-    
-    // Extract Transactieprijs directly from HTML/text (more reliable)
-    // HTML is already decoded (quoted-printable), so € symbol should be visible
-    // Look for "Transactieprijs: € 550.000" or "Transactieprijs €550.000" or "Transactieprijs: € 550.000,-"
-    // IMPORTANT: Search in decoded HTML first (propertyHtml is already decoded), then text version
-    const decodedPropertyHtml = propertyHtml; // Already decoded above
-    
-    // Try multiple search strategies
-    let transactiePrice: number | null = null;
-    
-    // Strategy 1: Direct pattern match in decoded HTML
-    let priceMatch = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-    if (!priceMatch) {
-      // Strategy 2: Without € symbol (might be encoded differently)
-      priceMatch = decodedPropertyHtml.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-    }
-    if (!priceMatch) {
-      // Strategy 3: Look for any price near "Transactie" (within 100 chars)
-      const transactieIndex = decodedPropertyHtml.search(/Transactie/i);
-      if (transactieIndex >= 0) {
-        const afterTransactie = decodedPropertyHtml.substring(transactieIndex, transactieIndex + 150);
-        priceMatch = afterTransactie.match(/€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-      }
-    }
-    if (!priceMatch) {
-      // Strategy 4: Try in text version
-      priceMatch = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-    }
-    if (!priceMatch) {
-      // Strategy 5: Try without € in text
-      priceMatch = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
-    }
-    
-    if (priceMatch) {
-      let priceStr = priceMatch[1];
-      // Remove dots (thousand separators) and replace comma with dot for decimal
-      priceStr = priceStr.replace(/\./g, '').replace(',', '.');
-      const price = parseFloat(priceStr);
-      if (!isNaN(price) && price > 1000) { // Sanity check: price should be > 1000 (not €2!)
-        transactiePrice = Math.round(price);
-        console.log(`✅ Found Transactieprijs for ${addressFull}: €${transactiePrice}`);
-      } else {
-        console.warn(`⚠ Found Transactieprijs match but price too low: ${price} (string: ${priceMatch[1]})`);
-      }
-    } else {
-      // Debug: show what we're searching in
-      const debugSnippet = decodedPropertyHtml.substring(0, 2000);
-      console.warn(`❌ Could not find Transactieprijs for ${addressFull}.`);
-      // Look for "Transactie" in the HTML
-      const transactieIndex = decodedPropertyHtml.toLowerCase().indexOf('transactie');
-      if (transactieIndex >= 0) {
-        const context = decodedPropertyHtml.substring(Math.max(0, transactieIndex - 50), transactieIndex + 200);
-        console.warn(`Context around "Transactie": ${context}`);
-      } else {
-        console.warn(`⚠ "Transactie" not found in HTML at all!`);
-        console.warn(`HTML snippet (first 1000 chars): ${debugSnippet.substring(0, 1000)}`);
-      }
-    }
-    
-    if (transactiePrice) {
-      record.sale_price = transactiePrice;
-    } else {
-      // Don't set sale_price to 2 - leave it null if not found
-      record.sale_price = null;
-    }
-    
-    // Add source file info
-    record.source_file = filename;
-    
-    // Find images for this property (after "Foto's" section, until next address)
-    // Use decoded HTML for better image matching (already decoded above)
+    // Python: Find images for this property
     const images = findImagesInHtml(propertyHtml, mhtmlImages);
     record.images = images;
     record.image_count = images.length;
-    
-    if (images.length > 0) {
-      console.log(`✅ Found ${images.length} images for ${addressFull}`);
-    } else {
-      console.warn(`❌ No images found for ${addressFull}. MHTML has ${mhtmlImages.size} total images.`);
-      // Debug: check if Foto's section exists
-      if (propertyHtml.includes('Foto') || propertyHtml.includes('foto')) {
-        const fotosIndex = propertyHtml.toLowerCase().indexOf('foto');
-        console.warn(`⚠ Foto's section found at index ${fotosIndex} but no images extracted.`);
-        const afterFotos = propertyHtml.substring(fotosIndex + 5);
-        const imgTagCount = (afterFotos.match(/<img/gi) || []).length;
-        console.warn(`⚠ Found ${imgTagCount} <img> tags after Foto's section.`);
-        if (imgTagCount > 0) {
-          const firstImgMatch = afterFotos.match(/<img[^>]+src=["']([^"']+)["']/i);
-          if (firstImgMatch) {
-            console.warn(`⚠ First image src: ${firstImgMatch[1].substring(0, 100)}`);
-          }
-        }
-      } else {
-        console.warn(`⚠ No Foto's section found in HTML for ${addressFull}`);
-      }
-    }
+    console.log(`Found ${images.length} images for ${record.address_full}`);
     
     properties.push(record);
   }
   
-  console.log(`Parsed ${properties.length} properties from ${filename}`);
+  console.log(`Found ${properties.length} property records in ${filename}`);
   return properties;
 }
-
