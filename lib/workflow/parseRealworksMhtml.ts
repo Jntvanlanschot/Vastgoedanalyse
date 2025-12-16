@@ -125,9 +125,11 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
 /**
  * Find images in HTML content that match MHTML images
  * Strategy: Find "Foto's" section and take ALL images after it until next address
+ * NO LIMITS - take all images, prevent duplicates
  */
 function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>): string[] {
   const images: string[] = [];
+  const seenImageHashes = new Set<string>(); // Prevent duplicates
   
   // Find "Foto's" section (case insensitive, with or without apostrophe)
   const fotosMatch = htmlContent.match(/Foto['s]*/i);
@@ -140,7 +142,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   // Images end when next address starts (handled by caller - we get propertyHtml that stops at next address)
   const contentAfterFotos = htmlContent.substring(fotosMatch.index + fotosMatch[0].length);
   
-  // Find ALL img tags after "Foto's" section
+  // Find ALL img tags after "Foto's" section (no limit)
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let match;
   const foundImageRefs: string[] = [];
@@ -148,6 +150,9 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
     const src = match[1];
     foundImageRefs.push(src);
+    
+    let imageData: Buffer | null = null;
+    let imageBase64: string | null = null;
     
     // Check for cid: URLs (remove < and > if present)
     if (src.includes('cid:')) {
@@ -158,52 +163,51 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         contentId = contentId.replace(/^<|>$/g, '');
         
         // Try multiple lookup strategies
-        let imageData = mhtmlImages.get(contentId) || 
-                       mhtmlImages.get(`<${contentId}>`) ||
-                       mhtmlImages.get(contentId.replace(/^<|>$/g, ''));
+        imageData = mhtmlImages.get(contentId) || 
+                   mhtmlImages.get(`<${contentId}>`) ||
+                   mhtmlImages.get(contentId.replace(/^<|>$/g, ''));
         
-        if (imageData) {
-          images.push(imageData.toString('base64'));
-          continue;
-        }
-        
-        // Try filename matching (like Python version)
-        const srcFilename = contentId.split('/').pop() || contentId;
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          const keyFilename = key.replace(/^<|>$/g, '').split('/').pop() || key;
-          if (srcFilename === keyFilename || 
-              (srcFilename.length > 10 && keyFilename.length > 10 && 
-               srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
-            images.push(imgData.toString('base64'));
-            break;
+        if (!imageData) {
+          // Try filename matching (like Python version)
+          const srcFilename = contentId.split('/').pop() || contentId;
+          for (const [key, imgData] of mhtmlImages.entries()) {
+            const keyFilename = key.replace(/^<|>$/g, '').split('/').pop() || key;
+            if (srcFilename === keyFilename || 
+                (srcFilename.length > 10 && keyFilename.length > 10 && 
+                 srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
+              imageData = imgData;
+              break;
+            }
           }
         }
       }
     }
     
     // Check for data: URLs
-    if (src.startsWith('data:image/')) {
+    if (!imageData && src.startsWith('data:image/')) {
       const base64Match = src.match(/data:image\/[^;]+;base64,([^"']+)/);
       if (base64Match) {
-        images.push(base64Match[1]);
+        imageBase64 = base64Match[1];
+      }
+    }
+    
+    // Convert to base64 if we have imageData
+    if (imageData) {
+      imageBase64 = imageData.toString('base64');
+    }
+    
+    // Add image if we found one and haven't seen it before
+    if (imageBase64) {
+      // Create a hash of first 100 chars to detect duplicates
+      const imageHash = imageBase64.substring(0, 100);
+      if (!seenImageHashes.has(imageHash)) {
+        seenImageHashes.add(imageHash);
+        images.push(imageBase64);
       }
     }
   }
   
-  // If we found image refs but no matches, try to use all available mhtml images
-  // (fallback: maybe the HTML refs don't match but images are in the section)
-  if (foundImageRefs.length > 0 && images.length === 0 && mhtmlImages.size > 0) {
-    console.log(`Found ${foundImageRefs.length} image refs but no matches - trying all available images`);
-    // Take available images (up to reasonable limit)
-    let count = 0;
-    for (const [key, imgData] of mhtmlImages.entries()) {
-      if (count >= 20) break; // Limit to 20 images per property
-      images.push(imgData.toString('base64'));
-      count++;
-    }
-  }
-  
-  console.log(`Found ${images.length} images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
+  console.log(`Found ${images.length} unique images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
   
   return images;
 }
@@ -328,15 +332,34 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     }
     
     // Extract Transactieprijs directly from HTML/text (more reliable)
-    // Look for "Transactieprijs: € 550.000" or "Transactieprijs €550.000"
-    const transactieMatch = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*€?\s*([\d\.\,]+)/i);
-    if (transactieMatch) {
-      const priceStr = transactieMatch[1].replace(/\./g, '').replace(',', '.');
-      const price = parseFloat(priceStr);
-      if (!isNaN(price)) {
-        record.sale_price = Math.round(price);
-        console.log(`Found Transactieprijs for ${addressFull}: €${record.sale_price}`);
+    // Look for "Transactieprijs: € 550.000" or "Transactieprijs €550.000" or "Transactieprijs: € 550.000,-"
+    // Try multiple patterns to catch different formats
+    const transactiePatterns = [
+      /Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i,  // € 550.000 or € 550.000,50
+      /Transactie\s*prijs\s*:?\s*€\s*([\d,]+)/i,  // € 550000,50
+      /Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i,  // 550.000 or 550.000,50
+    ];
+    
+    let transactiePrice: number | null = null;
+    for (const pattern of transactiePatterns) {
+      const match = propertyTextWithBreaks.match(pattern);
+      if (match) {
+        let priceStr = match[1];
+        // Remove dots (thousand separators) and replace comma with dot for decimal
+        priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+        const price = parseFloat(priceStr);
+        if (!isNaN(price) && price > 100) { // Sanity check: price should be > 100
+          transactiePrice = Math.round(price);
+          break;
+        }
       }
+    }
+    
+    if (transactiePrice) {
+      record.sale_price = transactiePrice;
+      console.log(`Found Transactieprijs for ${addressFull}: €${record.sale_price}`);
+    } else {
+      console.warn(`Could not find Transactieprijs for ${addressFull}. Text snippet: ${propertyTextWithBreaks.substring(0, 500)}`);
     }
     
     // Add source file info

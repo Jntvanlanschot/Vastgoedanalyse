@@ -379,16 +379,10 @@ export async function runWorkflow(
         htmlReport = generateHtmlReport(top15Result.top15, referenceData);
         console.log(`HTML report generated successfully: ${htmlReport.length} bytes`);
         
-        // PDF generation: use simple pdf-lib version (works everywhere, no fontkit)
-        // Always generate PDF with pdf-lib (no env var needed, no fontkit dependency)
-        try {
-          console.log(`Generating PDF report (pdf-lib) for ${top15Result.top15.length} properties...`);
-          pdfBuffer = await generatePdfReportSimple(top15Result.top15, referenceData);
-          console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
-        } catch (pdfError) {
-          console.warn('[workflow] ⚠ PDF generation failed (non-critical):', pdfError instanceof Error ? pdfError.message : String(pdfError));
-          pdfBuffer = null;
-        }
+               // PDF generation: DISABLED per user request
+               // User requested no PDF generation
+               pdfBuffer = null;
+               console.log('PDF generation skipped (disabled per user request)');
         
         // Always generate Excel report (no fontkit dependency)
         console.log(`Generating Excel report for ${top15Result.top15.length} properties...`);
