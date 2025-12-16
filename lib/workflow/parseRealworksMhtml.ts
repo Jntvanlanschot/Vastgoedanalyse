@@ -427,6 +427,26 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
       ''
     ).trim();
     
+    // Extract aanbiedingstekst (description text)
+    // Look for "Aanbiedingstekst" section in the property HTML
+    const aanbiedingstekstMatch = propertyHtml.match(/Aanbiedingstekst[\s\S]*?<td[^>]*>([\s\S]*?)(?=<\/td>|$)/i);
+    if (aanbiedingstekstMatch) {
+      let aanbiedingstekst = aanbiedingstekstMatch[1];
+      // Remove HTML tags but preserve line breaks
+      aanbiedingstekst = aanbiedingstekst
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .trim();
+      record.notes = aanbiedingstekst;
+    }
+    
     // Python: Find images for this property
     const images = findImagesInHtml(propertyHtml, mhtmlImages);
     record.images = images;

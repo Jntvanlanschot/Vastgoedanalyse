@@ -278,9 +278,10 @@ export function generateHtmlReport(
           ${estimatedValue ? `<p><strong>Geschatte waarde referentie woning:</strong> ${formatCurrency(estimatedValue)}</p>` : ''}
         </div>
 
-        ${imagesHtml}
-      </div>
-    `;
+              ${aanbiedingstekstHtml}
+              ${imagesHtml}
+            </div>
+          `;
   }).join('');
 
   const html = `<!DOCTYPE html>

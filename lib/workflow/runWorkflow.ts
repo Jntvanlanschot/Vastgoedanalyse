@@ -247,6 +247,7 @@ function processRealworksForTop15(
         rw_has_garden: prop.has_garden || false,
         rw_has_balcony: prop.has_balcony || false,
         rw_has_terrace: prop.has_terrace || false,
+        rw_balcony_terrace_type: prop.balcony_terrace_type || null,
         rw_year_built: prop.year_built || null,
         rw_sale_date: prop.sale_date || null,
         street: prop.street || '',

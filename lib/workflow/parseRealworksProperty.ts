@@ -34,6 +34,7 @@ export interface ParsedProperty {
   garden_area_m2: number | null;
   has_balcony: boolean;
   has_terrace: boolean;
+  balcony_terrace_type: string | null;
   outdoor_text: string | null;
   heating: string | null;
   hot_water: string | null;
@@ -171,6 +172,7 @@ export function parseRealworksProperty(text: string): ParsedProperty {
     garden_area_m2: null,
     has_balcony: false,
     has_terrace: false,
+    balcony_terrace_type: null,
     outdoor_text: null,
     heating: null,
     hot_water: null,
@@ -319,14 +321,34 @@ export function parseRealworksProperty(text: string): ParsedProperty {
     record.garden_area_m2 = parseInt(gardenAreaMatch[1], 10);
   }
   
-  // Balcony
-  if (/balkon/i.test(text)) {
-    record.has_balcony = true;
-  }
-  
-  // Terrace
-  if (/terras/i.test(text)) {
-    record.has_terrace = true;
+  // Balkon/dakterras - extract the value after "Balkon/dakterras:"
+  // Pattern: "Balkon/dakterras: Balkon aanwezig" or "Balkon/dakterras: Geen balkon"
+  const balconyTerraceMatch = text.match(/Balkon\/dakterras:\s*([^\r\n<]+)/i);
+  if (balconyTerraceMatch) {
+    const balconyTerraceType = balconyTerraceMatch[1].trim();
+    record.balcony_terrace_type = balconyTerraceType;
+    // Set has_balcony/has_terrace based on the value
+    if (balconyTerraceType.toLowerCase().includes('geen')) {
+      record.has_balcony = false;
+      record.has_terrace = false;
+    } else {
+      // If it says "Balkon aanwezig" or similar, set has_balcony
+      if (balconyTerraceType.toLowerCase().includes('balkon')) {
+        record.has_balcony = true;
+      }
+      // If it says "dakterras" or "terras", set has_terrace
+      if (balconyTerraceType.toLowerCase().includes('terras') || balconyTerraceType.toLowerCase().includes('dakterras')) {
+        record.has_terrace = true;
+      }
+    }
+  } else {
+    // Fallback: old logic for backwards compatibility
+    if (/balkon/i.test(text)) {
+      record.has_balcony = true;
+    }
+    if (/terras/i.test(text)) {
+      record.has_terrace = true;
+    }
   }
   
   // Lift
