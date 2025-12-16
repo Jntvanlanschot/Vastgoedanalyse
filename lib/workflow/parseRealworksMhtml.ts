@@ -521,12 +521,31 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     record.source_file = filename;
     
     // Find images for this property (after "Foto's" section, until next address)
+    // Use decoded HTML for better image matching (already decoded above)
     const images = findImagesInHtml(propertyHtml, mhtmlImages);
     record.images = images;
     record.image_count = images.length;
     
     if (images.length > 0) {
-      console.log(`Found ${images.length} images for ${addressFull}`);
+      console.log(`✅ Found ${images.length} images for ${addressFull}`);
+    } else {
+      console.warn(`❌ No images found for ${addressFull}. MHTML has ${mhtmlImages.size} total images.`);
+      // Debug: check if Foto's section exists
+      if (propertyHtml.includes('Foto') || propertyHtml.includes('foto')) {
+        const fotosIndex = propertyHtml.toLowerCase().indexOf('foto');
+        console.warn(`⚠ Foto's section found at index ${fotosIndex} but no images extracted.`);
+        const afterFotos = propertyHtml.substring(fotosIndex + 5);
+        const imgTagCount = (afterFotos.match(/<img/gi) || []).length;
+        console.warn(`⚠ Found ${imgTagCount} <img> tags after Foto's section.`);
+        if (imgTagCount > 0) {
+          const firstImgMatch = afterFotos.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (firstImgMatch) {
+            console.warn(`⚠ First image src: ${firstImgMatch[1].substring(0, 100)}`);
+          }
+        }
+      } else {
+        console.warn(`⚠ No Foto's section found in HTML for ${addressFull}`);
+      }
     }
     
     properties.push(record);
