@@ -251,6 +251,28 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   console.log(`Found ${imgMatches.length} img tags and ${base64Matches.length} base64 images after "Foto's"`);
   
+  // Track which MHTML images we've already used
+  const usedMhtmlImages = new Set<string>();
+  
+  // Helper to get next unused MHTML image (not a logo/icon)
+  const getNextUnusedMhtmlImage = (): { key: string; data: Buffer } | null => {
+    for (const [key, imgData] of mhtmlImages.entries()) {
+      // Skip logos/icons
+      if (shouldExcludeImage('', key, imgData)) {
+        continue;
+      }
+      
+      // Check if we've already used this image
+      const imgBase64 = imgData.toString('base64');
+      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+      if (!seenImageHashes.has(imageHash) && !usedMhtmlImages.has(key)) {
+        usedMhtmlImages.add(key);
+        return { key, data: imgData };
+      }
+    }
+    return null;
+  };
+  
   // Python: Process regular image URLs - try to match with MHTML images - EXACT match
   for (const imgMatch of imgMatches) {
     const src = imgMatch.src;
@@ -269,12 +291,14 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     let matched = false;
     let matchedImageData: Buffer | null = null;
+    let matchedKey: string | null = null;
     
     // Strategy 1: Direct match (exact URL match)
     if (mhtmlImages.has(src)) {
       const imgData = mhtmlImages.get(src)!;
       if (!shouldExcludeImage(src, src, imgData)) {
         matchedImageData = imgData;
+        matchedKey = src;
         matched = true;
         console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
       }
@@ -287,6 +311,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         const imgData = mhtmlImages.get(srcWithoutParams)!;
         if (!shouldExcludeImage(src, srcWithoutParams, imgData)) {
           matchedImageData = imgData;
+          matchedKey = srcWithoutParams;
           matched = true;
           console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
         }
@@ -300,6 +325,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         const imgData = mhtmlImages.get(srcFilename)!;
         if (!shouldExcludeImage(src, srcFilename, imgData)) {
           matchedImageData = imgData;
+          matchedKey = srcFilename;
           matched = true;
           console.log(`✅ Direct match (filename): ${srcFilename}`);
         }
@@ -318,6 +344,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
           continue;
         }
         
+        // Skip if already used
+        if (usedMhtmlImages.has(key)) {
+          continue;
+        }
+        
         const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
         const keyFilename = keyClean.split('/').pop() || keyClean;
         
@@ -328,6 +359,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
             (srcFilename && keyFilename && srcFilename.length >= 10 && keyFilename.length >= 10 &&
              srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
           matchedImageData = imgData;
+          matchedKey = key;
           matched = true;
           console.log(`✅ Partial match: ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
           break;
@@ -336,34 +368,28 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
     
     // Add matched image
-    if (matched && matchedImageData) {
+    if (matched && matchedImageData && matchedKey) {
       const imgBase64 = matchedImageData.toString('base64');
       const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
       if (!seenImageHashes.has(imageHash)) {
         seenImageHashes.add(imageHash);
+        usedMhtmlImages.add(matchedKey);
         images.push(imgBase64);
-        console.log(`✅ Added image ${images.length}`);
+        console.log(`✅ Added matched image ${images.length}`);
       }
     }
     
     // Python: If not matched and we have images, just take the first available ones - EXACT match
-    // BUT: Skip logos/icons
+    // BUT: Skip logos/icons - CRITICAL: Do this for EVERY img tag, not just once
     if (!matched && mhtmlImages.size > 0) {
-      // Python: remaining_images = [img for key, img in mhtml_images.items() if img not in images]
-      // Find first unused image that we haven't added yet (and is not a logo/icon)
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Skip logos/icons
-        if (shouldExcludeImage('', key, imgData)) {
-          continue;
-        }
-        
-        const imgBase64 = imgData.toString('base64');
+      const nextUnused = getNextUnusedMhtmlImage();
+      if (nextUnused) {
+        const imgBase64 = nextUnused.data.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
         if (!seenImageHashes.has(imageHash)) {
           seenImageHashes.add(imageHash);
           images.push(imgBase64);
-          console.log(`✅ Added unmatched image ${images.length} from MHTML: ${key.substring(0, 60)}`);
-          break;
+          console.log(`✅ Added unmatched image ${images.length} from MHTML: ${nextUnused.key.substring(0, 60)}`);
         }
       }
     }
