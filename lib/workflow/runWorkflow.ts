@@ -381,7 +381,8 @@ export async function runWorkflow(
       try {
         // Always generate HTML report (works everywhere, no dependencies)
         console.log(`Generating HTML report for ${top15Result.top15.length} properties...`);
-        htmlReport = generateHtmlReport(top15Result.top15, referenceData);
+        // Note: pdfUrl will be added later when HTML is uploaded to blob (if PDF exists)
+        htmlReport = generateHtmlReport(top15Result.top15, referenceData, null);
         console.log(`HTML report generated successfully: ${htmlReport.length} bytes`);
         
                // PDF generation: DISABLED per user request

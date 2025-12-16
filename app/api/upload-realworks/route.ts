@@ -230,7 +230,20 @@ async function handleWithBlobs(
     if (result.artifacts?.html_report) {
       try {
         console.log('Uploading HTML report to Vercel Blob...');
-        const htmlBuffer = Buffer.from(result.artifacts.html_report, 'utf-8');
+        let htmlContent = result.artifacts.html_report;
+        
+        // Inject PDF URL into HTML if available (before uploading)
+        const pdfUrl = result.artifacts?.pdf_report || result.summary?.pdf_file;
+        if (pdfUrl && htmlContent.includes('const embeddedPdfUrl =')) {
+          // Replace the embedded PDF URL in the HTML
+          htmlContent = htmlContent.replace(
+            /const embeddedPdfUrl = [^;]+;/,
+            `const embeddedPdfUrl = "${pdfUrl.replace(/"/g, '\\"')}";`
+          );
+          console.log('Injected PDF URL into HTML report:', pdfUrl);
+        }
+        
+        const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
         console.log(`HTML report size: ${htmlBuffer.length} bytes`);
         const htmlFilename = `Rapport_${Date.now()}.html`;
         const htmlBlob = await put(htmlFilename, htmlBuffer, {
@@ -402,7 +415,20 @@ async function handleWithFiles(
     if (result.artifacts?.html_report) {
       try {
         console.log('Uploading HTML report to Vercel Blob...');
-        const htmlBuffer = Buffer.from(result.artifacts.html_report, 'utf-8');
+        let htmlContent = result.artifacts.html_report;
+        
+        // Inject PDF URL into HTML if available (before uploading)
+        const pdfUrl = result.artifacts?.pdf_report || result.summary?.pdf_file;
+        if (pdfUrl && htmlContent.includes('const embeddedPdfUrl =')) {
+          // Replace the embedded PDF URL in the HTML
+          htmlContent = htmlContent.replace(
+            /const embeddedPdfUrl = [^;]+;/,
+            `const embeddedPdfUrl = "${pdfUrl.replace(/"/g, '\\"')}";`
+          );
+          console.log('Injected PDF URL into HTML report:', pdfUrl);
+        }
+        
+        const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
         console.log(`HTML report size: ${htmlBuffer.length} bytes`);
         const htmlFilename = `Rapport_${Date.now()}.html`;
         const htmlBlob = await put(htmlFilename, htmlBuffer, {

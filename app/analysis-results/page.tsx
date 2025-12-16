@@ -57,15 +57,12 @@ interface AnalysisResult {
 // Helper function to open HTML report (handles both URL and HTML string)
 function openHtmlReport(htmlPath: string) {
   if (htmlPath.startsWith('http')) {
-    // It's a URL, open directly
+    // It's a URL, open directly in new tab (not download)
     window.open(htmlPath, '_blank');
   } else {
-    // It's an HTML string, create blob URL and open
-    const blob = new Blob([htmlPath], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    // Clean up the blob URL after a delay (browser will keep it while tab is open)
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    // It's an HTML string, create data URL and open (not blob to avoid download)
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(htmlPath);
+    window.open(dataUrl, '_blank');
   }
 }
 

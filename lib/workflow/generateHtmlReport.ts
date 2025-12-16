@@ -61,7 +61,8 @@ function formatMaintenance(value: number | string | null | undefined): string {
 
 export function generateHtmlReport(
   top15: CandidateProperty[],
-  referenceData: ReferenceData
+  referenceData: ReferenceData,
+  pdfUrl?: string | null
 ): string {
   const referenceAddress = extractStreetAndNumber(referenceData.address_full);
   const referencePrice = referenceData.price || 0;
@@ -531,33 +532,48 @@ export function generateHtmlReport(
     Download als PDF
   </button>
   <script>
-    // Get PDF URL from sessionStorage (set by analysis results page)
-    function downloadPdf() {
+    // PDF URL embedded directly in HTML (set during generation)
+    const embeddedPdfUrl = ${pdfUrl ? `"${pdfUrl.replace(/"/g, '\\"')}"` : 'null'};
+    
+    // Get PDF URL from sessionStorage (set by analysis results page) as fallback
+    function getPdfUrl() {
+      // First try embedded URL
+      if (embeddedPdfUrl) {
+        return embeddedPdfUrl;
+      }
+      
+      // Then check sessionStorage for pdfReportUrl
+      const pdfUrl = sessionStorage.getItem('pdfReportUrl');
+      if (pdfUrl) {
+        return pdfUrl;
+      }
+      
+      // Finally check analysisResult in sessionStorage
       try {
-        // First check sessionStorage for pdfReportUrl (set by analysis results page)
-        const pdfUrl = sessionStorage.getItem('pdfReportUrl');
-        if (pdfUrl) {
-          window.open(pdfUrl, '_blank');
-          return;
-        }
-        
-        // Fallback: check analysisResult in sessionStorage
         const analysisStr = sessionStorage.getItem('analysisResult');
         if (analysisStr) {
           const analysis = JSON.parse(analysisStr);
-          const pdfPath = analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file;
-          if (pdfPath) {
-            if (pdfPath.startsWith('http')) {
-              window.open(pdfPath, '_blank');
-            } else {
-              const filename = pdfPath.split(/[/\\\\]/).pop() || 'top15_perfect_report_final.pdf';
-              window.open('/api/download-artifact?file=' + encodeURIComponent(filename), '_blank');
-            }
+          return analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file || null;
+        }
+      } catch (e) {
+        console.error('Error parsing analysisResult:', e);
+      }
+      
+      return null;
+    }
+    
+    function downloadPdf() {
+      try {
+        const pdfPath = getPdfUrl();
+        if (pdfPath) {
+          if (pdfPath.startsWith('http')) {
+            window.open(pdfPath, '_blank');
           } else {
-            alert('PDF rapport is niet beschikbaar.');
+            const filename = pdfPath.split(/[/\\\\]/).pop() || 'top15_perfect_report_final.pdf';
+            window.open('/api/download-artifact?file=' + encodeURIComponent(filename), '_blank');
           }
         } else {
-          alert('Geen analyse resultaten gevonden.');
+          alert('PDF rapport is niet beschikbaar.');
         }
       } catch (e) {
         console.error('Error downloading PDF:', e);
@@ -568,21 +584,9 @@ export function generateHtmlReport(
     // Show button if PDF is available
     window.addEventListener('DOMContentLoaded', function() {
       try {
-        // First check sessionStorage for pdfReportUrl (set by analysis results page)
-        const pdfUrl = sessionStorage.getItem('pdfReportUrl');
-        if (pdfUrl) {
+        const pdfPath = getPdfUrl();
+        if (pdfPath) {
           document.getElementById('downloadPdfBtn').style.display = 'block';
-          return;
-        }
-        
-        // Fallback: check analysisResult in sessionStorage
-        const analysisStr = sessionStorage.getItem('analysisResult');
-        if (analysisStr) {
-          const analysis = JSON.parse(analysisStr);
-          const pdfPath = analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file;
-          if (pdfPath) {
-            document.getElementById('downloadPdfBtn').style.display = 'block';
-          }
         }
       } catch (e) {
         console.error('Error checking for PDF:', e);
