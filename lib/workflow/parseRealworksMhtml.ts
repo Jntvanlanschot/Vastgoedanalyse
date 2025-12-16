@@ -273,9 +273,30 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     return null;
   };
   
+  // Helper to normalize URL (decode HTML entities and quoted-printable)
+  const normalizeUrl = (url: string): string => {
+    // Decode HTML entities: &amp; -> &, &lt; -> <, &gt; -> >
+    let normalized = url
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+    
+    // Decode quoted-printable: =3D -> =, =E2=82=AC -> €, etc.
+    normalized = normalized.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+    
+    return normalized;
+  };
+  
   // Python: Process regular image URLs - try to match with MHTML images - EXACT match
   for (const imgMatch of imgMatches) {
-    const src = imgMatch.src;
+    let src = imgMatch.src;
+    
+    // Normalize the URL (decode HTML entities and quoted-printable)
+    src = normalizeUrl(src);
     
     // Skip logos, icons, and other non-property images
     if (shouldExcludeImage(src, src)) {
@@ -286,14 +307,14 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     // Try multiple matching strategies:
     // 1. Direct match with full URL (with or without query params)
     // 2. Match with URL without query params
-    // 3. Match with filename
+    // 3. Match by filename
     // 4. Python-style partial matching
     
     let matched = false;
     let matchedImageData: Buffer | null = null;
     let matchedKey: string | null = null;
     
-    // Strategy 1: Direct match (exact URL match)
+    // Strategy 1: Direct match (exact URL match) - try normalized and original
     if (mhtmlImages.has(src)) {
       const imgData = mhtmlImages.get(src)!;
       if (!shouldExcludeImage(src, src, imgData)) {
@@ -318,16 +339,19 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Strategy 3: Match by filename
+    // Strategy 3: Match by filename (most reliable)
     if (!matched) {
       const srcFilename = src.split('/').pop()?.split('?')[0] || '';
-      if (srcFilename && mhtmlImages.has(srcFilename)) {
-        const imgData = mhtmlImages.get(srcFilename)!;
-        if (!shouldExcludeImage(src, srcFilename, imgData)) {
-          matchedImageData = imgData;
-          matchedKey = srcFilename;
-          matched = true;
-          console.log(`✅ Direct match (filename): ${srcFilename}`);
+      if (srcFilename) {
+        // Try exact filename match
+        if (mhtmlImages.has(srcFilename)) {
+          const imgData = mhtmlImages.get(srcFilename)!;
+          if (!shouldExcludeImage(src, srcFilename, imgData)) {
+            matchedImageData = imgData;
+            matchedKey = srcFilename;
+            matched = true;
+            console.log(`✅ Direct match (filename): ${srcFilename}`);
+          }
         }
       }
     }
