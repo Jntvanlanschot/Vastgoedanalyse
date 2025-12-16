@@ -369,6 +369,13 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     // Override address with the one we extracted
     record.address_full = addressFull;
     
+    // IMPORTANT: Clear sale_price from parseRealworksProperty if it's wrong (€2)
+    // We'll extract it properly below
+    if (record.sale_price && record.sale_price < 1000) {
+      console.warn(`Clearing invalid sale_price ${record.sale_price} for ${addressFull} - will re-extract`);
+      record.sale_price = null;
+    }
+    
     // Extract address components
     const addressParts = addressFull.match(/^([^,]+),\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/);
     if (addressParts) {
