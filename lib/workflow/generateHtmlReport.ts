@@ -524,74 +524,22 @@ export function generateHtmlReport(
       .container { box-shadow: none; padding: 20px; }
       .property-page { page-break-after: always; }
       .download-pdf-button { display: none; }
+      @page {
+        margin: 1cm;
+        size: A4;
+      }
     }
   </style>
 </head>
 <body>
-  <button id="downloadPdfBtn" class="download-pdf-button" style="display: none;" onclick="downloadPdf()">
-    Download als PDF
+  <button id="downloadPdfBtn" class="download-pdf-button" onclick="printAsPdf()">
+    Opslaan als PDF
   </button>
   <script>
-    // PDF URL embedded directly in HTML (set during generation)
-    const embeddedPdfUrl = ${pdfUrl ? `"${pdfUrl.replace(/"/g, '\\"')}"` : 'null'};
-    
-    // Get PDF URL from sessionStorage (set by analysis results page) as fallback
-    function getPdfUrl() {
-      // First try embedded URL
-      if (embeddedPdfUrl) {
-        return embeddedPdfUrl;
-      }
-      
-      // Then check sessionStorage for pdfReportUrl
-      const pdfUrl = sessionStorage.getItem('pdfReportUrl');
-      if (pdfUrl) {
-        return pdfUrl;
-      }
-      
-      // Finally check analysisResult in sessionStorage
-      try {
-        const analysisStr = sessionStorage.getItem('analysisResult');
-        if (analysisStr) {
-          const analysis = JSON.parse(analysisStr);
-          return analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file || null;
-        }
-      } catch (e) {
-        console.error('Error parsing analysisResult:', e);
-      }
-      
-      return null;
+    function printAsPdf() {
+      // Use browser's print functionality to save as PDF
+      window.print();
     }
-    
-    function downloadPdf() {
-      try {
-        const pdfPath = getPdfUrl();
-        if (pdfPath) {
-          if (pdfPath.startsWith('http')) {
-            window.open(pdfPath, '_blank');
-          } else {
-            const filename = pdfPath.split(/[/\\\\]/).pop() || 'top15_perfect_report_final.pdf';
-            window.open('/api/download-artifact?file=' + encodeURIComponent(filename), '_blank');
-          }
-        } else {
-          alert('PDF rapport is niet beschikbaar.');
-        }
-      } catch (e) {
-        console.error('Error downloading PDF:', e);
-        alert('Fout bij downloaden van PDF.');
-      }
-    }
-    
-    // Show button if PDF is available
-    window.addEventListener('DOMContentLoaded', function() {
-      try {
-        const pdfPath = getPdfUrl();
-        if (pdfPath) {
-          document.getElementById('downloadPdfBtn').style.display = 'block';
-        }
-      } catch (e) {
-        console.error('Error checking for PDF:', e);
-      }
-    });
   </script>
   <div class="container">
     <h1>MEEST VERGELIJKBARE PANDEN</h1>

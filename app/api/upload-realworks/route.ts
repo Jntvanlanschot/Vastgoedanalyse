@@ -245,7 +245,14 @@ async function handleWithBlobs(
         
         const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
         console.log(`HTML report size: ${htmlBuffer.length} bytes`);
-        const htmlFilename = `Rapport_${Date.now()}.html`;
+        // Create filename from reference address
+        const addressSlug = referenceData.address_full
+          ? referenceData.address_full
+              .replace(/[^a-zA-Z0-9\s]/g, '')
+              .replace(/\s+/g, '_')
+              .substring(0, 50)
+          : 'Rapport';
+        const htmlFilename = `${addressSlug}_${Date.now()}.html`;
         const htmlBlob = await put(htmlFilename, htmlBuffer, {
           access: 'public',
           contentType: 'text/html',
@@ -430,7 +437,14 @@ async function handleWithFiles(
         
         const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
         console.log(`HTML report size: ${htmlBuffer.length} bytes`);
-        const htmlFilename = `Rapport_${Date.now()}.html`;
+        // Create filename from reference address
+        const addressSlug = referenceData.address_full
+          ? referenceData.address_full
+              .replace(/[^a-zA-Z0-9\s]/g, '')
+              .replace(/\s+/g, '_')
+              .substring(0, 50)
+          : 'Rapport';
+        const htmlFilename = `${addressSlug}_${Date.now()}.html`;
         const htmlBlob = await put(htmlFilename, htmlBuffer, {
           access: 'public',
           contentType: 'text/html',
