@@ -333,32 +333,30 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
     
     // Strategy 2: Match without query params
+    // NO FILTERS for uitwisseling.objectmedia images
     if (!matched) {
       const srcWithoutParams = src.split('?')[0];
       if (mhtmlImages.has(srcWithoutParams)) {
         const imgData = mhtmlImages.get(srcWithoutParams)!;
-        if (!shouldExcludeImage(src, srcWithoutParams, imgData)) {
-          matchedImageData = imgData;
-          matchedKey = srcWithoutParams;
-          matched = true;
-          console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
-        }
+        matchedImageData = imgData;
+        matchedKey = srcWithoutParams;
+        matched = true;
+        console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
       }
     }
     
     // Strategy 3: Match by filename (most reliable)
+    // NO FILTERS for uitwisseling.objectmedia images
     if (!matched) {
       const srcFilename = src.split('/').pop()?.split('?')[0] || '';
       if (srcFilename) {
         // Try exact filename match
         if (mhtmlImages.has(srcFilename)) {
           const imgData = mhtmlImages.get(srcFilename)!;
-          if (!shouldExcludeImage(src, srcFilename, imgData)) {
-            matchedImageData = imgData;
-            matchedKey = srcFilename;
-            matched = true;
-            console.log(`✅ Direct match (filename): ${srcFilename}`);
-          }
+          matchedImageData = imgData;
+          matchedKey = srcFilename;
+          matched = true;
+          console.log(`✅ Direct match (filename): ${srcFilename}`);
         }
       }
     }
@@ -370,13 +368,9 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
       
       // First try: match by filename (most reliable)
+      // NO FILTERS for uitwisseling.objectmedia images
       if (srcFilename) {
         for (const [key, imgData] of mhtmlImages.entries()) {
-          // Skip if this image should be excluded
-          if (shouldExcludeImage(src, key, imgData)) {
-            continue;
-          }
-          
           // Skip if already used
           if (usedMhtmlImages.has(key)) {
             continue;
@@ -399,13 +393,9 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
       
       // Second try: match by URL substring
+      // NO FILTERS for uitwisseling.objectmedia images
       if (!matched) {
         for (const [key, imgData] of mhtmlImages.entries()) {
-          // Skip if this image should be excluded
-          if (shouldExcludeImage(src, key, imgData)) {
-            continue;
-          }
-          
           // Skip if already used
           if (usedMhtmlImages.has(key)) {
             continue;
