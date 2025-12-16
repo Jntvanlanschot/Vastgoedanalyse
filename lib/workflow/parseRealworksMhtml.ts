@@ -208,18 +208,37 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     const propertyHtml = htmlContent.substring(startPos, endPos);
     
     // Convert HTML to plain text for parsing
-    const propertyText = propertyHtml
+    // Keep some structure for better parsing (especially for prices)
+    let propertyText = propertyHtml
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     
+    // Also try to extract text from HTML more carefully (preserve line breaks for price detection)
+    // This helps with finding "Transactieprijs" which might be on a separate line
+    const propertyTextWithBreaks = propertyHtml
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/td>/gi, ' ')
+      .replace(/<\/tr>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Use the version with breaks for parsing (better for finding prices)
+    const textToParse = propertyTextWithBreaks.length > propertyText.length ? propertyTextWithBreaks : propertyText;
+    
     // Skip if too short
-    if (propertyText.length < 100) {
+    if (textToParse.length < 100) {
       continue;
     }
     
     // Parse the property
-    const record = parseRealworksProperty(propertyText);
+    const record = parseRealworksProperty(textToParse);
     
     // Add source file info
     record.source_file = filename;
