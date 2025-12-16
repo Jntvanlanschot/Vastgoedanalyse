@@ -177,6 +177,42 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   const images: string[] = [];
   const seenImageHashes = new Set<string>(); // Prevent duplicates using hash
   
+  // Filter function to exclude logos, icons, and empty images
+  const shouldExcludeImage = (src: string, key: string, imageData?: Buffer): boolean => {
+    const srcLower = src.toLowerCase();
+    const keyLower = key.toLowerCase();
+    
+    // Exclude patterns
+    const excludePatterns = [
+      'logo',
+      'icon',
+      'print',
+      'vastgoed',
+      'nvh',
+      'nvm',
+      'uitwisseling/nvm',
+      'pub/img',
+      '.ico',
+      '.svg',
+      'print.gif',
+      'uitwisseling.gif'
+    ];
+    
+    // Check if src or key contains exclude patterns
+    for (const pattern of excludePatterns) {
+      if (srcLower.includes(pattern) || keyLower.includes(pattern)) {
+        return true;
+      }
+    }
+    
+    // Exclude very small images (likely icons) - at least 20KB for property photos
+    if (imageData && imageData.length < 20000) {
+      return true;
+    }
+    
+    return false;
+  };
+  
   // Python: Find "Foto's" section - EXACT match
   const fotosMatch = htmlContent.match(/Foto['s]*/i);
   if (!fotosMatch) {
@@ -212,6 +248,12 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   for (const imgMatch of imgMatches) {
     const src = imgMatch.src;
     
+    // Skip logos, icons, and other non-property images
+    if (shouldExcludeImage(src, src)) {
+      console.log(`⏭ Skipped logo/icon: ${src.substring(0, 80)}`);
+      continue;
+    }
+    
     // Try multiple matching strategies:
     // 1. Direct match with full URL (with or without query params)
     // 2. Match with URL without query params
@@ -223,18 +265,24 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     // Strategy 1: Direct match (exact URL match)
     if (mhtmlImages.has(src)) {
-      matchedImageData = mhtmlImages.get(src)!;
-      matched = true;
-      console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
+      const imgData = mhtmlImages.get(src)!;
+      if (!shouldExcludeImage(src, src, imgData)) {
+        matchedImageData = imgData;
+        matched = true;
+        console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
+      }
     }
     
     // Strategy 2: Match without query params
     if (!matched) {
       const srcWithoutParams = src.split('?')[0];
       if (mhtmlImages.has(srcWithoutParams)) {
-        matchedImageData = mhtmlImages.get(srcWithoutParams)!;
-        matched = true;
-        console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
+        const imgData = mhtmlImages.get(srcWithoutParams)!;
+        if (!shouldExcludeImage(src, srcWithoutParams, imgData)) {
+          matchedImageData = imgData;
+          matched = true;
+          console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
+        }
       }
     }
     
@@ -242,9 +290,12 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     if (!matched) {
       const srcFilename = src.split('/').pop()?.split('?')[0] || '';
       if (srcFilename && mhtmlImages.has(srcFilename)) {
-        matchedImageData = mhtmlImages.get(srcFilename)!;
-        matched = true;
-        console.log(`✅ Direct match (filename): ${srcFilename}`);
+        const imgData = mhtmlImages.get(srcFilename)!;
+        if (!shouldExcludeImage(src, srcFilename, imgData)) {
+          matchedImageData = imgData;
+          matched = true;
+          console.log(`✅ Direct match (filename): ${srcFilename}`);
+        }
       }
     }
     
@@ -255,6 +306,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
       
       for (const [key, imgData] of mhtmlImages.entries()) {
+        // Skip if this image should be excluded
+        if (shouldExcludeImage(src, key, imgData)) {
+          continue;
+        }
+        
         const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
         const keyFilename = keyClean.split('/').pop() || keyClean;
         
@@ -284,10 +340,16 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
     
     // Python: If not matched and we have images, just take the first available ones - EXACT match
+    // BUT: Skip logos/icons
     if (!matched && mhtmlImages.size > 0) {
       // Python: remaining_images = [img for key, img in mhtml_images.items() if img not in images]
-      // Find first unused image that we haven't added yet
+      // Find first unused image that we haven't added yet (and is not a logo/icon)
       for (const [key, imgData] of mhtmlImages.entries()) {
+        // Skip logos/icons
+        if (shouldExcludeImage('', key, imgData)) {
+          continue;
+        }
+        
         const imgBase64 = imgData.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
         if (!seenImageHashes.has(imageHash)) {
@@ -323,9 +385,15 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   }
   
   // Python: If we still don't have images, just take any available images from MHTML - EXACT match
+  // BUT: Skip logos/icons
   if (images.length === 0 && mhtmlImages.size > 0) {
     // Python: remaining = [img for key, img in mhtml_images.items() if img not in images]
     for (const [key, imgData] of mhtmlImages.entries()) {
+      // Skip logos/icons
+      if (shouldExcludeImage('', key, imgData)) {
+        continue;
+      }
+      
       const imgBase64 = imgData.toString('base64');
       const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
       if (!seenImageHashes.has(imageHash)) {
