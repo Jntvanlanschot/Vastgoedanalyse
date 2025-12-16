@@ -233,9 +233,12 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   // Python: Find image references (img tags with src) - EXACT match
   // img_pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
+  // CRITICAL: Find ALL img tags, no limits
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   const imgMatches: Array<{ src: string; index: number }> = [];
   let match;
+  // Reset regex lastIndex to ensure we find all matches
+  imgRegex.lastIndex = 0;
   while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
     imgMatches.push({ src: match[1], index: match.index });
   }
@@ -245,11 +248,12 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   const base64Regex = /data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/gi;
   const base64Matches: Array<{ data: string }> = [];
   let base64Match;
+  base64Regex.lastIndex = 0;
   while ((base64Match = base64Regex.exec(contentAfterFotos)) !== null) {
     base64Matches.push({ data: base64Match[1] });
   }
   
-  console.log(`Found ${imgMatches.length} img tags and ${base64Matches.length} base64 images after "Foto's"`);
+  console.log(`✅ Found ${imgMatches.length} img tags and ${base64Matches.length} base64 images after "Foto's"`);
   
   // Track which MHTML images we've already used
   const usedMhtmlImages = new Set<string>();
