@@ -322,17 +322,17 @@ export function parseRealworksProperty(text: string): ParsedProperty {
   }
   
   // Balkon/dakterras - extract the value after "Balkon/dakterras:"
-  // Pattern: "Balkon/dakterras: Balkon aanwezig" or "Balkon/dakterras: Geen balkon"
-  // Stop at <br> or end of line to avoid capturing too much text
-  const balconyTerraceMatch = text.match(/Balkon\/dakterras:\s*([^\r\n<]+?)(?:\s*<br>|\s*$|$)/i);
+  // Pattern: "Balkon/dakterras: Balkon aanwezig<br>" or "Balkon/dakterras: Geen balkon<br>"
+  // Stop immediately at <br> or end of line
+  const balconyTerraceMatch = text.match(/Balkon\/dakterras:\s*([^<\r\n]+?)(?:\s*<br>|$)/i);
   if (balconyTerraceMatch) {
     let balconyTerraceType = balconyTerraceMatch[1].trim();
-    // Remove any trailing punctuation or extra words that might have been captured
-    // Stop at common separators like periods, commas, or HTML tags
+    // Remove any trailing punctuation or extra words
+    // Stop at common separators like periods, commas, or semicolons
     balconyTerraceType = balconyTerraceType.split(/[.,;]/)[0].trim();
-    // Limit to reasonable length (max 50 chars to avoid capturing entire paragraphs)
-    if (balconyTerraceType.length > 50) {
-      balconyTerraceType = balconyTerraceType.substring(0, 50).trim();
+    // Limit to reasonable length (max 30 chars - should be just "Balkon aanwezig" or similar)
+    if (balconyTerraceType.length > 30) {
+      balconyTerraceType = balconyTerraceType.substring(0, 30).trim();
     }
     record.balcony_terrace_type = balconyTerraceType;
     // Set has_balcony/has_terrace based on the value
