@@ -124,24 +124,23 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
 
 /**
  * Find images in HTML content that match MHTML images
- * Strategy: Find "Foto's" section and take all images after it (like Python version)
+ * Strategy: Find "Foto's" section and take ALL images after it until next address
  */
 function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>): string[] {
   const images: string[] = [];
   
-  // Find "Foto's" section (like Python version)
+  // Find "Foto's" section (case insensitive, with or without apostrophe)
   const fotosMatch = htmlContent.match(/Foto['s]*/i);
   if (!fotosMatch) {
     console.log('No "Foto\'s" section found in HTML');
-    // Fallback: try to find images anyway
+    return images; // Return empty if no Foto's section
   }
   
-  // Get content after "Foto's" (or use entire content if no Foto's found)
-  const contentAfterFotos = fotosMatch 
-    ? htmlContent.substring(fotosMatch.index + fotosMatch[0].length)
-    : htmlContent;
+  // Get content after "Foto's" - this is where all images should be
+  // Images end when next address starts (handled by caller - we get propertyHtml that stops at next address)
+  const contentAfterFotos = htmlContent.substring(fotosMatch.index + fotosMatch[0].length);
   
-  // Find all img tags with src pointing to cid: or data: URLs
+  // Find ALL img tags after "Foto's" section
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let match;
   const foundImageRefs: string[] = [];
@@ -191,19 +190,20 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
   }
   
-  // If we still don't have images but have mhtml images, take available ones (like Python fallback)
-  if (images.length === 0 && mhtmlImages.size > 0) {
-    console.log(`No images matched from HTML refs, but ${mhtmlImages.size} images available in mhtml - using available images`);
-    // Take first few available images
+  // If we found image refs but no matches, try to use all available mhtml images
+  // (fallback: maybe the HTML refs don't match but images are in the section)
+  if (foundImageRefs.length > 0 && images.length === 0 && mhtmlImages.size > 0) {
+    console.log(`Found ${foundImageRefs.length} image refs but no matches - trying all available images`);
+    // Take available images (up to reasonable limit)
     let count = 0;
     for (const [key, imgData] of mhtmlImages.entries()) {
-      if (count >= 10) break; // Limit to 10 images
+      if (count >= 20) break; // Limit to 20 images per property
       images.push(imgData.toString('base64'));
       count++;
     }
   }
   
-  console.log(`Found ${images.length} images for property (from ${foundImageRefs.length} image refs in HTML)`);
+  console.log(`Found ${images.length} images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
   
   return images;
 }
