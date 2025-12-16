@@ -205,10 +205,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Exclude very small images (likely icons) - at least 20KB for property photos
-    if (imageData && imageData.length < 20000) {
-      return true;
-    }
+    // NO SIZE FILTER - user explicitly requested to remove it
     
     return false;
   };
@@ -221,8 +218,18 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   }
   
   // Python: Get content after "Foto's" - propertyHtml is already limited to one property
-  // So we just take everything after "Foto's" until end of propertyHtml
-  const contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
+  // BUT: We need to stop at the next address to prevent taking images from next property
+  let contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
+  
+  // CRITICAL: Stop at next address pattern (to prevent taking images from next property)
+  // Look for next address in bold tags: <b>Address</b>
+  // Pattern matches addresses like "Keizersgracht 515 D" or "Herengracht 218"
+  const nextAddressMatch = contentAfterFotos.match(/<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht|gracht)[^<]*(?:,\s*\d{4}\s+[A-Z]{2})?[^<]*)<\/b>/i);
+  if (nextAddressMatch && nextAddressMatch.index !== undefined) {
+    // Always stop at next address - this is critical to prevent mixing images
+    contentAfterFotos = contentAfterFotos.substring(0, nextAddressMatch.index);
+    console.log(`✅ Stopped image extraction at next address: ${nextAddressMatch[1].substring(0, 50)}`);
+  }
   
   // Python: Find image references (img tags with src) - EXACT match
   // img_pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
