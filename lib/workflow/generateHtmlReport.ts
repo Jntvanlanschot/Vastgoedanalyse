@@ -264,18 +264,13 @@ export function generateHtmlReport(
             </tr>
             <tr>
               <td>Tuin</td>
-              <td>${formatBoolean(referenceData.has_garden)}</td>
-              <td>${formatBoolean(prop.rw_has_garden || prop.has_garden)}</td>
+              <td>${referenceData.has_garden ? 'Ja' : 'Nee'}</td>
+              <td>${(prop as any).rw_garden_type || prop.garden_type || (prop.rw_has_garden || prop.has_garden ? 'Ja' : 'Nee')}</td>
             </tr>
             <tr>
-              <td>Balkon</td>
-              <td>${formatBoolean(referenceData.has_balcony)}</td>
-              <td>${formatBoolean(prop.rw_has_balcony || prop.has_balcony)}</td>
-            </tr>
-            <tr>
-              <td>Terras</td>
-              <td>${formatBoolean(referenceData.has_terrace)}</td>
-              <td>${formatBoolean(prop.rw_has_terrace || prop.has_terrace)}</td>
+              <td>Balkon/dakterras</td>
+              <td>${referenceData.has_balcony || referenceData.has_terrace ? 'Ja' : 'Nee'}</td>
+              <td>${(prop as any).rw_balcony_terrace_type || (prop as any).balcony_terrace_type || (prop.rw_has_balcony || prop.has_balcony || prop.rw_has_terrace || prop.has_terrace ? 'Ja' : 'Nee')}</td>
             </tr>
             <tr>
               <td>Onderhoud binnen</td>
