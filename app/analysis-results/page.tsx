@@ -48,10 +48,25 @@ interface AnalysisResult {
     avg_price_per_m2?: number;
   };
   artifacts?: {
-    pdf: string;
-    excel: string;
-    csv: string;
+    pdf_buffer?: string;
+    excel_buffer?: string;
+    html_report?: string; // Can be URL or HTML string
   };
+}
+
+// Helper function to open HTML report (handles both URL and HTML string)
+function openHtmlReport(htmlPath: string) {
+  if (htmlPath.startsWith('http')) {
+    // It's a URL, open directly
+    window.open(htmlPath, '_blank');
+  } else {
+    // It's an HTML string, create blob URL and open
+    const blob = new Blob([htmlPath], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    // Clean up the blob URL after a delay (browser will keep it while tab is open)
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }
 }
 
 export default function AnalysisResultsPage() {
@@ -67,15 +82,18 @@ export default function AnalysisResultsPage() {
         setAnalysisResult(analysis);
         setIsLoading(false);
         
-        // Automatische HTML rapport openen in nieuwe tab (niet PDF)
+        // Store PDF URL in sessionStorage for the HTML report's download button
+        const pdfUrl = analysis?.summary?.pdf_file;
+        if (pdfUrl) {
+          sessionStorage.setItem('pdfReportUrl', pdfUrl);
+        }
+        
+        // Automatische HTML rapport openen in nieuwe tab
         const htmlPath = analysis?.summary?.html_file || analysis?.artifacts?.html_report;
         if (htmlPath) {
           // Small delay to ensure page is loaded, then open HTML in new tab
           setTimeout(() => {
-            // If it's a full URL (from Vercel Blob), open it directly
-            if (htmlPath.startsWith('http')) {
-              window.open(htmlPath, '_blank');
-            }
+            openHtmlReport(htmlPath);
           }, 1000);
         }
       } catch (e) {
@@ -167,17 +185,11 @@ export default function AnalysisResultsPage() {
                 {htmlPath && (
                   <button
                     onClick={() => {
-                      // Open HTML in new tab (not download)
-                      if (htmlPath.startsWith('http')) {
-                        window.open(htmlPath, '_blank');
-                      } else {
-                        // If it's a relative path, try to open it
-                        window.open(htmlPath, '_blank');
-                      }
+                      openHtmlReport(htmlPath);
                     }}
                     className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    Open Rapport
+                    Open HTML Rapport
                   </button>
                 )}
                 <Link
