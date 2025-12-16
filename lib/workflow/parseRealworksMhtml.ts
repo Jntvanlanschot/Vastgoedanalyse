@@ -231,16 +231,19 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     console.log(`✅ Stopped image extraction at next address: ${nextAddressMatch[1].substring(0, 50)}`);
   }
   
-  // Python: Find image references (img tags with src) - EXACT match
-  // img_pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
-  // CRITICAL: Find ALL img tags, no limits
+  // USER REQUIREMENT: Take ALL images with src="https://images.realworks.nl/servlets/images/uitwisseling.objectmedia/"
+  // Find ALL img tags with this specific URL pattern
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   const imgMatches: Array<{ src: string; index: number }> = [];
   let match;
   // Reset regex lastIndex to ensure we find all matches
   imgRegex.lastIndex = 0;
   while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
-    imgMatches.push({ src: match[1], index: match.index });
+    const src = match[1];
+    // Only include images from uitwisseling.objectmedia
+    if (src.includes('images.realworks.nl/servlets/images/uitwisseling.objectmedia/')) {
+      imgMatches.push({ src: src, index: match.index });
+    }
   }
   
   // Python: Also look for base64 encoded images - EXACT match
@@ -253,7 +256,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     base64Matches.push({ data: base64Match[1] });
   }
   
-  console.log(`✅ Found ${imgMatches.length} img tags and ${base64Matches.length} base64 images after "Foto's"`);
+  console.log(`✅ Found ${imgMatches.length} uitwisseling.objectmedia img tags and ${base64Matches.length} base64 images after "Foto's"`);
   
   // Track which MHTML images we've already used
   const usedMhtmlImages = new Set<string>();
