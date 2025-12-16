@@ -245,6 +245,7 @@ function processRealworksForTop15(
         rw_energy_label: prop.energy_label || null,
         rw_energy_label_end_date: prop.energy_label_end_date || null,
         rw_has_garden: prop.has_garden || false,
+        rw_garden_type: prop.garden_type || null,
         rw_has_balcony: prop.has_balcony || false,
         rw_has_terrace: prop.has_terrace || false,
         rw_balcony_terrace_type: prop.balcony_terrace_type || null,
