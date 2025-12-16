@@ -87,11 +87,15 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       if (!contentType.startsWith('image/')) continue;
       
       // Find Content-ID or Content-Location
-      const contentIdMatch = part.match(/Content-ID:\s*<([^>]+)>/i) || 
+      // Content-ID can be with or without < >
+      const contentIdMatch = part.match(/Content-ID:\s*<?([^>\r\n]+)>?/i) || 
                             part.match(/Content-Location:\s*([^\r\n]+)/i);
       if (!contentIdMatch) continue;
       
-      const contentId = contentIdMatch[1];
+      let contentId = contentIdMatch[1].trim();
+      // Store both with and without < > for lookup
+      const contentIdWithBrackets = `<${contentId}>`;
+      const contentIdWithoutBrackets = contentId;
       
       // Extract base64 data
       const base64Match = part.match(/Content-Transfer-Encoding:\s*base64[\s\S]*?\r?\n\r?\n([\s\S]+?)(?=\r?\n--|$)/i);
