@@ -93,22 +93,57 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       if (!contentIdMatch) continue;
       
       let contentId = contentIdMatch[1].trim();
+      // Remove < > if present in the matched string
+      contentId = contentId.replace(/^<|>$/g, '');
+      
       // Store both with and without < > for lookup
       const contentIdWithBrackets = `<${contentId}>`;
       const contentIdWithoutBrackets = contentId;
       
-      // Extract base64 data
-      const base64Match = part.match(/Content-Transfer-Encoding:\s*base64[\s\S]*?\r?\n\r?\n([\s\S]+?)(?=\r?\n--|$)/i);
-      if (base64Match) {
+      // Extract base64 data - try multiple patterns
+      let base64Data: string | null = null;
+      
+      // Pattern 1: Content-Transfer-Encoding: base64 followed by blank line and data
+      const base64Match1 = part.match(/Content-Transfer-Encoding:\s*base64[\s\S]*?\r?\n\r?\n([\s\S]+?)(?=\r?\n--|$)/i);
+      if (base64Match1) {
+        base64Data = base64Match1[1];
+      }
+      
+      // Pattern 2: Just look for base64 data after headers (more flexible)
+      if (!base64Data) {
+        const headerEnd = part.indexOf('\r\n\r\n');
+        if (headerEnd > 0) {
+          const dataPart = part.substring(headerEnd + 4);
+          // Remove boundary markers and whitespace
+          const cleaned = dataPart.replace(/^[\s\S]*?--/m, '').replace(/\s/g, '');
+          if (cleaned.length > 100) { // Reasonable size check
+            base64Data = cleaned;
+          }
+        }
+      }
+      
+      if (base64Data) {
         try {
-          const imageData = Buffer.from(base64Match[1].replace(/\s/g, ''), 'base64');
-          // Store with both keys for easier lookup
-          images.set(contentIdWithBrackets, imageData);
-          images.set(contentIdWithoutBrackets, imageData);
-          // Also try just the filename part if it's a URL
-          if (contentId.includes('/')) {
-            const filename = contentId.split('/').pop() || contentId;
-            images.set(filename, imageData);
+          // Remove all whitespace from base64 data
+          const cleanedBase64 = base64Data.replace(/\s/g, '');
+          const imageData = Buffer.from(cleanedBase64, 'base64');
+          
+          // Only store if it's a reasonable size (not tiny icons)
+          if (imageData.length > 1000) {
+            // Store with multiple keys for easier lookup
+            images.set(contentIdWithBrackets, imageData);
+            images.set(contentIdWithoutBrackets, imageData);
+            // Also try just the filename part if it's a URL
+            if (contentId.includes('/')) {
+              const filename = contentId.split('/').pop() || contentId;
+              images.set(filename, imageData);
+            }
+            // Also store with just the last part after @ if it's an email-like format
+            if (contentId.includes('@')) {
+              const afterAt = contentId.split('@').pop() || contentId;
+              images.set(afterAt, imageData);
+            }
+            console.log(`Extracted image: ${contentId} (${imageData.length} bytes)`);
           }
         } catch (e) {
           console.warn(`Failed to decode base64 image ${contentId}:`, e);
