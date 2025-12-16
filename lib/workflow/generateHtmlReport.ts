@@ -496,14 +496,83 @@ export function generateHtmlReport(
       color: #7f8c8d;
       font-size: 0.9em;
     }
+    .download-pdf-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #0C479D;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 1000;
+      transition: background 0.2s;
+    }
+    .download-pdf-button:hover {
+      background: #0a3a7a;
+    }
+    .download-pdf-button:active {
+      transform: translateY(1px);
+    }
     @media print {
       body { background: white; padding: 0; }
       .container { box-shadow: none; padding: 20px; }
       .property-page { page-break-after: always; }
+      .download-pdf-button { display: none; }
     }
   </style>
 </head>
 <body>
+  <button id="downloadPdfBtn" class="download-pdf-button" style="display: none;" onclick="downloadPdf()">
+    Download als PDF
+  </button>
+  <script>
+    // Get PDF URL from sessionStorage (set by analysis results page)
+    function downloadPdf() {
+      try {
+        const analysisStr = sessionStorage.getItem('analysisResult');
+        if (analysisStr) {
+          const analysis = JSON.parse(analysisStr);
+          const pdfPath = analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file;
+          if (pdfPath) {
+            if (pdfPath.startsWith('http')) {
+              window.open(pdfPath, '_blank');
+            } else {
+              const filename = pdfPath.split(/[/\\\\]/).pop() || 'top15_perfect_report_final.pdf';
+              window.open('/api/download-artifact?file=' + encodeURIComponent(filename), '_blank');
+            }
+          } else {
+            alert('PDF rapport is niet beschikbaar.');
+          }
+        } else {
+          alert('Geen analyse resultaten gevonden.');
+        }
+      } catch (e) {
+        console.error('Error downloading PDF:', e);
+        alert('Fout bij downloaden van PDF.');
+      }
+    }
+    
+    // Show button if PDF is available
+    window.addEventListener('DOMContentLoaded', function() {
+      try {
+        const analysisStr = sessionStorage.getItem('analysisResult');
+        if (analysisStr) {
+          const analysis = JSON.parse(analysisStr);
+          const pdfPath = analysis?.summary?.pdf_file || analysis?.artifacts?.pdf || analysis?.step4_result?.pdf_file;
+          if (pdfPath) {
+            document.getElementById('downloadPdfBtn').style.display = 'block';
+          }
+        }
+      } catch (e) {
+        console.error('Error checking for PDF:', e);
+      }
+    });
+  </script>
   <div class="container">
     <h1>MEEST VERGELIJKBARE PANDEN</h1>
     <p style="color: #7f8c8d; margin-bottom: 30px;">Gegenereerd op ${new Date().toLocaleString('nl-NL')}</p>
