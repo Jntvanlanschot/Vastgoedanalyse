@@ -116,41 +116,48 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       const contentIdMatch = part.match(/Content-ID:\s*<?([^>\r\n]+)>?/i);
       const contentLocationMatch = part.match(/Content-Location:\s*([^\r\n]+)/i);
       
-      let key: string;
-      if (contentIdMatch) {
-        key = contentIdMatch[1].trim().replace(/^<|>$/g, '');
-      } else if (contentLocationMatch) {
-        key = contentLocationMatch[1].trim();
-      } else {
-        key = `image_${images.size}`;
-      }
-      
       // Extract image data (between headers and next boundary)
       // Python: image_data = part.get_payload(decode=True)
       // In MHTML, image data is base64 encoded after headers
       const base64Match = part.match(/\r?\n\r?\n([A-Za-z0-9+/=\s]+)/);
-      if (base64Match) {
-        try {
-          const base64Data = base64Match[1].replace(/\s/g, '');
-          const imageData = Buffer.from(base64Data, 'base64');
-          
-          // Python: Only include if it's a reasonable size (not tiny icons)
-          // We can't check dimensions easily, so just check if it's not too small
-          if (imageData.length > 1000) { // At least 1KB
-            images.set(key, imageData);
-            // Also store with < > brackets for matching
-            if (!key.startsWith('<')) {
-              images.set(`<${key}>`, imageData);
-            }
-            // Also store Content-Location if we have Content-ID
-            if (contentIdMatch && contentLocationMatch) {
-              images.set(contentLocationMatch[1].trim(), imageData);
-            }
+      if (!base64Match) continue;
+      
+      try {
+        const base64Data = base64Match[1].replace(/\s/g, '');
+        const imageData = Buffer.from(base64Data, 'base64');
+        
+        // Python: Only include if it's a reasonable size (not tiny icons)
+        // We can't check dimensions easily, so just check if it's not too small
+        if (imageData.length < 1000) continue; // Skip tiny images
+        
+        // Store image with multiple keys for better matching
+        if (contentLocationMatch) {
+          const contentLocation = contentLocationMatch[1].trim();
+          // Store with full URL (with query params)
+          images.set(contentLocation, imageData);
+          // Store with URL without query params
+          const urlWithoutParams = contentLocation.split('?')[0];
+          images.set(urlWithoutParams, imageData);
+          // Store with filename only
+          const filename = urlWithoutParams.split('/').pop() || '';
+          if (filename) {
+            images.set(filename, imageData);
           }
-        } catch (e) {
-          console.debug(`Could not process image part: ${e}`);
-          continue;
         }
+        
+        if (contentIdMatch) {
+          let contentId = contentIdMatch[1].trim().replace(/^<|>$/g, '');
+          images.set(contentId, imageData);
+          images.set(`<${contentId}>`, imageData);
+        }
+        
+        // Fallback key if no Content-ID or Content-Location
+        if (!contentIdMatch && !contentLocationMatch) {
+          images.set(`image_${images.size}`, imageData);
+        }
+      } catch (e) {
+        console.debug(`Could not process image part: ${e}`);
+        continue;
       }
     }
     
@@ -204,41 +211,75 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   // Python: Process regular image URLs - try to match with MHTML images - EXACT match
   for (const imgMatch of imgMatches) {
     const src = imgMatch.src;
-    // Python: Clean up src (remove query parameters, decode entities)
-    const srcClean = src.split('?')[0].split('&')[0];
     
-    // Python: Try to find matching image in mhtml_images - EXACT match
+    // Try multiple matching strategies:
+    // 1. Direct match with full URL (with or without query params)
+    // 2. Match with URL without query params
+    // 3. Match with filename
+    // 4. Python-style partial matching
+    
     let matched = false;
-    for (const [key, imgData] of mhtmlImages.entries()) {
-      // Python: Check if src matches any part of the key - EXACT match
-      const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+    let matchedImageData: Buffer | null = null;
+    
+    // Strategy 1: Direct match (exact URL match)
+    if (mhtmlImages.has(src)) {
+      matchedImageData = mhtmlImages.get(src)!;
+      matched = true;
+      console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
+    }
+    
+    // Strategy 2: Match without query params
+    if (!matched) {
+      const srcWithoutParams = src.split('?')[0];
+      if (mhtmlImages.has(srcWithoutParams)) {
+        matchedImageData = mhtmlImages.get(srcWithoutParams)!;
+        matched = true;
+        console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
+      }
+    }
+    
+    // Strategy 3: Match by filename
+    if (!matched) {
+      const srcFilename = src.split('/').pop()?.split('?')[0] || '';
+      if (srcFilename && mhtmlImages.has(srcFilename)) {
+        matchedImageData = mhtmlImages.get(srcFilename)!;
+        matched = true;
+        console.log(`✅ Direct match (filename): ${srcFilename}`);
+      }
+    }
+    
+    // Strategy 4: Python-style partial matching (fallback)
+    if (!matched) {
+      const srcClean = src.split('?')[0].split('&')[0];
       const srcCleanLower = srcClean.toLowerCase();
-      
-      // Python: Extract filename from both - EXACT match
       const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
-      const keyFilename = keyClean.split('/').pop() || keyClean;
       
-      // Python matching logic - EXACT match:
-      // if (src_clean_lower in key_clean or 
-      //     key_clean in src_clean_lower or
-      //     src_filename == key_filename or
-      //     (src_filename and key_filename and src_filename[:10] == key_filename[:10])):
-      if (keyClean.includes(srcCleanLower) || 
-          srcCleanLower.includes(keyClean) ||
-          srcFilename === keyFilename ||
-          (srcFilename && keyFilename && srcFilename.length >= 10 && keyFilename.length >= 10 &&
-           srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
-        // Convert to base64
-        const imgBase64 = imgData.toString('base64');
-        // Use hash to prevent duplicates (first 500 chars)
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (!seenImageHashes.has(imageHash)) {
-          seenImageHashes.add(imageHash);
-          images.push(imgBase64);
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+        const keyFilename = keyClean.split('/').pop() || keyClean;
+        
+        // Python matching logic:
+        if (keyClean.includes(srcCleanLower) || 
+            srcCleanLower.includes(keyClean) ||
+            srcFilename === keyFilename ||
+            (srcFilename && keyFilename && srcFilename.length >= 10 && keyFilename.length >= 10 &&
+             srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
+          matchedImageData = imgData;
           matched = true;
-          console.log(`✅ Matched image ${images.length}: ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
+          console.log(`✅ Partial match: ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
+          break;
         }
-        break;
+      }
+    }
+    
+    // Add matched image
+    if (matched && matchedImageData) {
+      const imgBase64 = matchedImageData.toString('base64');
+      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+      if (!seenImageHashes.has(imageHash)) {
+        seenImageHashes.add(imageHash);
+        images.push(imgBase64);
+        console.log(`✅ Added image ${images.length}`);
       }
     }
     
