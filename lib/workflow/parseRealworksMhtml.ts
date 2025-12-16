@@ -356,37 +356,64 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Strategy 4: Python-style partial matching (fallback)
+    // Strategy 4: Python-style partial matching (fallback) - improved
     if (!matched) {
       const srcClean = src.split('?')[0].split('&')[0];
       const srcCleanLower = srcClean.toLowerCase();
       const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
       
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Skip if this image should be excluded
-        if (shouldExcludeImage(src, key, imgData)) {
-          continue;
+      // First try: match by filename (most reliable)
+      if (srcFilename) {
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          // Skip if this image should be excluded
+          if (shouldExcludeImage(src, key, imgData)) {
+            continue;
+          }
+          
+          // Skip if already used
+          if (usedMhtmlImages.has(key)) {
+            continue;
+          }
+          
+          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+          const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+          
+          // Match by filename (exact or first 10 chars)
+          if (srcFilename === keyFilename ||
+              (srcFilename.length >= 10 && keyFilename && keyFilename.length >= 10 &&
+               srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
+            matchedImageData = imgData;
+            matchedKey = key;
+            matched = true;
+            console.log(`✅ Partial match (filename): ${srcFilename.substring(0, 30)} -> ${keyFilename.substring(0, 30)}`);
+            break;
+          }
         }
-        
-        // Skip if already used
-        if (usedMhtmlImages.has(key)) {
-          continue;
-        }
-        
-        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-        const keyFilename = keyClean.split('/').pop() || keyClean;
-        
-        // Python matching logic:
-        if (keyClean.includes(srcCleanLower) || 
-            srcCleanLower.includes(keyClean) ||
-            srcFilename === keyFilename ||
-            (srcFilename && keyFilename && srcFilename.length >= 10 && keyFilename.length >= 10 &&
-             srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
-          matchedImageData = imgData;
-          matchedKey = key;
-          matched = true;
-          console.log(`✅ Partial match: ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
-          break;
+      }
+      
+      // Second try: match by URL substring
+      if (!matched) {
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          // Skip if this image should be excluded
+          if (shouldExcludeImage(src, key, imgData)) {
+            continue;
+          }
+          
+          // Skip if already used
+          if (usedMhtmlImages.has(key)) {
+            continue;
+          }
+          
+          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+          
+          // Python matching logic: substring matching
+          if (keyClean.includes(srcCleanLower) || srcCleanLower.includes(keyClean)) {
+            matchedImageData = imgData;
+            matchedKey = key;
+            matched = true;
+            console.log(`✅ Partial match (substring): ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
+            break;
+          }
         }
       }
     }
