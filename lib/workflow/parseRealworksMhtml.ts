@@ -168,6 +168,7 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
  */
 function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>): string[] {
   const images: string[] = [];
+  const seenImageHashes = new Set<string>(); // Prevent duplicates using hash
   
   // Python: Find "Foto's" section
   const fotosMatch = htmlContent.match(/Foto['s]*/i);
@@ -176,8 +177,15 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     return [];
   }
   
-  // Python: Get content after "Foto's"
-  const contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
+  // Python: Get content after "Foto's" - but stop at next address or end of propertyHtml
+  // The propertyHtml should already be limited to one property, but let's be extra safe
+  let contentAfterFotos = htmlContent.substring(fotosMatch.index! + fotosMatch[0].length);
+  
+  // Stop at next address pattern (to prevent taking images from next property)
+  const nextAddressMatch = contentAfterFotos.match(/<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)<\/b>/i);
+  if (nextAddressMatch) {
+    contentAfterFotos = contentAfterFotos.substring(0, nextAddressMatch.index);
+  }
   
   // Python: Find image references (img tags with src)
   // img_pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
@@ -197,6 +205,9 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     base64Matches.push({ data: base64Match[1] });
   }
   
+  // Track which MHTML images we've already used (to prevent duplicates across properties)
+  const usedMhtmlKeys = new Set<string>();
+  
   // Python: Process regular image URLs - try to match with MHTML images
   for (const imgMatch of imgMatches) {
     const src = imgMatch.src;
@@ -206,6 +217,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     // Python: Try to find matching image in mhtml_images
     let matched = false;
     for (const [key, imgData] of mhtmlImages.entries()) {
+      // Skip if we've already used this image
+      if (usedMhtmlKeys.has(key)) {
+        continue;
+      }
+      
       // Python: Check if src matches any part of the key
       const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
       const srcCleanLower = srcClean.toLowerCase();
@@ -226,9 +242,15 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
            srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
         // Convert to base64
         const imgBase64 = imgData.toString('base64');
-        images.push(imgBase64);
-        matched = true;
-        console.debug(`Matched image: ${src.substring(0, 80)} -> ${key.substring(0, 80)}`);
+        // Use hash to prevent duplicates (first 500 chars)
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (!seenImageHashes.has(imageHash)) {
+          seenImageHashes.add(imageHash);
+          images.push(imgBase64);
+          usedMhtmlKeys.add(key);
+          matched = true;
+          console.log(`✅ Matched image: ${src.substring(0, 80)} -> ${key.substring(0, 80)}`);
+        }
         break;
       }
     }
@@ -236,14 +258,17 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     // Python: If not matched and we have images, just take the first available ones
     if (!matched && mhtmlImages.size > 0) {
       // Python: remaining_images = [img for key, img in mhtml_images.items() if img not in images]
-      // We'll just take the first available image
-      const firstKey = Array.from(mhtmlImages.keys())[0];
-      const firstImg = mhtmlImages.get(firstKey);
-      if (firstImg) {
-        const imgBase64 = firstImg.toString('base64');
-        // Check if we already have this image (prevent duplicates)
-        if (!images.includes(imgBase64)) {
+      // Find first unused image
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        if (usedMhtmlKeys.has(key)) continue;
+        
+        const imgBase64 = imgData.toString('base64');
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (!seenImageHashes.has(imageHash)) {
+          seenImageHashes.add(imageHash);
           images.push(imgBase64);
+          usedMhtmlKeys.add(key);
+          break;
         }
       }
     }
@@ -258,7 +283,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       // Python: if pil_image.width > 50 and pil_image.height > 50
       // We can't easily check dimensions, so just check size
       if (imageBytes.length > 1000) { // At least 1KB
-        images.push(base64Data);
+        const imageHash = base64Data.length > 500 ? base64Data.substring(0, 500) : base64Data;
+        if (!seenImageHashes.has(imageHash)) {
+          seenImageHashes.add(imageHash);
+          images.push(base64Data);
+        }
       }
     } catch (e) {
       console.debug(`Could not decode base64 image: ${e}`);
@@ -270,13 +299,19 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   if (images.length === 0 && mhtmlImages.size > 0) {
     // Python: remaining = [img for key, img in mhtml_images.items() if img not in images]
     for (const [key, imgData] of mhtmlImages.entries()) {
+      if (usedMhtmlKeys.has(key)) continue;
+      
       const imgBase64 = imgData.toString('base64');
-      if (!images.includes(imgBase64)) {
+      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+      if (!seenImageHashes.has(imageHash)) {
+        seenImageHashes.add(imageHash);
         images.push(imgBase64);
+        usedMhtmlKeys.add(key);
       }
     }
   }
   
+  console.log(`✅ Found ${images.length} unique images for property`);
   return images; // Python: Return all images
 }
 
