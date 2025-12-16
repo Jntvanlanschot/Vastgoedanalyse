@@ -178,7 +178,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   const contentAfterFotos = htmlContent.substring(fotosMatch.index + fotosMatch[0].length);
   
   // Find ALL img tags after "Foto's" section (no limit)
-  // Also look for images in different formats (cid:, data:, etc.)
+  // Also look for images in different formats (cid:, data:, http/https URLs, etc.)
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let match;
   const foundImageRefs: string[] = [];
@@ -217,12 +217,41 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
                 (srcFilename.length > 5 && keyFilename.length > 5 && 
                  srcFilename.substring(0, 5) === keyFilename.substring(0, 5))) {
               imageData = imgData;
-              console.log(`Matched image by filename: ${srcFilename} -> ${keyFilename}`);
+              console.log(`✅ Matched image by filename: ${srcFilename} -> ${keyFilename}`);
               break;
             }
           }
         } else {
-          console.log(`Matched image by Content-ID: ${contentId}`);
+          console.log(`✅ Matched image by Content-ID: ${contentId}`);
+        }
+      }
+    }
+    
+    // Check for HTTP/HTTPS URLs (like https://images.realworks.nl/...)
+    // These might be in the mhtml as Content-Location
+    if (!imageData && (src.startsWith('http://') || src.startsWith('https://'))) {
+      // Extract filename from URL
+      const urlMatch = src.match(/\/([^\/\?]+\.(jpg|jpeg|png|gif))/i);
+      if (urlMatch) {
+        const urlFilename = urlMatch[1];
+        // Try to match with mhtml images by filename
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          const keyClean = key.replace(/^<|>$/g, '').trim();
+          const keyFilename = keyClean.split('/').pop() || keyClean;
+          if (urlFilename === keyFilename || 
+              keyClean.includes(urlFilename) ||
+              urlFilename.includes(keyFilename)) {
+            imageData = imgData;
+            console.log(`✅ Matched HTTP URL image by filename: ${urlFilename} -> ${keyFilename}`);
+            break;
+          }
+        }
+      }
+      // Also try to match by full URL (might be stored as Content-Location)
+      if (!imageData) {
+        imageData = mhtmlImages.get(src) || mhtmlImages.get(`<${src}>`);
+        if (imageData) {
+          console.log(`✅ Matched HTTP URL image by full URL`);
         }
       }
     }
@@ -232,7 +261,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       const base64Match = src.match(/data:image\/[^;]+;base64,([^"']+)/);
       if (base64Match) {
         imageBase64 = base64Match[1];
-        console.log(`Found data: URL image`);
+        console.log(`✅ Found data: URL image`);
       }
     }
     
@@ -249,16 +278,18 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         seenImageHashes.add(imageHash);
         images.push(imageBase64);
       } else {
-        console.log(`Skipped duplicate image (hash match)`);
+        console.log(`⏭ Skipped duplicate image (hash match)`);
       }
     } else {
-      console.log(`Could not find image data for src: ${src.substring(0, 50)}`);
+      console.log(`❌ Could not find image data for src: ${src.substring(0, 80)}`);
     }
   }
   
   // If we found image refs but no matches, log all available mhtml image keys for debugging
   if (foundImageRefs.length > 0 && images.length === 0) {
-    console.warn(`Found ${foundImageRefs.length} image refs but 0 matches. Available mhtml image keys:`, Array.from(mhtmlImages.keys()).slice(0, 10));
+    console.warn(`⚠ Found ${foundImageRefs.length} image refs but 0 matches.`);
+    console.warn(`Available mhtml image keys (first 10):`, Array.from(mhtmlImages.keys()).slice(0, 10));
+    console.warn(`First 3 image refs:`, foundImageRefs.slice(0, 3));
   }
   
   console.log(`Found ${images.length} unique images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
@@ -283,12 +314,13 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
   const mhtmlImages = extractImagesFromMhtml(mhtmlBuffer);
   
   // Decode HTML entities (quoted-printable, etc.)
-  // MHTML uses quoted-printable: =3D is =, =0A is newline, etc.
+  // MHTML uses quoted-printable: =3D is =, =0A is newline, =E2=82=AC is €, etc.
+  // IMPORTANT: Decode ALL quoted-printable sequences BEFORE searching for prices/images
   htmlContent = htmlContent
-    .replace(/=3D/g, '=')
-    .replace(/=0A/g, '\n')
-    .replace(/=0D/g, '\r')
-    .replace(/=([0-9A-F]{2})/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/=([0-9A-F]{2})/gi, (match, hex) => {
+      const charCode = parseInt(hex, 16);
+      return String.fromCharCode(charCode);
+    })
     .replace(/=\r?\n/g, ''); // Remove soft line breaks
   
   // Find all addresses
@@ -399,45 +431,54 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     }
     
     // Extract Transactieprijs directly from HTML/text (more reliable)
+    // HTML is already decoded (quoted-printable), so € symbol should be visible
     // Look for "Transactieprijs: € 550.000" or "Transactieprijs €550.000" or "Transactieprijs: € 550.000,-"
     // Try multiple patterns to catch different formats
-    // IMPORTANT: Search in both HTML and text versions
-    const searchTexts = [propertyHtml, propertyTextWithBreaks];
+    // IMPORTANT: Search in decoded HTML first (propertyHtml is already decoded), then text version
+    const decodedPropertyHtml = propertyHtml; // Already decoded above
+    const searchTexts = [decodedPropertyHtml, propertyTextWithBreaks];
     
     let transactiePrice: number | null = null;
     
     for (const searchText of searchTexts) {
-      const transactiePatterns = [
-        /Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i,  // € 550.000 or € 550.000,50
-        /Transactie\s*prijs\s*:?\s*€\s*([\d,]+)/i,  // € 550000,50
-        /Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i,  // 550.000 or 550.000,50
-        /Transactieprijs[^€]*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i,  // More flexible
-      ];
-      
-      for (const pattern of transactiePatterns) {
-        const match = searchText.match(pattern);
-        if (match) {
-          let priceStr = match[1];
-          // Remove dots (thousand separators) and replace comma with dot for decimal
-          priceStr = priceStr.replace(/\./g, '').replace(',', '.');
-          const price = parseFloat(priceStr);
-          if (!isNaN(price) && price > 1000) { // Sanity check: price should be > 1000 (not €2!)
-            transactiePrice = Math.round(price);
-            console.log(`Found Transactieprijs for ${addressFull}: €${transactiePrice} (from pattern: ${pattern})`);
-            break;
-          }
+      // Try to find Transactieprijs in various formats
+      // Pattern 1: "Transactieprijs: € 550.000" or "Transactieprijs € 550.000"
+      let match = searchText.match(/Transactie\s*prijs\s*:?\s*€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+      if (!match) {
+        // Pattern 2: "Transactieprijs: 550.000" (without €, but € might be encoded)
+        match = searchText.match(/Transactie\s*prijs\s*:?\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
+      }
+      if (!match) {
+        // Pattern 3: Look for any price near "Transactie"
+        const transactieIndex = searchText.search(/Transactie/i);
+        if (transactieIndex >= 0) {
+          const afterTransactie = searchText.substring(transactieIndex, transactieIndex + 200);
+          match = afterTransactie.match(/€\s*([\d\.]+(?:\.\d{3})*(?:,\d+)?)/i);
         }
       }
-      if (transactiePrice) break;
+      
+      if (match) {
+        let priceStr = match[1];
+        // Remove dots (thousand separators) and replace comma with dot for decimal
+        priceStr = priceStr.replace(/\./g, '').replace(',', '.');
+        const price = parseFloat(priceStr);
+        if (!isNaN(price) && price > 1000) { // Sanity check: price should be > 1000 (not €2!)
+          transactiePrice = Math.round(price);
+          console.log(`✅ Found Transactieprijs for ${addressFull}: €${transactiePrice}`);
+          break;
+        } else {
+          console.warn(`⚠ Found Transactieprijs match but price too low: ${price} (string: ${match[1]})`);
+        }
+      }
     }
     
     if (transactiePrice) {
       record.sale_price = transactiePrice;
     } else {
       // Debug: show what we're searching in
-      const debugSnippet = propertyTextWithBreaks.substring(0, 1000);
-      console.warn(`Could not find Transactieprijs for ${addressFull}.`);
-      console.warn(`Text snippet: ${debugSnippet}`);
+      const debugSnippet = propertyTextWithBreaks.substring(0, 1500);
+      console.warn(`❌ Could not find Transactieprijs for ${addressFull}.`);
+      console.warn(`Searching in text (first 500 chars): ${debugSnippet.substring(0, 500)}`);
       // Don't set sale_price to 2 - leave it null if not found
       record.sale_price = null;
     }
