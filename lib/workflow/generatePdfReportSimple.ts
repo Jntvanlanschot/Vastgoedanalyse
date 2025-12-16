@@ -302,7 +302,18 @@ export async function generatePdfReportSimple(
         try {
           const imageBase64 = prop.images[i];
           const imageBytes = Buffer.from(imageBase64, 'base64');
-          const image = await pdfDoc.embedJpg(imageBytes);
+          // Try to detect image type and embed accordingly
+          let image: PDFImage;
+          if (imageBytes[0] === 0xFF && imageBytes[1] === 0xD8) {
+            // JPEG
+            image = await pdfDoc.embedJpg(imageBytes);
+          } else if (imageBytes[0] === 0x89 && imageBytes[1] === 0x50) {
+            // PNG
+            image = await pdfDoc.embedPng(imageBytes);
+          } else {
+            // Try JPEG as fallback
+            image = await pdfDoc.embedJpg(imageBytes);
+          }
           
           const col = i % 2;
           const row = Math.floor(i / 2);
@@ -335,7 +346,18 @@ export async function generatePdfReportSimple(
             try {
               const imageBase64 = prop.images[i + j];
               const imageBytes = Buffer.from(imageBase64, 'base64');
-              const image = await pdfDoc.embedJpg(imageBytes);
+              // Try to detect image type and embed accordingly
+              let image: PDFImage;
+              if (imageBytes[0] === 0xFF && imageBytes[1] === 0xD8) {
+                // JPEG
+                image = await pdfDoc.embedJpg(imageBytes);
+              } else if (imageBytes[0] === 0x89 && imageBytes[1] === 0x50) {
+                // PNG
+                image = await pdfDoc.embedPng(imageBytes);
+              } else {
+                // Try JPEG as fallback
+                image = await pdfDoc.embedJpg(imageBytes);
+              }
               
               const col = j % 2;
               const row = Math.floor(j / 2);
