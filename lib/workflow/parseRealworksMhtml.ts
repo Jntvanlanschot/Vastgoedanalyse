@@ -429,13 +429,15 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     
     // Extract aanbiedingstekst (description text)
     // Look for "Aanbiedingstekst" section in the property HTML
-    // Pattern: <td>Aanbiedingstekst</td> followed by <tr><td> with the content
+    // Pattern: <td>Aanbiedingstekst</td> followed by </tr><tr><td> with the content
+    // Stop at next table or end of property section
     const aanbiedingstekstHeaderMatch = propertyHtml.match(/<td[^>]*>Aanbiedingstekst<\/td>/i);
     if (aanbiedingstekstHeaderMatch) {
-      // Find the content after the header, in the next <td>
+      // Find the content after the header, in the next <tr><td>
       const afterHeader = propertyHtml.substring(aanbiedingstekstHeaderMatch.index! + aanbiedingstekstHeaderMatch[0].length);
-      // Look for the next <tr><td> or <td> that contains the actual text
-      const contentMatch = afterHeader.match(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)(?=<\/td>|<\/tr>|$)/i);
+      // Look for the next <tr> with <td> that contains the actual text
+      // Stop at next table or Foto's section
+      const contentMatch = afterHeader.match(/<\/tr>\s*<tr[^>]*>\s*<td[^>]*>([\s\S]*?)(?=<\/td>\s*<\/tr>\s*<table|Foto|$)/i);
       if (contentMatch) {
         let aanbiedingstekst = contentMatch[1];
         // Remove HTML tags but preserve line breaks
@@ -449,6 +451,7 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
           .replace(/&quot;/g, '"')
+          .replace(/\n{3,}/g, '\n\n') // Max 2 consecutive newlines
           .trim();
         // Only set if we have meaningful content (more than just whitespace)
         if (aanbiedingstekst.length > 50) {
