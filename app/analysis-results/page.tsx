@@ -204,41 +204,40 @@ export default function AnalysisResultsPage() {
           >
             Nieuwe Analyse
           </Link>
-          {/* PDF button - only show if PDF exists */}
+          {/* Report buttons - show both HTML and PDF if available */}
           {(() => {
             const pdfPath = analysisResult?.summary?.pdf_file || analysisResult?.artifacts?.pdf || analysisResult?.step4_result?.pdf_file;
             const htmlPath = analysisResult?.summary?.html_file || analysisResult?.artifacts?.html_report;
             
-            if (pdfPath) {
-              return (
-                <button
-                  onClick={() => {
-                    if (pdfPath.startsWith('http')) {
-                      window.open(pdfPath, '_blank');
-                    } else {
-                      const filename = pdfPath.split(/[/\\]/).pop() || 'top15_perfect_report_final.pdf';
-                      window.open(`/api/download-artifact?file=${encodeURIComponent(filename)}`, '_blank');
-                    }
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Download PDF Rapport
-                </button>
-              );
-            } else if (htmlPath) {
-              return (
-                <button
-                  onClick={() => {
-                    window.open(htmlPath, '_blank');
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Open HTML Rapport
-                </button>
-              );
-            } else {
-              return null;
-            }
+            return (
+              <>
+                {htmlPath && (
+                  <button
+                    onClick={() => {
+                      window.open(htmlPath, '_blank');
+                    }}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Open HTML Rapport
+                  </button>
+                )}
+                {pdfPath && (
+                  <button
+                    onClick={() => {
+                      if (pdfPath.startsWith('http')) {
+                        window.open(pdfPath, '_blank');
+                      } else {
+                        const filename = pdfPath.split(/[/\\]/).pop() || 'top15_perfect_report_final.pdf';
+                        window.open(`/api/download-artifact?file=${encodeURIComponent(filename)}`, '_blank');
+                      }
+                    }}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Download PDF Rapport
+                  </button>
+                )}
+              </>
+            );
           })()}
         </div>
       </div>

@@ -275,19 +275,13 @@ async function handleWithBlobs(
       console.warn('No Excel buffer found in artifacts. Excel generation may have failed.');
     }
 
-    // Ensure summary fields are always present (null instead of undefined)
+    // Ensure all summary file fields are null (not undefined) for consistent API response
     if (!result.summary) {
       result.summary = {};
     }
-    if (result.summary.pdf_file === undefined) {
-      (result.summary as any).pdf_file = null;
-    }
-    if (result.summary.html_file === undefined) {
-      (result.summary as any).html_file = null;
-    }
-    if (result.summary.excel_file === undefined) {
-      (result.summary as any).excel_file = null;
-    }
+    (result.summary as any).pdf_file = result.summary?.pdf_file ?? null;
+    (result.summary as any).excel_file = result.summary?.excel_file ?? null;
+    (result.summary as any).html_file = result.summary?.html_file ?? null;
 
     return NextResponse.json(result);
   } catch (error) {
@@ -453,19 +447,13 @@ async function handleWithFiles(
       console.warn('No Excel buffer found in artifacts. Excel generation may have failed.');
     }
 
-    // Ensure summary fields are always present (null instead of undefined)
+    // Ensure all summary file fields are null (not undefined) for consistent API response
     if (!result.summary) {
       result.summary = {};
     }
-    if (result.summary.pdf_file === undefined) {
-      (result.summary as any).pdf_file = null;
-    }
-    if (result.summary.html_file === undefined) {
-      (result.summary as any).html_file = null;
-    }
-    if (result.summary.excel_file === undefined) {
-      (result.summary as any).excel_file = null;
-    }
+    (result.summary as any).pdf_file = result.summary?.pdf_file ?? null;
+    (result.summary as any).excel_file = result.summary?.excel_file ?? null;
+    (result.summary as any).html_file = result.summary?.html_file ?? null;
 
     return NextResponse.json(result);
   } catch (error) {

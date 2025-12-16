@@ -15,6 +15,7 @@ import { applyFontkitTriePatch } from '@/lib/fontkit-trie-patch';
 applyFontkitTriePatch();
 
 import { generatePdfReport } from './generatePdfReport';
+import { generatePdfReportSimple } from './generatePdfReportSimple';
 import { generateExcelReport } from './generateExcelReport';
 import { generateHtmlReport } from './generateHtmlReport';
 
@@ -375,24 +376,15 @@ export async function runWorkflow(
         htmlReport = generateHtmlReport(top15Result.top15, referenceData);
         console.log(`HTML report generated successfully: ${htmlReport.length} bytes`);
         
-        // PDF generation is optional (controlled by GENERATE_PDF env var)
-        const shouldGeneratePdf = process.env.GENERATE_PDF === 'true';
-        if (shouldGeneratePdf) {
-          if (process.env.VERCEL) {
-            console.log('[workflow] ⚠ GENERATE_PDF=true but running on Vercel - PDF generation may fail due to fontkit/trie files');
-            console.log('[workflow] 💡 Consider using Python workflow (step4_generate_reports.py) for PDF on Vercel');
-          }
-          try {
-            console.log(`Generating PDF report for ${top15Result.top15.length} properties...`);
-            console.log('First property sample:', JSON.stringify(top15Result.top15[0], null, 2));
-            pdfBuffer = await generatePdfReport(top15Result.top15, referenceData);
-            console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
-          } catch (pdfError) {
-            console.warn('[workflow] ⚠ PDF generation failed (non-critical):', pdfError instanceof Error ? pdfError.message : String(pdfError));
-            pdfBuffer = null;
-          }
-        } else {
-          console.log('[workflow] ℹ PDF generation skipped (GENERATE_PDF not set to true)');
+        // PDF generation: use simple pdf-lib version (works everywhere, no fontkit)
+        // Always generate PDF with pdf-lib (no env var needed, no fontkit dependency)
+        try {
+          console.log(`Generating PDF report (pdf-lib) for ${top15Result.top15.length} properties...`);
+          pdfBuffer = await generatePdfReportSimple(top15Result.top15, referenceData);
+          console.log(`PDF generated successfully: ${pdfBuffer.length} bytes`);
+        } catch (pdfError) {
+          console.warn('[workflow] ⚠ PDF generation failed (non-critical):', pdfError instanceof Error ? pdfError.message : String(pdfError));
+          pdfBuffer = null;
         }
         
         // Always generate Excel report (no fontkit dependency)
