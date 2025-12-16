@@ -318,14 +318,29 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
   }
   
-  // If we found image refs but no matches, log all available mhtml image keys for debugging
-  if (foundImageRefs.length > 0 && images.length === 0) {
-    console.warn(`⚠ Found ${foundImageRefs.length} image refs but 0 matches.`);
+  // If we found image refs but no matches, try fallback: use all available mhtml images
+  // This happens when HTML has img tags but we can't match them (e.g., external URLs)
+  if (foundImageRefs.length > 0 && images.length === 0 && mhtmlImages.size > 0) {
+    console.warn(`⚠ Found ${foundImageRefs.length} image refs but 0 matches. Using fallback: all available mhtml images.`);
     console.warn(`Available mhtml image keys (first 10):`, Array.from(mhtmlImages.keys()).slice(0, 10));
     console.warn(`First 3 image refs:`, foundImageRefs.slice(0, 3));
+    
+    // Fallback: use all available images (up to reasonable limit)
+    let count = 0;
+    for (const [key, imgData] of mhtmlImages.entries()) {
+      if (count >= 50) break; // Limit to 50 images max
+      const imgBase64 = imgData.toString('base64');
+      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+      if (!seenImageHashes.has(imageHash)) {
+        seenImageHashes.add(imageHash);
+        images.push(imgBase64);
+        count++;
+      }
+    }
+    console.log(`✅ Fallback: Added ${count} images from mhtml`);
   }
   
-  console.log(`Found ${images.length} unique images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
+  console.log(`✅ Found ${images.length} unique images for property (from ${foundImageRefs.length} image refs in HTML after Foto's)`);
   
   return images;
 }
