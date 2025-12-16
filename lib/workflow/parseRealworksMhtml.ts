@@ -429,22 +429,32 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     
     // Extract aanbiedingstekst (description text)
     // Look for "Aanbiedingstekst" section in the property HTML
-    const aanbiedingstekstMatch = propertyHtml.match(/Aanbiedingstekst[\s\S]*?<td[^>]*>([\s\S]*?)(?=<\/td>|$)/i);
-    if (aanbiedingstekstMatch) {
-      let aanbiedingstekst = aanbiedingstekstMatch[1];
-      // Remove HTML tags but preserve line breaks
-      aanbiedingstekst = aanbiedingstekst
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<\/div>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .trim();
-      record.notes = aanbiedingstekst;
+    // Pattern: <td>Aanbiedingstekst</td> followed by <tr><td> with the content
+    const aanbiedingstekstHeaderMatch = propertyHtml.match(/<td[^>]*>Aanbiedingstekst<\/td>/i);
+    if (aanbiedingstekstHeaderMatch) {
+      // Find the content after the header, in the next <td>
+      const afterHeader = propertyHtml.substring(aanbiedingstekstHeaderMatch.index! + aanbiedingstekstHeaderMatch[0].length);
+      // Look for the next <tr><td> or <td> that contains the actual text
+      const contentMatch = afterHeader.match(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)(?=<\/td>|<\/tr>|$)/i);
+      if (contentMatch) {
+        let aanbiedingstekst = contentMatch[1];
+        // Remove HTML tags but preserve line breaks
+        aanbiedingstekst = aanbiedingstekst
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .trim();
+        // Only set if we have meaningful content (more than just whitespace)
+        if (aanbiedingstekst.length > 50) {
+          record.notes = aanbiedingstekst;
+        }
+      }
     }
     
     // Python: Find images for this property
