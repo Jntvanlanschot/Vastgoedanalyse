@@ -155,6 +155,24 @@ export function generateHtmlReport(
       ? pricePerM2 * referenceData.area_m2
       : null;
 
+    // Aanbiedingstekst HTML (above images)
+    let aanbiedingstekstHtml = '';
+    const aanbiedingstekst = (prop as any).notes || (prop as any).description || null;
+    if (aanbiedingstekst) {
+      // Convert line breaks to <br> and preserve formatting
+      const formattedText = aanbiedingstekst
+        .replace(/\n\n+/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      aanbiedingstekstHtml = `
+        <div class="aanbiedingstekst">
+          <h3>Aanbiedingstekst:</h3>
+          <div class="aanbiedingstekst-content">
+            <p>${formattedText}</p>
+          </div>
+        </div>
+      `;
+    }
+
     // Images HTML
     let imagesHtml = '';
     if (prop.images && prop.images.length > 0) {
