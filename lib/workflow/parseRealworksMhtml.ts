@@ -270,18 +270,26 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     // Extract property HTML
     const propertyHtml = htmlContent.substring(startPos, endPos);
     
-    // Convert HTML to plain text for parsing
-    // Keep some structure for better parsing (especially for prices)
-    let propertyText = propertyHtml
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n')
-      .replace(/<\/div>/gi, '\n')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Extract address first
+    let addressFull = addressText.trim();
     
-    // Also try to extract text from HTML more carefully (preserve line breaks for price detection)
-    // This helps with finding "Transactieprijs" which might be on a separate line
+    // Try to extract full address from HTML (might be in a table or bold tag)
+    const addressMatch = propertyHtml.match(/<b>([^<]+)<\/b>/i);
+    if (addressMatch) {
+      addressFull = addressMatch[1].trim();
+    }
+    
+    // Clean address: remove status text
+    addressFull = addressFull.replace(
+      /\s*(Verkocht|In verkoop genomen|Vraagprijs|Prijs op aanvraag).*$/i,
+      ''
+    ).trim();
+    
+    if (!addressFull) {
+      continue;
+    }
+    
+    // Convert HTML to plain text for parsing (preserve structure for price detection)
     const propertyTextWithBreaks = propertyHtml
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>/gi, '\n')
@@ -292,43 +300,56 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
       .replace(/\s+/g, ' ')
       .trim();
     
-    // Use the version with breaks for parsing (better for finding prices)
-    const textToParse = propertyTextWithBreaks.length > propertyText.length ? propertyTextWithBreaks : propertyText;
-    
     // Skip if too short
-    if (textToParse.length < 100) {
+    if (propertyTextWithBreaks.length < 100) {
       continue;
     }
     
-    // Parse the property
-    const record = parseRealworksProperty(textToParse);
+    // Parse the property (this will extract most fields)
+    const record = parseRealworksProperty(propertyTextWithBreaks);
+    
+    // Override address with the one we extracted
+    record.address_full = addressFull;
+    
+    // Extract address components
+    const addressParts = addressFull.match(/^([^,]+),\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/);
+    if (addressParts) {
+      const streetPart = addressParts[1].trim();
+      const numberMatch = streetPart.match(/(\d+(?:\s+[A-Za-z0-9]+)?)\s*$/);
+      if (numberMatch) {
+        record.house_number = numberMatch[1].trim();
+        record.street = streetPart.substring(0, numberMatch.index).trim();
+      } else {
+        record.street = streetPart;
+        record.house_number = '';
+      }
+      record.postal_code = addressParts[2].replace(/\s/g, '');
+      record.city = addressParts[3].trim();
+    }
+    
+    // Extract Transactieprijs directly from HTML/text (more reliable)
+    // Look for "Transactieprijs: € 550.000" or "Transactieprijs €550.000"
+    const transactieMatch = propertyTextWithBreaks.match(/Transactie\s*prijs\s*:?\s*€?\s*([\d\.\,]+)/i);
+    if (transactieMatch) {
+      const priceStr = transactieMatch[1].replace(/\./g, '').replace(',', '.');
+      const price = parseFloat(priceStr);
+      if (!isNaN(price)) {
+        record.sale_price = Math.round(price);
+        console.log(`Found Transactieprijs for ${addressFull}: €${record.sale_price}`);
+      }
+    }
     
     // Add source file info
     record.source_file = filename;
     
-    // Only add if we have at least an address
-    if (!record.address_full) {
-      // Try to extract address from HTML directly
-      const addressMatch = propertyHtml.match(/<b>([^<]+)<\/b>/i);
-      if (addressMatch) {
-        record.address_full = addressMatch[1].trim();
-      }
-    }
-    
-    if (!record.address_full) {
-      continue;
-    }
-    
-    // Clean address: remove status text
-    record.address_full = record.address_full.replace(
-      /\s*(Verkocht|In verkoop genomen|Vraagprijs|Prijs op aanvraag).*$/i,
-      ''
-    ).trim();
-    
-    // Find images for this property
+    // Find images for this property (after "Foto's" section, until next address)
     const images = findImagesInHtml(propertyHtml, mhtmlImages);
     record.images = images;
     record.image_count = images.length;
+    
+    if (images.length > 0) {
+      console.log(`Found ${images.length} images for ${addressFull}`);
+    }
     
     properties.push(record);
   }
