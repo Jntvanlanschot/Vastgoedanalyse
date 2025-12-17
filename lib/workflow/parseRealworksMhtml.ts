@@ -776,10 +776,12 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     }
     
     // Python: Find images for this property
+    const imageStartTime = Date.now();
     const images = findImagesInHtml(propertyHtml, mhtmlImages);
+    const imageTime = Date.now() - imageStartTime;
     record.images = images;
     record.image_count = images.length;
-    console.log(`Found ${images.length} images for ${record.address_full}`);
+    console.log(`[findImages] Found ${images.length} images for ${record.address_full} in ${imageTime}ms`);
     
     properties.push(record);
   }
