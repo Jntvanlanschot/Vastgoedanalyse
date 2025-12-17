@@ -361,6 +361,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     }
     
     // Strategy 4: Python-style partial matching (fallback) - improved
+    // CRITICAL FIX: Check image DATA (hash), not just KEY, to prevent skipping same image with different key
     if (!matched) {
       const srcClean = src.split('?')[0].split('&')[0];
       const srcCleanLower = srcClean.toLowerCase();
@@ -370,9 +371,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       // NO FILTERS for uitwisseling.objectmedia images
       if (srcFilename) {
         for (const [key, imgData] of mhtmlImages.entries()) {
-          // Skip if already used
-          if (usedMhtmlImages.has(key)) {
-            continue;
+          // Check if this image DATA (not key) is already used
+          const imgBase64 = imgData.toString('base64');
+          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+          if (seenImageHashes.has(imageHash)) {
+            continue; // Skip if image data already added (duplicate)
           }
           
           const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
@@ -395,9 +398,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       // NO FILTERS for uitwisseling.objectmedia images
       if (!matched) {
         for (const [key, imgData] of mhtmlImages.entries()) {
-          // Skip if already used
-          if (usedMhtmlImages.has(key)) {
-            continue;
+          // Check if this image DATA (not key) is already used
+          const imgBase64 = imgData.toString('base64');
+          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+          if (seenImageHashes.has(imageHash)) {
+            continue; // Skip if image data already added (duplicate)
           }
           
           const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
