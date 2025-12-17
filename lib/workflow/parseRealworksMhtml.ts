@@ -327,23 +327,35 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     // Strategy 1: Direct match (exact URL match) - try normalized and original
     // NO FILTERS for uitwisseling.objectmedia images
-    // CRITICAL: Check ALL keys in mhtmlImages, not just exact match
+    // PERFORMANCE: Try has() first (fast), then iterate if needed
     if (!matched) {
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Check if image data already used (prevent duplicates)
+      if (mhtmlImages.has(src)) {
+        const imgData = mhtmlImages.get(src)!;
         const imgBase64 = imgData.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (seenImageHashes.has(imageHash)) {
-          continue; // Skip if already added
-        }
-        
-        // Exact match (case insensitive)
-        if (key.toLowerCase() === src.toLowerCase()) {
+        if (!seenImageHashes.has(imageHash)) {
           matchedImageData = imgData;
-          matchedKey = key;
+          matchedKey = src;
           matched = true;
-          console.log(`✅ Direct match (full URL): ${src.substring(0, 80)} -> ${key.substring(0, 80)}`);
-          break;
+          console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
+        }
+      }
+      
+      // Fallback: case-insensitive search if exact match failed
+      if (!matched) {
+        const srcLower = src.toLowerCase();
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          if (key.toLowerCase() === srcLower) {
+            const imgBase64 = imgData.toString('base64');
+            const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+            if (!seenImageHashes.has(imageHash)) {
+              matchedImageData = imgData;
+              matchedKey = key;
+              matched = true;
+              console.log(`✅ Direct match (full URL, case-insensitive): ${src.substring(0, 80)}`);
+              break;
+            }
+          }
         }
       }
     }
@@ -352,21 +364,34 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     // NO FILTERS for uitwisseling.objectmedia images
     if (!matched) {
       const srcWithoutParams = src.split('?')[0];
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Check if image data already used (prevent duplicates)
+      if (mhtmlImages.has(srcWithoutParams)) {
+        const imgData = mhtmlImages.get(srcWithoutParams)!;
         const imgBase64 = imgData.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (seenImageHashes.has(imageHash)) {
-          continue; // Skip if already added
-        }
-        
-        const keyWithoutParams = key.split('?')[0];
-        if (keyWithoutParams.toLowerCase() === srcWithoutParams.toLowerCase()) {
+        if (!seenImageHashes.has(imageHash)) {
           matchedImageData = imgData;
-          matchedKey = key;
+          matchedKey = srcWithoutParams;
           matched = true;
-          console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)} -> ${keyWithoutParams.substring(0, 80)}`);
-          break;
+          console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
+        }
+      }
+      
+      // Fallback: case-insensitive search if exact match failed
+      if (!matched) {
+        const srcWithoutParamsLower = srcWithoutParams.toLowerCase();
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          const keyWithoutParams = key.split('?')[0];
+          if (keyWithoutParams.toLowerCase() === srcWithoutParamsLower) {
+            const imgBase64 = imgData.toString('base64');
+            const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+            if (!seenImageHashes.has(imageHash)) {
+              matchedImageData = imgData;
+              matchedKey = key;
+              matched = true;
+              console.log(`✅ Direct match (no params, case-insensitive): ${srcWithoutParams.substring(0, 80)}`);
+              break;
+            }
+          }
         }
       }
     }
