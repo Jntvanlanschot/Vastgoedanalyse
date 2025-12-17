@@ -331,7 +331,11 @@ export async function runWorkflow(
     
     // Step 3: Process Realworks files
     console.log('STEP 3: Processing Realworks files...');
+    console.log(`[workflow] Processing ${realworksFiles.length} Realworks files...`);
+    const step3StartTime = Date.now();
     const realworksResult = await processRealworksFiles(realworksFiles);
+    const step3Time = Date.now() - step3StartTime;
+    console.log(`[workflow] Step 3 completed in ${step3Time}ms: ${realworksResult.processed_records} records`);
     const step3Result = {
       status: realworksResult.status,
       message: realworksResult.message,

@@ -153,32 +153,42 @@ async function handleWithBlobs(
     };
 
     // Download blobs to buffers
+    console.log(`[upload-realworks] Starting to download ${blobs.length} blobs...`);
     const realworksFiles: Array<{ buffer: Buffer; filename: string }> = [];
-    for (const blob of blobs) {
-      console.log('Downloading blob:', blob.url);
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      console.log(`[upload-realworks] Downloading blob ${i + 1}/${blobs.length}: ${blob.name || blob.url}`);
       
+      const startTime = Date.now();
       const res = await fetch(blob.url);
       if (!res.ok) {
         throw new Error(`Failed to download blob ${blob.url}: ${res.status}`);
       }
       const buffer = Buffer.from(await res.arrayBuffer());
+      const downloadTime = Date.now() - startTime;
+      console.log(`[upload-realworks] Downloaded ${blob.name || 'unknown'} in ${downloadTime}ms (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
       realworksFiles.push({
         buffer,
         filename: blob.name || 'unknown.mhtml',
       });
     }
+    console.log(`[upload-realworks] All ${blobs.length} blobs downloaded successfully`);
 
     // Get street similarity cache from sessionStorage if available
     // For now, we'll pass undefined - street analysis is done separately
     const streetSimilarityCache = undefined;
 
     // Run JS workflow
+    console.log(`[upload-realworks] Starting workflow with ${realworksFiles.length} files...`);
+    const workflowStartTime = Date.now();
     const result = await runWorkflow(
       processedReferenceData,
       csvData || null,
       realworksFiles,
       streetSimilarityCache
     );
+    const workflowTime = Date.now() - workflowStartTime;
+    console.log(`[upload-realworks] Workflow completed in ${workflowTime}ms`);
 
     // Upload PDF and Excel to Vercel Blob if generated
     console.log('Checking for PDF buffer in artifacts...');
