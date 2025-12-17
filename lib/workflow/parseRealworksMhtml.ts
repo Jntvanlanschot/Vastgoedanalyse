@@ -261,11 +261,14 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   // Track which MHTML images we've already used
   const usedMhtmlImages = new Set<string>();
   
-  // Helper to get next unused MHTML image (not a logo/icon)
+  // Helper to get next unused MHTML image
+  // NO FILTERS - user wants ALL uitwisseling.objectmedia images
   const getNextUnusedMhtmlImage = (): { key: string; data: Buffer } | null => {
     for (const [key, imgData] of mhtmlImages.entries()) {
-      // Skip logos/icons
-      if (shouldExcludeImage('', key, imgData)) {
+      // Only skip if it's clearly a logo/icon (very strict check)
+      // But since we're only processing uitwisseling.objectmedia URLs, we can be less strict
+      const keyLower = key.toLowerCase();
+      if (keyLower.includes('print.gif') || keyLower.includes('uitwisseling.gif') || keyLower.includes('.ico') || keyLower.includes('.svg')) {
         continue;
       }
       
@@ -319,14 +322,13 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     let matchedKey: string | null = null;
     
     // Strategy 1: Direct match (exact URL match) - try normalized and original
+    // NO FILTERS for uitwisseling.objectmedia images
     if (mhtmlImages.has(src)) {
       const imgData = mhtmlImages.get(src)!;
-      if (!shouldExcludeImage(src, src, imgData)) {
-        matchedImageData = imgData;
-        matchedKey = src;
-        matched = true;
-        console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
-      }
+      matchedImageData = imgData;
+      matchedKey = src;
+      matched = true;
+      console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
     }
     
     // Strategy 2: Match without query params
