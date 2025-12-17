@@ -327,24 +327,47 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     // Strategy 1: Direct match (exact URL match) - try normalized and original
     // NO FILTERS for uitwisseling.objectmedia images
-    if (mhtmlImages.has(src)) {
-      const imgData = mhtmlImages.get(src)!;
-      matchedImageData = imgData;
-      matchedKey = src;
-      matched = true;
-      console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
+    // CRITICAL: Check ALL keys in mhtmlImages, not just exact match
+    if (!matched) {
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        // Check if image data already used (prevent duplicates)
+        const imgBase64 = imgData.toString('base64');
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (seenImageHashes.has(imageHash)) {
+          continue; // Skip if already added
+        }
+        
+        // Exact match (case insensitive)
+        if (key.toLowerCase() === src.toLowerCase()) {
+          matchedImageData = imgData;
+          matchedKey = key;
+          matched = true;
+          console.log(`✅ Direct match (full URL): ${src.substring(0, 80)} -> ${key.substring(0, 80)}`);
+          break;
+        }
+      }
     }
     
     // Strategy 2: Match without query params
     // NO FILTERS for uitwisseling.objectmedia images
     if (!matched) {
       const srcWithoutParams = src.split('?')[0];
-      if (mhtmlImages.has(srcWithoutParams)) {
-        const imgData = mhtmlImages.get(srcWithoutParams)!;
-        matchedImageData = imgData;
-        matchedKey = srcWithoutParams;
-        matched = true;
-        console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        // Check if image data already used (prevent duplicates)
+        const imgBase64 = imgData.toString('base64');
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (seenImageHashes.has(imageHash)) {
+          continue; // Skip if already added
+        }
+        
+        const keyWithoutParams = key.split('?')[0];
+        if (keyWithoutParams.toLowerCase() === srcWithoutParams.toLowerCase()) {
+          matchedImageData = imgData;
+          matchedKey = key;
+          matched = true;
+          console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)} -> ${keyWithoutParams.substring(0, 80)}`);
+          break;
+        }
       }
     }
     
