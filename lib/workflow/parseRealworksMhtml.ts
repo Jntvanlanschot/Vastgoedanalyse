@@ -599,7 +599,8 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
  * EXACT Python version: parse_mhtml_file
  */
 export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Promise<ParsedProperty[]> {
-  console.log(`Parsing MHTML file: ${filename}`);
+  console.log(`[parseMhtml] Starting to parse ${filename} (${(mhtmlBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+  const parseStartTime = Date.now();
   
   // Python: Extract HTML content
   let htmlContent = extractHtmlContentFromMhtml(mhtmlBuffer);
