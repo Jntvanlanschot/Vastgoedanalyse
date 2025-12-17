@@ -161,7 +161,8 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
       }
     }
     
-    console.log(`Extracted ${images.size} images from MHTML`);
+    const extractTime = Date.now() - extractStartTime;
+    console.log(`[extractImages] Extracted ${images.size} images from MHTML in ${extractTime}ms`);
     return images;
   } catch (error) {
     console.error('Error extracting images from MHTML:', error);
@@ -782,6 +783,7 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
     properties.push(record);
   }
   
-  console.log(`Found ${properties.length} property records in ${filename}`);
+  const parseTime = Date.now() - parseStartTime;
+  console.log(`[parseMhtml] Completed parsing ${filename} in ${parseTime}ms: ${properties.length} property records`);
   return properties;
 }

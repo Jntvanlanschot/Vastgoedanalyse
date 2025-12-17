@@ -92,11 +92,15 @@ async function processRealworksFiles(
     
     const allProperties: ParsedProperty[] = [];
     
-    for (const file of realworksFiles) {
+    for (let i = 0; i < realworksFiles.length; i++) {
+      const file = realworksFiles[i];
       if (file.filename.endsWith('.mhtml') || file.filename.endsWith('.mht')) {
+        console.log(`[workflow] Parsing MHTML ${i + 1}/${realworksFiles.length}: ${file.filename} (${(file.buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+        const parseStartTime = Date.now();
         const properties = await parseMhtmlFile(file.buffer, file.filename);
+        const parseTime = Date.now() - parseStartTime;
         allProperties.push(...properties);
-        console.log(`Parsed MHTML ${file.filename}: ${properties.length} properties`);
+        console.log(`[workflow] Parsed ${file.filename} in ${parseTime}ms: ${properties.length} properties`);
       } else {
         console.warn(`Unsupported file type: ${file.filename}`);
       }
