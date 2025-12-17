@@ -302,7 +302,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   };
   
   // USER REQUIREMENT: Process ALL uitwisseling.objectmedia images - NO FILTERS
-  // These are already filtered to only uitwisseling.objectmedia URLs, so no need to check shouldExcludeImage
+  // CRITICAL: For EVERY img tag, we MUST add an image (matched or fallback)
   for (const imgMatch of imgMatches) {
     let src = imgMatch.src;
     
@@ -311,10 +311,14 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     // NO FILTERS - user explicitly wants ALL images with uitwisseling.objectmedia URL
     
+    // Extract filename for better matching
+    const srcFilename = src.split('/').pop()?.split('?')[0] || '';
+    const srcFilenameLower = srcFilename.toLowerCase();
+    
     // Try multiple matching strategies:
     // 1. Direct match with full URL (with or without query params)
     // 2. Match with URL without query params
-    // 3. Match by filename
+    // 3. Match by filename (MOST RELIABLE - prioritize this)
     // 4. Python-style partial matching
     
     let matched = false;
@@ -344,18 +348,29 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Strategy 3: Match by filename (most reliable)
+    // Strategy 3: Match by filename (MOST RELIABLE - try this FIRST if we have filename)
     // NO FILTERS for uitwisseling.objectmedia images
-    if (!matched) {
-      const srcFilename = src.split('/').pop()?.split('?')[0] || '';
-      if (srcFilename) {
-        // Try exact filename match
-        if (mhtmlImages.has(srcFilename)) {
-          const imgData = mhtmlImages.get(srcFilename)!;
+    // CRITICAL: Match by filename BEFORE other strategies for better reliability
+    if (!matched && srcFilename) {
+      // Try exact filename match (case insensitive)
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+        const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+        
+        // Check if image data already used (prevent duplicates)
+        const imgBase64 = imgData.toString('base64');
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (seenImageHashes.has(imageHash)) {
+          continue; // Skip if already added
+        }
+        
+        // Match by filename (exact, case insensitive)
+        if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
           matchedImageData = imgData;
-          matchedKey = srcFilename;
+          matchedKey = key;
           matched = true;
-          console.log(`✅ Direct match (filename): ${srcFilename}`);
+          console.log(`✅ Direct match (filename): ${srcFilename} -> ${keyFilename}`);
+          break;
         }
       }
     }
