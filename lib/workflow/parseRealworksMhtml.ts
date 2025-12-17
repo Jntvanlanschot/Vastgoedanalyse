@@ -446,29 +446,56 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Python: If not matched and we have images, just take the first available ones - EXACT match
-    // BUT: Skip logos/icons - CRITICAL: Do this for EVERY img tag, not just once
-    // ALWAYS add a fallback image if we have MHTML images available
+    // CRITICAL: If not matched, ALWAYS try to add a fallback image
+    // This ensures EVERY img tag gets an image, even if matching fails
     if (!matched && mhtmlImages.size > 0) {
-      const nextUnused = getNextUnusedMhtmlImage();
-      if (nextUnused) {
-        const imgBase64 = nextUnused.data.toString('base64');
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (!seenImageHashes.has(imageHash)) {
-          seenImageHashes.add(imageHash);
-          images.push(imgBase64);
-          const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-          console.log(`✅ Added fallback image ${images.length} from MHTML (for img tag ${imgIndex}/${imgMatches.length}): ${nextUnused.key.substring(0, 60)}`);
-        } else {
-          console.log(`⏭ Skipped duplicate fallback image (hash match)`);
+      // First, try to find by filename in ALL MHTML images (even if already used key)
+      let fallbackFound = false;
+      if (srcFilename) {
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+          const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+          
+          // Match by filename (even partial match)
+          if (keyFilename && (keyFilename.toLowerCase() === srcFilenameLower || 
+              (srcFilenameLower.length >= 10 && keyFilename.toLowerCase().startsWith(srcFilenameLower.substring(0, 10))))) {
+            const imgBase64 = imgData.toString('base64');
+            const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+            if (!seenImageHashes.has(imageHash)) {
+              seenImageHashes.add(imageHash);
+              images.push(imgBase64);
+              const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+              console.log(`✅ Added fallback by filename ${images.length} (img tag ${imgIndex}/${imgMatches.length}): ${srcFilename} -> ${keyFilename}`);
+              fallbackFound = true;
+              break;
+            }
+          }
         }
-      } else {
-        const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-        console.log(`⚠ No more unused MHTML images available for img tag ${imgIndex}/${imgMatches.length}`);
+      }
+      
+      // If still no match, use generic fallback
+      if (!fallbackFound) {
+        const nextUnused = getNextUnusedMhtmlImage();
+        if (nextUnused) {
+          const imgBase64 = nextUnused.data.toString('base64');
+          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+          if (!seenImageHashes.has(imageHash)) {
+            seenImageHashes.add(imageHash);
+            images.push(imgBase64);
+            const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+            console.log(`✅ Added generic fallback image ${images.length} (img tag ${imgIndex}/${imgMatches.length}): ${nextUnused.key.substring(0, 60)}`);
+          } else {
+            const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+            console.log(`⏭ Skipped duplicate fallback image (hash match) for img tag ${imgIndex}/${imgMatches.length}`);
+          }
+        } else {
+          const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
+          console.log(`⚠ No more unused MHTML images available for img tag ${imgIndex}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
+        }
       }
     } else if (!matched) {
       const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-      console.log(`⚠ No match found and no MHTML images available for img tag ${imgIndex}/${imgMatches.length}`);
+      console.log(`⚠ No match found and no MHTML images available for img tag ${imgIndex}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
     }
   }
   
