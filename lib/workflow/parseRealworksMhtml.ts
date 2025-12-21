@@ -91,6 +91,7 @@ function extractHtmlContentFromMhtml(mhtmlBuffer: Buffer): string | null {
  */
 function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
   const images = new Map<string, Buffer>();
+  const extractStartTime = Date.now();
   
   try {
     const content = mhtmlBuffer.toString('utf-8', { encoding: 'utf-8' });
@@ -259,6 +260,27 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   console.log(`✅ Found ${imgMatches.length} uitwisseling.objectmedia img tags and ${base64Matches.length} base64 images after "Foto's"`);
   
+  // Debug: Log first few image sources we're looking for
+  if (imgMatches.length > 0) {
+    console.log(`📸 First 5 image sources from HTML:`);
+    for (let i = 0; i < Math.min(5, imgMatches.length); i++) {
+      const src = imgMatches[i].src;
+      const filename = src.split('/').pop()?.split('?')[0] || '';
+      console.log(`  ${i + 1}. ${filename} (from: ${src.substring(0, 100)})`);
+    }
+  }
+  
+  // Debug: Log available MHTML image keys (first 10)
+  if (mhtmlImages.size > 0) {
+    console.log(`📦 Available MHTML images (showing first 10 of ${mhtmlImages.size}):`);
+    let count = 0;
+    for (const key of mhtmlImages.keys()) {
+      if (count++ >= 10) break;
+      const filename = key.split('/').pop()?.split('?')[0] || key;
+      console.log(`  ${count}. ${filename} (key: ${key.substring(0, 100)})`);
+    }
+  }
+  
   // Track which MHTML images we've already used
   const usedMhtmlImages = new Set<string>();
   
@@ -304,10 +326,13 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   // USER REQUIREMENT: Process ALL uitwisseling.objectmedia images - NO FILTERS
   // CRITICAL: For EVERY img tag, we MUST add an image (matched or fallback)
-  for (const imgMatch of imgMatches) {
+  console.log(`🔍 Processing ${imgMatches.length} img tags from "Foto's" section`);
+  for (let imgIndex = 0; imgIndex < imgMatches.length; imgIndex++) {
+    const imgMatch = imgMatches[imgIndex];
     let src = imgMatch.src;
     
     // Normalize the URL (decode HTML entities and quoted-printable)
+    const originalSrc = src;
     src = normalizeUrl(src);
     
     // NO FILTERS - user explicitly wants ALL images with uitwisseling.objectmedia URL
@@ -315,6 +340,8 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     // Extract filename for better matching
     const srcFilename = src.split('/').pop()?.split('?')[0] || '';
     const srcFilenameLower = srcFilename.toLowerCase();
+    
+    console.log(`🔍 [${imgIndex + 1}/${imgMatches.length}] Looking for image: ${srcFilename} (from ${originalSrc.substring(0, 100)})`);
     
     // Try multiple matching strategies:
     // 1. Direct match with full URL (with or without query params)
@@ -491,30 +518,30 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         seenImageHashes.add(imageHash);
         usedMhtmlImages.add(matchedKey);
         images.push(imgBase64);
-        console.log(`✅ Added matched image ${images.length}`);
+        console.log(`✅ Added matched image ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename}`);
+      } else {
+        console.log(`⏭ Skipped duplicate matched image (hash match) for img tag ${imgIndex + 1}/${imgMatches.length}: ${srcFilename}`);
       }
     }
     
-    // CRITICAL: If not matched, ALWAYS try to add a fallback image
-    // This ensures EVERY img tag gets an image, even if matching fails
+    // CRITICAL: If not matched, try to find by filename in ALL MHTML images
+    // BUT: Only add if we find a match - don't use generic fallback to prevent wrong images
     if (!matched && mhtmlImages.size > 0) {
-      // First, try to find by filename in ALL MHTML images (even if already used key)
+      // Try to find by filename in ALL MHTML images (even if already used key)
       let fallbackFound = false;
       if (srcFilename) {
         for (const [key, imgData] of mhtmlImages.entries()) {
           const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
           const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
           
-          // Match by filename (even partial match)
-          if (keyFilename && (keyFilename.toLowerCase() === srcFilenameLower || 
-              (srcFilenameLower.length >= 10 && keyFilename.toLowerCase().startsWith(srcFilenameLower.substring(0, 10))))) {
+          // Match by filename (exact match only - no partial to prevent wrong matches)
+          if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
             const imgBase64 = imgData.toString('base64');
             const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
             if (!seenImageHashes.has(imageHash)) {
               seenImageHashes.add(imageHash);
               images.push(imgBase64);
-              const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-              console.log(`✅ Added fallback by filename ${images.length} (img tag ${imgIndex}/${imgMatches.length}): ${srcFilename} -> ${keyFilename}`);
+              console.log(`✅ Added fallback by exact filename ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename} -> ${keyFilename}`);
               fallbackFound = true;
               break;
             }
@@ -522,29 +549,13 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
         }
       }
       
-      // If still no match, use generic fallback
+      // NO GENERIC FALLBACK - only add images that match the filename
+      // This prevents adding wrong images from other properties
       if (!fallbackFound) {
-        const nextUnused = getNextUnusedMhtmlImage();
-        if (nextUnused) {
-          const imgBase64 = nextUnused.data.toString('base64');
-          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-          if (!seenImageHashes.has(imageHash)) {
-            seenImageHashes.add(imageHash);
-            images.push(imgBase64);
-            const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-            console.log(`✅ Added generic fallback image ${images.length} (img tag ${imgIndex}/${imgMatches.length}): ${nextUnused.key.substring(0, 60)}`);
-          } else {
-            const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-            console.log(`⏭ Skipped duplicate fallback image (hash match) for img tag ${imgIndex}/${imgMatches.length}`);
-          }
-        } else {
-          const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-          console.log(`⚠ No more unused MHTML images available for img tag ${imgIndex}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
-        }
+        console.log(`⚠ No match found for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)}, filename: ${srcFilename})`);
       }
     } else if (!matched) {
-      const imgIndex = imgMatches.findIndex(m => m === imgMatch) + 1;
-      console.log(`⚠ No match found and no MHTML images available for img tag ${imgIndex}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
+      console.log(`⚠ No match found and no MHTML images available for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
     }
   }
   
