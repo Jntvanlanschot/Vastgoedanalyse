@@ -325,10 +325,13 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   const normalizeUrl = (url: string): string => {
     // CRITICAL: Decode quoted-printable FIRST (before HTML entities)
     // This handles =3D -> =, =E2=82=AC -> €, etc.
-    // Pattern: =XX where XX is hex (but be careful not to decode URL-encoded %XX)
-    let normalized = url.replace(/=([0-9A-F]{2})(?![0-9A-F])/gi, (match, hex) => {
-      // Only decode if it's not part of a URL-encoded sequence
-      // URL encoding uses %XX, quoted-printable uses =XX
+    // Pattern: =XX where XX is hex (quoted-printable encoding)
+    // We need to decode ALL =XX sequences, but be careful with URL-encoded %XX
+    let normalized = url;
+    
+    // Decode quoted-printable sequences: =3D -> =, =E2=82=AC -> €
+    // This is critical because HTML src attributes may still have =3D even after HTML decoding
+    normalized = normalized.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
       return String.fromCharCode(parseInt(hex, 16));
     });
     
@@ -691,7 +694,7 @@ export async function parseMhtmlFile(mhtmlBuffer: Buffer, filename: string): Pro
   
   // Python: address_pattern = r'<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)</b>'
   const addressPattern = /<b>([^<]+(?:straat|laan|weg|kade|plein|hof|park|dreef|singel|gracht)[^<]*(?:\d+[^<]*)?)<\/b>/gi;
-  let match;
+    let match;
   while ((match = addressPattern.exec(htmlContent)) !== null) {
     addressMatches.push({ match, index: match.index });
   }
