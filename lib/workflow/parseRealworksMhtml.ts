@@ -323,18 +323,22 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   // Helper to normalize URL (decode HTML entities and quoted-printable)
   const normalizeUrl = (url: string): string => {
+    // CRITICAL: Decode quoted-printable FIRST (before HTML entities)
+    // This handles =3D -> =, =E2=82=AC -> €, etc.
+    // Pattern: =XX where XX is hex (but be careful not to decode URL-encoded %XX)
+    let normalized = url.replace(/=([0-9A-F]{2})(?![0-9A-F])/gi, (match, hex) => {
+      // Only decode if it's not part of a URL-encoded sequence
+      // URL encoding uses %XX, quoted-printable uses =XX
+      return String.fromCharCode(parseInt(hex, 16));
+    });
+    
     // Decode HTML entities: &amp; -> &, &lt; -> <, &gt; -> >
-    let normalized = url
+    normalized = normalized
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
-    
-    // Decode quoted-printable: =3D -> =, =E2=82=AC -> €, etc.
-    normalized = normalized.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
-      return String.fromCharCode(parseInt(hex, 16));
-    });
     
     return normalized;
   };
