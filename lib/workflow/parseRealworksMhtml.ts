@@ -260,25 +260,40 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   
   console.log(`✅ Found ${imgMatches.length} uitwisseling.objectmedia img tags and ${base64Matches.length} base64 images after "Foto's"`);
   
-  // Debug: Log first few image sources we're looking for
+  // DEBUG: Print ALL image filenames we found in HTML (for debugging)
   if (imgMatches.length > 0) {
-    console.log(`📸 First 5 image sources from HTML:`);
-    for (let i = 0; i < Math.min(5, imgMatches.length); i++) {
-      const src = imgMatches[i].src;
+    const imageFilenames = imgMatches.map(m => {
+      const src = m.src;
       const filename = src.split('/').pop()?.split('?')[0] || '';
-      console.log(`  ${i + 1}. ${filename} (from: ${src.substring(0, 100)})`);
-    }
+      return filename;
+    });
+    console.log(`📸 ALL ${imgMatches.length} image filenames found in HTML for this property:`, imageFilenames);
   }
   
-  // Debug: Log available MHTML image keys (first 10)
-  if (mhtmlImages.size > 0) {
-    console.log(`📦 Available MHTML images (showing first 10 of ${mhtmlImages.size}):`);
-    let count = 0;
-    for (const key of mhtmlImages.keys()) {
-      if (count++ >= 10) break;
-      const filename = key.split('/').pop()?.split('?')[0] || key;
-      console.log(`  ${count}. ${filename} (key: ${key.substring(0, 100)})`);
+  // DEBUG: Check if specific images exist in MHTML (for Prinsengracht 844 H debugging)
+  const testFilenames = ['2855588472.jpg', '2855588474.jpg', '2855588476.jpg', '2855588478.jpg', '2855588480.jpg', '2855588482.jpg', '2855588484.jpg', '2855588486.jpg'];
+  const foundInMhtml: string[] = [];
+  const missingInMhtml: string[] = [];
+  for (const testFilename of testFilenames) {
+    let found = false;
+    for (const [key, imgData] of mhtmlImages.entries()) {
+      const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+      const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+      if (keyFilename && keyFilename.toLowerCase() === testFilename.toLowerCase()) {
+        found = true;
+        foundInMhtml.push(`${testFilename} (found as: ${key.substring(0, 100)})`);
+        break;
+      }
     }
+    if (!found) {
+      missingInMhtml.push(testFilename);
+    }
+  }
+  if (foundInMhtml.length > 0) {
+    console.log(`✅ DEBUG: Found ${foundInMhtml.length} test images in MHTML:`, foundInMhtml);
+  }
+  if (missingInMhtml.length > 0) {
+    console.log(`❌ DEBUG: Missing ${missingInMhtml.length} test images in MHTML:`, missingInMhtml);
   }
   
   // Track which MHTML images we've already used
