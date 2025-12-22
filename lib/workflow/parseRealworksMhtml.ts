@@ -177,34 +177,25 @@ function extractImagesFromMhtml(mhtmlBuffer: Buffer): Map<string, Buffer> {
  */
 function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>): string[] {
   const images: string[] = [];
-  const seenImageHashes = new Set<string>(); // Prevent duplicates using hash
   
-  // PERFORMANCE FIX: Create filename index for O(1) lookup
-  // Map: filename -> { key, data, hash }
-  const filenameIndex = new Map<string, Array<{ key: string; data: Buffer; hash: string }>>();
+  // SIMPLE APPROACH: Create filename -> image data map for direct lookup
+  const filenameToImage = new Map<string, Buffer>();
   for (const [key, imgData] of mhtmlImages.entries()) {
-    const imgBase64 = imgData.toString('base64');
-    const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+    // Extract filename from key (handle various formats)
+    const keyClean = key.replace(/^<|>$/g, '');
+    const filename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
     
-    // Extract filename from key
-    const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-    const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-    
-    if (keyFilename) {
-      if (!filenameIndex.has(keyFilename)) {
-        filenameIndex.set(keyFilename, []);
+    // Only index uitwisseling.objectmedia images
+    if (filename && (key.includes('uitwisseling.objectmedia') || filename.match(/^\d+\.(jpg|jpeg|png)$/i))) {
+      const filenameLower = filename.toLowerCase();
+      // Store first occurrence of each filename
+      if (!filenameToImage.has(filenameLower)) {
+        filenameToImage.set(filenameLower, imgData);
       }
-      filenameIndex.get(keyFilename)!.push({ key, data: imgData, hash: imageHash });
-    }
-    
-    // Also index by exact key if it's a filename
-    if (key === keyFilename || key.toLowerCase() === keyFilename) {
-      if (!filenameIndex.has(key)) {
-        filenameIndex.set(key, []);
-      }
-      filenameIndex.get(key)!.push({ key, data: imgData, hash: imageHash });
     }
   }
+  
+  console.log(`📦 Indexed ${filenameToImage.size} unique images by filename`);
   
   // Filter function to exclude logos, icons, and empty images
   const shouldExcludeImage = (src: string, key: string, imageData?: Buffer): boolean => {
@@ -408,29 +399,20 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       // Use filename index for O(1) lookup instead of iterating through all images
       const candidates = filenameIndex.get(srcFilenameLower);
       if (candidates && candidates.length > 0) {
-        // Find first candidate that hasn't been used yet
-        for (const candidate of candidates) {
-          if (!seenImageHashes.has(candidate.hash)) {
-            matchedImageData = candidate.data;
-            matchedKey = candidate.key;
-            matched = true;
-            console.log(`✅ Match by filename (indexed): ${srcFilename}`);
-            break;
-          }
-        }
+        // Take the first candidate (allow reuse across tags)
+        matchedImageData = candidates[0].data;
+        matchedKey = candidates[0].key;
+        matched = true;
+        console.log(`✅ Match by filename (indexed): ${srcFilename}`);
       }
       
       // Fallback: try direct key lookup if index didn't work
       if (!matched && mhtmlImages.has(srcFilename)) {
         const imgData = mhtmlImages.get(srcFilename)!;
-        const imgBase64 = imgData.toString('base64');
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (!seenImageHashes.has(imageHash)) {
-          matchedImageData = imgData;
-          matchedKey = srcFilename;
-          matched = true;
-          console.log(`✅ Match by filename (direct key): ${srcFilename}`);
-        }
+        matchedImageData = imgData;
+        matchedKey = srcFilename;
+        matched = true;
+        console.log(`✅ Match by filename (direct key): ${srcFilename}`);
       }
     }
     
