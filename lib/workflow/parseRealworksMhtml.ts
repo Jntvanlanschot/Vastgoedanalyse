@@ -377,27 +377,43 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     let matchedKey: string | null = null;
     
     // Strategy 1: Match by filename FIRST (MOST RELIABLE)
-    // This is the most reliable method because filenames are unique
+    // CRITICAL: Check if filename key exists directly in MHTML map (fastest)
     if (!matched && srcFilename) {
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Check if image data already used (prevent duplicates)
+      // First try: direct filename key lookup (fastest - O(1))
+      if (mhtmlImages.has(srcFilename)) {
+        const imgData = mhtmlImages.get(srcFilename)!;
         const imgBase64 = imgData.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (seenImageHashes.has(imageHash)) {
-          continue; // Skip if already added
-        }
-        
-        // Extract filename from key (handle various key formats)
-        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-        const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-        
-        // Match by filename (exact, case insensitive)
-        if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
+        if (!seenImageHashes.has(imageHash)) {
           matchedImageData = imgData;
-          matchedKey = key;
+          matchedKey = srcFilename;
           matched = true;
-          console.log(`✅ Match by filename (Strategy 1): ${srcFilename} (from key: ${key.substring(0, 80)})`);
-          break;
+          console.log(`✅ Match by filename (direct key): ${srcFilename}`);
+        }
+      }
+      
+      // Second try: iterate through all keys to find filename match (if direct lookup failed)
+      if (!matched) {
+        for (const [key, imgData] of mhtmlImages.entries()) {
+          // Check if image data already used (prevent duplicates)
+          const imgBase64 = imgData.toString('base64');
+          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+          if (seenImageHashes.has(imageHash)) {
+            continue; // Skip if already added
+          }
+          
+          // Extract filename from key (handle various key formats)
+          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+          const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+          
+          // Match by filename (exact, case insensitive)
+          if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
+            matchedImageData = imgData;
+            matchedKey = key;
+            matched = true;
+            console.log(`✅ Match by filename (iterated): ${srcFilename} (from key: ${key.substring(0, 80)})`);
+            break;
+          }
         }
       }
     }
