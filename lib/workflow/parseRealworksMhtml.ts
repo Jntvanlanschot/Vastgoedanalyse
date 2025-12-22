@@ -313,6 +313,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   // SIMPLE APPROACH: For each img tag, find the image by filename and add it
   console.log(`🔍 Processing ${imgMatches.length} img tags from "Foto's" section`);
   const seenFilenames = new Set<string>(); // Prevent adding same image twice
+  const seenImageHashes = new Set<string>(); // For base64 and fallback images
   
   for (let imgIndex = 0; imgIndex < imgMatches.length; imgIndex++) {
     const imgMatch = imgMatches[imgIndex];
