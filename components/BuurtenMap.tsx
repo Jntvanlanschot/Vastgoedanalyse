@@ -35,7 +35,6 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
     selectedBuurtRef.current = selectedBuurt;
   }, [selectedBuurt]);
 
-  // Initialize map (only once)
   useEffect(() => {
     if (!isClient || !mapRef.current || mapInstanceRef.current) return;
 
@@ -49,10 +48,10 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
       });
 
-      // Initialize map centered on address if provided, otherwise default to Amsterdam
+      // Initialize map - center on address if provided, otherwise Amsterdam
       const centerLat = addressLat || 52.3676;
       const centerLng = addressLng || 4.9041;
-      const initialZoom = addressLat && addressLng ? 13 : 10; // Zoom to neighborhood level if address provided
+      const initialZoom = addressLat && addressLng ? 13 : 17;
       const map = L.default.map(mapRef.current).setView([centerLat, centerLng], initialZoom);
       mapInstanceRef.current = map;
 
@@ -61,23 +60,19 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map);
-    });
 
-    // Cleanup
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      // Add red marker for address coordinates if provided
+      if (addressLat && addressLng) {
+        const redIcon = L.default.divIcon({
+          className: 'custom-red-marker',
+          html: '<div style="background-color: red; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        
+        L.default.marker([addressLat, addressLng], { icon: redIcon }).addTo(map);
       }
-    };
-  }, [isClient, addressLat, addressLng]);
 
-  // Load GeoJSON data and update map (when city/address changes)
-  useEffect(() => {
-    if (!isClient || !mapInstanceRef.current) return;
-
-    const map = mapInstanceRef.current;
-    
     // Load GeoJSON data
     const loadGeoJson = async () => {
       try {
@@ -90,8 +85,6 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
           dataFile = 'buurten-nl.geojson';
         } else if (city) {
           const cityLower = city.toLowerCase();
-          console.log('[BuurtenMap] City detected:', city, '-> normalized:', cityLower);
-          // Map city names to GeoJSON files
           if (cityLower === 'amsterdam') {
             dataFile = 'buurten-amsterdam-wgs84.geojson';
           } else if (cityLower === 'rotterdam') {
@@ -99,17 +92,12 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
           } else if (cityLower === 'utrecht') {
             dataFile = 'buurten-utrecht-wgs84.geojson';
           } else {
-            // Unknown city, use combined file
-            console.log('[BuurtenMap] Unknown city, using combined file');
             dataFile = 'buurten-nl.geojson';
           }
         } else {
-          // Default to Amsterdam if no city specified
-          console.log('[BuurtenMap] No city specified, defaulting to Amsterdam');
           dataFile = 'buurten-amsterdam-wgs84.geojson';
         }
         
-        console.log('[BuurtenMap] Loading GeoJSON file:', dataFile);
         const response = await fetch(`/data/${dataFile}`);
         
         if (!response.ok) {
@@ -117,16 +105,12 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
         }
 
         const geoJsonData = await response.json();
-        console.log('[BuurtenMap] Loaded GeoJSON:', dataFile, '- Features:', geoJsonData.features?.length || 0);
 
         // Remove existing layer if it exists
         if (geoJsonLayerRef.current) {
           map.removeLayer(geoJsonLayerRef.current);
         }
 
-        // Import Leaflet for GeoJSON layer creation
-        const L = await import('leaflet');
-        
         // Create GeoJSON layer with styling
         const geoJsonLayer = L.default.geoJSON(geoJsonData, {
           style: (feature) => {
@@ -135,10 +119,10 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
             const isSelected = selectedBuurt === buurtCode;
             
             return {
-              color: isSelected ? '#1e40af' : '#4b5563', // Darker border for better visibility
-              weight: isSelected ? 3 : 2.5, // Thicker borders
-              fillColor: isSelected ? '#3b82f6' : '#9ca3af', // More visible fill color
-              fillOpacity: isSelected ? 0.4 : 0.3, // Higher opacity for visibility
+              color: isSelected ? '#1e40af' : '#374151',
+              weight: isSelected ? 3 : 2,
+              fillColor: isSelected ? '#3b82f6' : '#e5e7eb',
+              fillOpacity: isSelected ? 0.4 : 0.2,
               opacity: 1,
             };
           },
@@ -226,35 +210,11 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
 
         geoJsonLayerRef.current = geoJsonLayer;
         geoJsonLayer.addTo(map);
-        
-        console.log('[BuurtenMap] GeoJSON layer added to map, features:', geoJsonData.features?.length || 0);
 
-        // Add/update red marker for address coordinates if provided
-        // Remove existing marker first
-        if ((map as any)._addressMarker) {
-          map.removeLayer((map as any)._addressMarker);
-        }
-        
-        if (addressLat && addressLng) {
-          const redIcon = L.default.divIcon({
-            className: 'custom-red-marker',
-            html: '<div style="background-color: red; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-          });
-          
-          const marker = L.default.marker([addressLat, addressLng], { icon: redIcon }).addTo(map);
-          (map as any)._addressMarker = marker;
-        }
-
-        // Center on address if provided, but only if map hasn't been centered yet
-        // This ensures the layer is visible when we center
-        if (addressLat && addressLng) {
-          // Small delay to ensure layer is rendered before centering
-          setTimeout(() => {
-            map.setView([addressLat, addressLng], 13, { animate: false });
-            console.log('[BuurtenMap] Map centered on address:', addressLat, addressLng);
-          }, 100);
+        // Fit map to GeoJSON bounds
+        if (geoJsonData.features && geoJsonData.features.length > 0) {
+          const bounds = geoJsonLayer.getBounds();
+          map.fitBounds(bounds);
         }
 
         setIsLoading(false);
@@ -266,7 +226,20 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
     };
 
     loadGeoJson();
-  }, [isClient, showNetherlands, city, addressLat, addressLng, selectedBuurt]);
+
+    // Cleanup
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+    }).catch((err) => {
+      console.error('Error loading Leaflet:', err);
+      setError('Failed to load map library');
+      setIsLoading(false);
+    });
+  }, [isClient, showNetherlands, selectedBuurt, selectedBuurtName, addressLat, addressLng, city]);
 
   // Import CSS dynamically
   useEffect(() => {
