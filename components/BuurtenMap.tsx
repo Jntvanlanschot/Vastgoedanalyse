@@ -226,6 +226,8 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
 
         geoJsonLayerRef.current = geoJsonLayer;
         geoJsonLayer.addTo(map);
+        
+        console.log('[BuurtenMap] GeoJSON layer added to map, features:', geoJsonData.features?.length || 0);
 
         // Add/update red marker for address coordinates if provided
         // Remove existing marker first
@@ -245,10 +247,14 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
           (map as any)._addressMarker = marker;
         }
 
-        // Only center on address if provided (don't force fitBounds - let user pan/zoom freely)
+        // Center on address if provided, but only if map hasn't been centered yet
+        // This ensures the layer is visible when we center
         if (addressLat && addressLng) {
-          // Center on address with appropriate zoom level to see neighborhoods
-          map.setView([addressLat, addressLng], 13, { animate: false });
+          // Small delay to ensure layer is rendered before centering
+          setTimeout(() => {
+            map.setView([addressLat, addressLng], 13, { animate: false });
+            console.log('[BuurtenMap] Map centered on address:', addressLat, addressLng);
+          }, 100);
         }
 
         setIsLoading(false);
