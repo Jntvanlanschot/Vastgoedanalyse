@@ -5,6 +5,7 @@ import { useSubject } from '@/lib/hooks/useSubject';
 import { nearestBuurtenNL, BuurtWithDistance } from '@/lib/nearestBuurten';
 import { buildApifyInputFromBuurten } from '@/lib/fundaBuilder';
 import BuurtenMap from '@/components/BuurtenMap';
+import { getBuurtenByMunicipality } from '@/lib/buurtenNL';
 
 export default function NearestBuurtenNLPage() {
   const subject = useSubject();
@@ -18,6 +19,24 @@ export default function NearestBuurtenNLPage() {
   const [replacementBuurt, setReplacementBuurt] = useState<string>('');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [city, setCity] = useState<string | undefined>(undefined);
+
+  // Load city from sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const addressGeoStr = sessionStorage.getItem('addressGeo');
+      if (addressGeoStr) {
+        try {
+          const addressGeo = JSON.parse(addressGeoStr);
+          if (addressGeo.city) {
+            setCity(addressGeo.city);
+          }
+        } catch (e) {
+          console.warn('Failed to parse addressGeo from sessionStorage:', e);
+        }
+      }
+    }
+  }, []);
 
   // Calculate nearest buurten when subject changes
   useEffect(() => {
@@ -431,7 +450,8 @@ export default function NearestBuurtenNLPage() {
             <BuurtenMap 
               className="h-[600px]" 
               addressLat={subject.lat} 
-              addressLng={subject.lng} 
+              addressLng={subject.lng}
+              city={city}
             />
           </div>
           
