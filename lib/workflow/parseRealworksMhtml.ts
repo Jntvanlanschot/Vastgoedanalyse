@@ -233,6 +233,18 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     console.log(`✅ Stopped image extraction at next address: ${nextAddressMatch[1].substring(0, 50)}`);
   }
   
+  // CRITICAL FIX: First normalize the content (remove line breaks in img tags and decode)
+  // The MHTML has img tags with src split across lines like:
+  // <img src=3D"https://images.realworks.nl/servlets/images/uitwisseling.o=
+  // bjectmedia/2855588472.jpg?height=3D131&amp;check=...
+  // We need to remove soft line breaks and decode quoted-printable BEFORE extracting src
+  let normalizedContent = contentAfterFotos.replace(/=\r?\n/g, ''); // Remove soft line breaks
+  
+  // Decode quoted-printable sequences in the content (for src attributes)
+  normalizedContent = normalizedContent.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
+    return String.fromCharCode(parseInt(hex, 16));
+  });
+  
   // USER REQUIREMENT: Take ALL images with src="https://images.realworks.nl/servlets/images/uitwisseling.objectmedia/"
   // Find ALL img tags with this specific URL pattern
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
@@ -240,7 +252,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   let match;
   // Reset regex lastIndex to ensure we find all matches
   imgRegex.lastIndex = 0;
-  while ((match = imgRegex.exec(contentAfterFotos)) !== null) {
+  while ((match = imgRegex.exec(normalizedContent)) !== null) {
     const src = match[1];
     // Only include images from uitwisseling.objectmedia
     if (src.includes('images.realworks.nl/servlets/images/uitwisseling.objectmedia/')) {
@@ -321,22 +333,11 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     return null;
   };
   
-  // Helper to normalize URL (decode HTML entities and quoted-printable)
+  // Helper to normalize URL (decode HTML entities)
+  // NOTE: Quoted-printable is already decoded in normalizedContent above
   const normalizeUrl = (url: string): string => {
-    // CRITICAL: Decode quoted-printable FIRST (before HTML entities)
-    // This handles =3D -> =, =E2=82=AC -> €, etc.
-    // Pattern: =XX where XX is hex (quoted-printable encoding)
-    // We need to decode ALL =XX sequences, but be careful with URL-encoded %XX
-    let normalized = url;
-    
-    // Decode quoted-printable sequences: =3D -> =, =E2=82=AC -> €
-    // This is critical because HTML src attributes may still have =3D even after HTML decoding
-    normalized = normalized.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
-      return String.fromCharCode(parseInt(hex, 16));
-    });
-    
     // Decode HTML entities: &amp; -> &, &lt; -> <, &gt; -> >
-    normalized = normalized
+    let normalized = url
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
@@ -365,17 +366,43 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     
     console.log(`🔍 [${imgIndex + 1}/${imgMatches.length}] Looking for image: ${srcFilename} (from ${originalSrc.substring(0, 100)})`);
     
-    // Try multiple matching strategies:
-    // 1. Direct match with full URL (with or without query params)
-    // 2. Match with URL without query params
-    // 3. Match by filename (MOST RELIABLE - prioritize this)
+    // Try multiple matching strategies (IN ORDER OF RELIABILITY):
+    // 1. Match by filename (MOST RELIABLE - try this FIRST)
+    // 2. Direct match with full URL (with or without query params)
+    // 3. Match with URL without query params
     // 4. Python-style partial matching
     
     let matched = false;
     let matchedImageData: Buffer | null = null;
     let matchedKey: string | null = null;
     
-    // Strategy 1: Direct match (exact URL match) - try normalized and original
+    // Strategy 1: Match by filename FIRST (MOST RELIABLE)
+    // This is the most reliable method because filenames are unique
+    if (!matched && srcFilename) {
+      for (const [key, imgData] of mhtmlImages.entries()) {
+        // Check if image data already used (prevent duplicates)
+        const imgBase64 = imgData.toString('base64');
+        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+        if (seenImageHashes.has(imageHash)) {
+          continue; // Skip if already added
+        }
+        
+        // Extract filename from key (handle various key formats)
+        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+        const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+        
+        // Match by filename (exact, case insensitive)
+        if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
+          matchedImageData = imgData;
+          matchedKey = key;
+          matched = true;
+          console.log(`✅ Match by filename (Strategy 1): ${srcFilename} (from key: ${key.substring(0, 80)})`);
+          break;
+        }
+      }
+    }
+    
+    // Strategy 2: Direct match (exact URL match) - try normalized and original
     // NO FILTERS for uitwisseling.objectmedia images
     // PERFORMANCE: Try has() first (fast), then iterate if needed
     if (!matched) {
@@ -410,7 +437,7 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Strategy 2: Match without query params
+    // Strategy 3: Match without query params
     // NO FILTERS for uitwisseling.objectmedia images
     if (!matched) {
       const srcWithoutParams = src.split('?')[0];
@@ -446,15 +473,12 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // Strategy 3: Match by filename (MOST RELIABLE - try this FIRST if we have filename)
+    // Strategy 3: Match by filename (MOST RELIABLE - PRIORITIZE THIS)
     // NO FILTERS for uitwisseling.objectmedia images
-    // CRITICAL: Match by filename BEFORE other strategies for better reliability
+    // CRITICAL: Match by filename FIRST - this is the most reliable method
     if (!matched && srcFilename) {
       // Try exact filename match (case insensitive)
       for (const [key, imgData] of mhtmlImages.entries()) {
-        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-        const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-        
         // Check if image data already used (prevent duplicates)
         const imgBase64 = imgData.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
@@ -462,12 +486,16 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
           continue; // Skip if already added
         }
         
+        // Extract filename from key (handle various key formats)
+        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+        const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+        
         // Match by filename (exact, case insensitive)
         if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
           matchedImageData = imgData;
           matchedKey = key;
           matched = true;
-          console.log(`✅ Direct match (filename): ${srcFilename} -> ${keyFilename}`);
+          console.log(`✅ Match by filename: ${srcFilename} (from key: ${key.substring(0, 80)})`);
           break;
         }
       }
