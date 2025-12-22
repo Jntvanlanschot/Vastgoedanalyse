@@ -326,287 +326,50 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     console.log(`❌ DEBUG: Missing ${missingInMhtml.length} test images in MHTML:`, missingInMhtml);
   }
   
-  // Track which MHTML images we've already used
-  const usedMhtmlImages = new Set<string>();
-  
-  // Helper to get next unused MHTML image
-  // NO FILTERS - user wants ALL uitwisseling.objectmedia images
-  const getNextUnusedMhtmlImage = (): { key: string; data: Buffer } | null => {
-    for (const [key, imgData] of mhtmlImages.entries()) {
-      // Only skip if it's clearly a logo/icon (very strict check)
-      // But since we're only processing uitwisseling.objectmedia URLs, we can be less strict
-      const keyLower = key.toLowerCase();
-      if (keyLower.includes('print.gif') || keyLower.includes('uitwisseling.gif') || keyLower.includes('.ico') || keyLower.includes('.svg')) {
-        continue;
-      }
-      
-      // Check if we've already used this image
-      const imgBase64 = imgData.toString('base64');
-      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-      if (!seenImageHashes.has(imageHash) && !usedMhtmlImages.has(key)) {
-        usedMhtmlImages.add(key);
-        return { key, data: imgData };
-      }
-    }
-    return null;
-  };
-  
   // Helper to normalize URL (decode HTML entities)
-  // NOTE: Quoted-printable is already decoded in normalizedContent above
   const normalizeUrl = (url: string): string => {
-    // Decode HTML entities: &amp; -> &, &lt; -> <, &gt; -> >
-    let normalized = url
+    return url
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
-    
-    return normalized;
   };
   
-  // USER REQUIREMENT: Process ALL uitwisseling.objectmedia images - NO FILTERS
-  // CRITICAL: For EVERY img tag, we MUST add an image (matched or fallback)
+  // SIMPLE APPROACH: For each img tag, find the image by filename and add it
   console.log(`🔍 Processing ${imgMatches.length} img tags from "Foto's" section`);
+  const seenFilenames = new Set<string>(); // Prevent adding same image twice
+  
   for (let imgIndex = 0; imgIndex < imgMatches.length; imgIndex++) {
     const imgMatch = imgMatches[imgIndex];
     let src = imgMatch.src;
     
-    // Normalize the URL (decode HTML entities and quoted-printable)
-    const originalSrc = src;
+    // Normalize the URL (decode HTML entities)
     src = normalizeUrl(src);
     
-    // NO FILTERS - user explicitly wants ALL images with uitwisseling.objectmedia URL
-    
-    // Extract filename for better matching
+    // Extract filename
     const srcFilename = src.split('/').pop()?.split('?')[0] || '';
     const srcFilenameLower = srcFilename.toLowerCase();
     
-    console.log(`🔍 [${imgIndex + 1}/${imgMatches.length}] Looking for image: ${srcFilename} (from ${originalSrc.substring(0, 100)})`);
-    
-    // Try multiple matching strategies (IN ORDER OF RELIABILITY):
-    // 1. Match by filename (MOST RELIABLE - try this FIRST)
-    // 2. Direct match with full URL (with or without query params)
-    // 3. Match with URL without query params
-    // 4. Python-style partial matching
-    
-    let matched = false;
-    let matchedImageData: Buffer | null = null;
-    let matchedKey: string | null = null;
-    
-    // Strategy 1: Match by filename FIRST (MOST RELIABLE) - USING INDEX FOR PERFORMANCE
-    if (!matched && srcFilename) {
-      // Use filename index for O(1) lookup instead of iterating through all images
-      const candidates = filenameIndex.get(srcFilenameLower);
-      if (candidates && candidates.length > 0) {
-        // Take the first candidate (allow reuse across tags)
-        matchedImageData = candidates[0].data;
-        matchedKey = candidates[0].key;
-        matched = true;
-        console.log(`✅ Match by filename (indexed): ${srcFilename}`);
-      }
-      
-      // Fallback: try direct key lookup if index didn't work
-      if (!matched && mhtmlImages.has(srcFilename)) {
-        const imgData = mhtmlImages.get(srcFilename)!;
-        matchedImageData = imgData;
-        matchedKey = srcFilename;
-        matched = true;
-        console.log(`✅ Match by filename (direct key): ${srcFilename}`);
-      }
+    if (!srcFilename) {
+      console.log(`⚠ No filename found for img tag ${imgIndex + 1}/${imgMatches.length}`);
+      continue;
     }
     
-    // Strategy 2: Direct match (exact URL match) - try normalized and original
-    // NO FILTERS for uitwisseling.objectmedia images
-    // PERFORMANCE: Try has() first (fast), then iterate if needed
-    if (!matched) {
-      if (mhtmlImages.has(src)) {
-        const imgData = mhtmlImages.get(src)!;
-        const imgBase64 = imgData.toString('base64');
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (!seenImageHashes.has(imageHash)) {
-          matchedImageData = imgData;
-          matchedKey = src;
-          matched = true;
-          console.log(`✅ Direct match (full URL): ${src.substring(0, 80)}`);
-        }
-      }
-      
-      // Fallback: case-insensitive search if exact match failed
-      if (!matched) {
-        const srcLower = src.toLowerCase();
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          if (key.toLowerCase() === srcLower) {
-            const imgBase64 = imgData.toString('base64');
-            const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-            if (!seenImageHashes.has(imageHash)) {
-              matchedImageData = imgData;
-              matchedKey = key;
-              matched = true;
-              console.log(`✅ Direct match (full URL, case-insensitive): ${src.substring(0, 80)}`);
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    // Strategy 3: Match without query params
-    // NO FILTERS for uitwisseling.objectmedia images
-    if (!matched) {
-      const srcWithoutParams = src.split('?')[0];
-      if (mhtmlImages.has(srcWithoutParams)) {
-        const imgData = mhtmlImages.get(srcWithoutParams)!;
-        const imgBase64 = imgData.toString('base64');
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (!seenImageHashes.has(imageHash)) {
-          matchedImageData = imgData;
-          matchedKey = srcWithoutParams;
-          matched = true;
-          console.log(`✅ Direct match (no params): ${srcWithoutParams.substring(0, 80)}`);
-        }
-      }
-      
-      // Fallback: case-insensitive search if exact match failed
-      if (!matched) {
-        const srcWithoutParamsLower = srcWithoutParams.toLowerCase();
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          const keyWithoutParams = key.split('?')[0];
-          if (keyWithoutParams.toLowerCase() === srcWithoutParamsLower) {
-            const imgBase64 = imgData.toString('base64');
-            const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-            if (!seenImageHashes.has(imageHash)) {
-              matchedImageData = imgData;
-              matchedKey = key;
-              matched = true;
-              console.log(`✅ Direct match (no params, case-insensitive): ${srcWithoutParams.substring(0, 80)}`);
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    // Strategy 3: Match by filename (MOST RELIABLE - PRIORITIZE THIS)
-    // NO FILTERS for uitwisseling.objectmedia images
-    // CRITICAL: Match by filename FIRST - this is the most reliable method
-    if (!matched && srcFilename) {
-      // Try exact filename match (case insensitive)
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Check if image data already used (prevent duplicates)
-        const imgBase64 = imgData.toString('base64');
-        const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-        if (seenImageHashes.has(imageHash)) {
-          continue; // Skip if already added
-        }
-        
-        // Extract filename from key (handle various key formats)
-        const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-        const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-        
-        // Match by filename (exact, case insensitive)
-        if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
-          matchedImageData = imgData;
-          matchedKey = key;
-          matched = true;
-          console.log(`✅ Match by filename: ${srcFilename} (from key: ${key.substring(0, 80)})`);
-          break;
-        }
-      }
-    }
-    
-    // Strategy 4: Python-style partial matching (fallback) - improved
-    // CRITICAL FIX: Check image DATA (hash), not just KEY, to prevent skipping same image with different key
-    if (!matched) {
-      const srcClean = src.split('?')[0].split('&')[0];
-      const srcCleanLower = srcClean.toLowerCase();
-      const srcFilename = srcCleanLower.split('/').pop() || srcCleanLower;
-      
-      // First try: match by filename (most reliable)
-      // NO FILTERS for uitwisseling.objectmedia images
-      if (srcFilename) {
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          // Check if this image DATA (not key) is already used
-          const imgBase64 = imgData.toString('base64');
-          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-          if (seenImageHashes.has(imageHash)) {
-            continue; // Skip if image data already added (duplicate)
-          }
-          
-          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-          const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-          
-          // Match by filename (exact or first 10 chars)
-          if (srcFilename === keyFilename ||
-              (srcFilename.length >= 10 && keyFilename && keyFilename.length >= 10 &&
-               srcFilename.substring(0, 10) === keyFilename.substring(0, 10))) {
-            matchedImageData = imgData;
-            matchedKey = key;
-            matched = true;
-            console.log(`✅ Partial match (filename): ${srcFilename.substring(0, 30)} -> ${keyFilename.substring(0, 30)}`);
-            break;
-          }
-        }
-      }
-      
-      // Second try: match by URL substring
-      // NO FILTERS for uitwisseling.objectmedia images
-      if (!matched) {
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          // Check if this image DATA (not key) is already used
-          const imgBase64 = imgData.toString('base64');
-          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-          if (seenImageHashes.has(imageHash)) {
-            continue; // Skip if image data already added (duplicate)
-          }
-          
-          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-          
-          // Python matching logic: substring matching
-          if (keyClean.includes(srcCleanLower) || srcCleanLower.includes(keyClean)) {
-            matchedImageData = imgData;
-            matchedKey = key;
-            matched = true;
-            console.log(`✅ Partial match (substring): ${src.substring(0, 60)} -> ${key.substring(0, 60)}`);
-            break;
-          }
-        }
-      }
-    }
-    
-    // Add matched image
-    if (matched && matchedImageData && matchedKey) {
-      const imgBase64 = matchedImageData.toString('base64');
-      const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-      if (!seenImageHashes.has(imageHash)) {
-        seenImageHashes.add(imageHash);
-        usedMhtmlImages.add(matchedKey);
+    // SIMPLE: Look up image by filename
+    const imageData = filenameToImage.get(srcFilenameLower);
+    if (imageData) {
+      // Only add if we haven't seen this filename yet (prevent duplicates)
+      if (!seenFilenames.has(srcFilenameLower)) {
+        const imgBase64 = imageData.toString('base64');
         images.push(imgBase64);
-        console.log(`✅ Added matched image ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename}`);
+        seenFilenames.add(srcFilenameLower);
+        console.log(`✅ Added image ${images.length}/${imgMatches.length}: ${srcFilename}`);
       } else {
-        console.log(`⏭ Skipped duplicate matched image (hash match) for img tag ${imgIndex + 1}/${imgMatches.length}: ${srcFilename}`);
+        console.log(`⏭ Skipped duplicate: ${srcFilename}`);
       }
-    }
-    
-    // CRITICAL: If not matched, try to find by filename using index (FAST)
-    if (!matched && srcFilename) {
-      const candidates = filenameIndex.get(srcFilenameLower);
-      if (candidates && candidates.length > 0) {
-        // Find first candidate that hasn't been used yet
-        for (const candidate of candidates) {
-          if (!seenImageHashes.has(candidate.hash)) {
-            const imgBase64 = candidate.data.toString('base64');
-            seenImageHashes.add(candidate.hash);
-            images.push(imgBase64);
-            console.log(`✅ Added fallback (from index) ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename}`);
-            break;
-          }
-        }
-      } else {
-        console.log(`⚠ No match found for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)}, filename: ${srcFilename})`);
-      }
-    } else if (!matched) {
-      console.log(`⚠ No match found and no filename for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
+    } else {
+      console.log(`⚠ Image not found in MHTML: ${srcFilename}`);
     }
   }
   
