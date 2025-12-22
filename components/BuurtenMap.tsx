@@ -90,6 +90,7 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
           dataFile = 'buurten-nl.geojson';
         } else if (city) {
           const cityLower = city.toLowerCase();
+          console.log('[BuurtenMap] City detected:', city, '-> normalized:', cityLower);
           // Map city names to GeoJSON files
           if (cityLower === 'amsterdam') {
             dataFile = 'buurten-amsterdam-wgs84.geojson';
@@ -99,13 +100,16 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
             dataFile = 'buurten-utrecht-wgs84.geojson';
           } else {
             // Unknown city, use combined file
+            console.log('[BuurtenMap] Unknown city, using combined file');
             dataFile = 'buurten-nl.geojson';
           }
         } else {
           // Default to Amsterdam if no city specified
+          console.log('[BuurtenMap] No city specified, defaulting to Amsterdam');
           dataFile = 'buurten-amsterdam-wgs84.geojson';
         }
         
+        console.log('[BuurtenMap] Loading GeoJSON file:', dataFile);
         const response = await fetch(`/data/${dataFile}`);
         
         if (!response.ok) {
@@ -113,6 +117,7 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
         }
 
         const geoJsonData = await response.json();
+        console.log('[BuurtenMap] Loaded GeoJSON:', dataFile, '- Features:', geoJsonData.features?.length || 0);
 
         // Remove existing layer if it exists
         if (geoJsonLayerRef.current) {
