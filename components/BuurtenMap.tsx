@@ -135,10 +135,10 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
             const isSelected = selectedBuurt === buurtCode;
             
             return {
-              color: isSelected ? '#1e40af' : '#6b7280', // Darker border for visibility
+              color: isSelected ? '#1e40af' : '#4b5563', // Darker border for better visibility
               weight: isSelected ? 3 : 2.5, // Thicker borders
-              fillColor: isSelected ? '#3b82f6' : '#d1d5db', // Lighter fill
-              fillOpacity: isSelected ? 0.4 : 0.25, // More visible fill
+              fillColor: isSelected ? '#3b82f6' : '#9ca3af', // More visible fill color
+              fillOpacity: isSelected ? 0.4 : 0.3, // Higher opacity for visibility
               opacity: 1,
             };
           },
