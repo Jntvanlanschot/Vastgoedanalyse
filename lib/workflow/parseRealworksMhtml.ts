@@ -376,11 +376,25 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     let matchedImageData: Buffer | null = null;
     let matchedKey: string | null = null;
     
-    // Strategy 1: Match by filename FIRST (MOST RELIABLE)
-    // CRITICAL: Check if filename key exists directly in MHTML map (fastest)
+    // Strategy 1: Match by filename FIRST (MOST RELIABLE) - USING INDEX FOR PERFORMANCE
     if (!matched && srcFilename) {
-      // First try: direct filename key lookup (fastest - O(1))
-      if (mhtmlImages.has(srcFilename)) {
+      // Use filename index for O(1) lookup instead of iterating through all images
+      const candidates = filenameIndex.get(srcFilenameLower);
+      if (candidates && candidates.length > 0) {
+        // Find first candidate that hasn't been used yet
+        for (const candidate of candidates) {
+          if (!seenImageHashes.has(candidate.hash)) {
+            matchedImageData = candidate.data;
+            matchedKey = candidate.key;
+            matched = true;
+            console.log(`✅ Match by filename (indexed): ${srcFilename}`);
+            break;
+          }
+        }
+      }
+      
+      // Fallback: try direct key lookup if index didn't work
+      if (!matched && mhtmlImages.has(srcFilename)) {
         const imgData = mhtmlImages.get(srcFilename)!;
         const imgBase64 = imgData.toString('base64');
         const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
@@ -389,31 +403,6 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
           matchedKey = srcFilename;
           matched = true;
           console.log(`✅ Match by filename (direct key): ${srcFilename}`);
-        }
-      }
-      
-      // Second try: iterate through all keys to find filename match (if direct lookup failed)
-      if (!matched) {
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          // Check if image data already used (prevent duplicates)
-          const imgBase64 = imgData.toString('base64');
-          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-          if (seenImageHashes.has(imageHash)) {
-            continue; // Skip if already added
-          }
-          
-          // Extract filename from key (handle various key formats)
-          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-          const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-          
-          // Match by filename (exact, case insensitive)
-          if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
-            matchedImageData = imgData;
-            matchedKey = key;
-            matched = true;
-            console.log(`✅ Match by filename (iterated): ${srcFilename} (from key: ${key.substring(0, 80)})`);
-            break;
-          }
         }
       }
     }
@@ -590,61 +579,25 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
       }
     }
     
-    // CRITICAL: If not matched, try to find by filename in ALL MHTML images (more thorough search)
-    // This is a fallback in case the image wasn't found in Strategy 1-4
-    if (!matched && mhtmlImages.size > 0 && srcFilename) {
-      // Try to find by filename in ALL MHTML images (even if already used key)
-      let fallbackFound = false;
-      
-      // First try direct filename key (case insensitive)
-      for (const [key, imgData] of mhtmlImages.entries()) {
-        // Check if key is exactly the filename (case insensitive)
-        if (key.toLowerCase() === srcFilenameLower) {
-          const imgBase64 = imgData.toString('base64');
-          const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-          if (!seenImageHashes.has(imageHash)) {
-            seenImageHashes.add(imageHash);
+    // CRITICAL: If not matched, try to find by filename using index (FAST)
+    if (!matched && srcFilename) {
+      const candidates = filenameIndex.get(srcFilenameLower);
+      if (candidates && candidates.length > 0) {
+        // Find first candidate that hasn't been used yet
+        for (const candidate of candidates) {
+          if (!seenImageHashes.has(candidate.hash)) {
+            const imgBase64 = candidate.data.toString('base64');
+            seenImageHashes.add(candidate.hash);
             images.push(imgBase64);
-            console.log(`✅ Added fallback (direct filename key) ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename}`);
-            fallbackFound = true;
+            console.log(`✅ Added fallback (from index) ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename}`);
             break;
           }
         }
-      }
-      
-      // Second try: extract filename from key
-      if (!fallbackFound) {
-        for (const [key, imgData] of mhtmlImages.entries()) {
-          const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-          const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-          
-          // Match by filename (exact match only - no partial to prevent wrong matches)
-          if (keyFilename && keyFilename.toLowerCase() === srcFilenameLower) {
-            const imgBase64 = imgData.toString('base64');
-            const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
-            if (!seenImageHashes.has(imageHash)) {
-              seenImageHashes.add(imageHash);
-              images.push(imgBase64);
-              console.log(`✅ Added fallback (extracted filename) ${images.length} (img tag ${imgIndex + 1}/${imgMatches.length}): ${srcFilename} -> ${keyFilename} (from key: ${key.substring(0, 80)})`);
-              fallbackFound = true;
-              break;
-            }
-          }
-        }
-      }
-      
-      // NO GENERIC FALLBACK - only add images that match the filename
-      // This prevents adding wrong images from other properties
-      if (!fallbackFound) {
+      } else {
         console.log(`⚠ No match found for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)}, filename: ${srcFilename})`);
-        // Debug: show first 5 keys that contain the filename
-        const matchingKeys = Array.from(mhtmlImages.keys()).filter(k => k.toLowerCase().includes(srcFilenameLower)).slice(0, 5);
-        if (matchingKeys.length > 0) {
-          console.log(`   Debug: Found ${matchingKeys.length} keys containing "${srcFilename}": ${matchingKeys.map(k => k.substring(0, 60)).join(', ')}`);
-        }
       }
     } else if (!matched) {
-      console.log(`⚠ No match found and no MHTML images available for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
+      console.log(`⚠ No match found and no filename for img tag ${imgIndex + 1}/${imgMatches.length} (src: ${src.substring(0, 80)})`);
     }
   }
   
