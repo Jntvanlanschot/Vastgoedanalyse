@@ -179,6 +179,33 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
   const images: string[] = [];
   const seenImageHashes = new Set<string>(); // Prevent duplicates using hash
   
+  // PERFORMANCE FIX: Create filename index for O(1) lookup
+  // Map: filename -> { key, data, hash }
+  const filenameIndex = new Map<string, Array<{ key: string; data: Buffer; hash: string }>>();
+  for (const [key, imgData] of mhtmlImages.entries()) {
+    const imgBase64 = imgData.toString('base64');
+    const imageHash = imgBase64.length > 500 ? imgBase64.substring(0, 500) : imgBase64;
+    
+    // Extract filename from key
+    const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
+    const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
+    
+    if (keyFilename) {
+      if (!filenameIndex.has(keyFilename)) {
+        filenameIndex.set(keyFilename, []);
+      }
+      filenameIndex.get(keyFilename)!.push({ key, data: imgData, hash: imageHash });
+    }
+    
+    // Also index by exact key if it's a filename
+    if (key === keyFilename || key.toLowerCase() === keyFilename) {
+      if (!filenameIndex.has(key)) {
+        filenameIndex.set(key, []);
+      }
+      filenameIndex.get(key)!.push({ key, data: imgData, hash: imageHash });
+    }
+  }
+  
   // Filter function to exclude logos, icons, and empty images
   const shouldExcludeImage = (src: string, key: string, imageData?: Buffer): boolean => {
     const srcLower = src.toLowerCase();
