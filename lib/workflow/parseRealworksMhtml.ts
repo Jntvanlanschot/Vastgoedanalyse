@@ -300,32 +300,6 @@ function findImagesInHtml(htmlContent: string, mhtmlImages: Map<string, Buffer>)
     console.log(`📸 ALL ${imgMatches.length} image filenames found in HTML for this property:`, imageFilenames);
   }
   
-  // DEBUG: Check if specific images exist in MHTML (for Prinsengracht 844 H debugging)
-  const testFilenames = ['2855588472.jpg', '2855588474.jpg', '2855588476.jpg', '2855588478.jpg', '2855588480.jpg', '2855588482.jpg', '2855588484.jpg', '2855588486.jpg'];
-  const foundInMhtml: string[] = [];
-  const missingInMhtml: string[] = [];
-  for (const testFilename of testFilenames) {
-    let found = false;
-    for (const [key, imgData] of mhtmlImages.entries()) {
-      const keyClean = key.replace(/^<|>$/g, '').toLowerCase();
-      const keyFilename = keyClean.split('/').pop()?.split('?')[0] || keyClean.split('?')[0];
-      if (keyFilename && keyFilename.toLowerCase() === testFilename.toLowerCase()) {
-        found = true;
-        foundInMhtml.push(`${testFilename} (found as: ${key.substring(0, 100)})`);
-        break;
-      }
-    }
-    if (!found) {
-      missingInMhtml.push(testFilename);
-    }
-  }
-  if (foundInMhtml.length > 0) {
-    console.log(`✅ DEBUG: Found ${foundInMhtml.length} test images in MHTML:`, foundInMhtml);
-  }
-  if (missingInMhtml.length > 0) {
-    console.log(`❌ DEBUG: Missing ${missingInMhtml.length} test images in MHTML:`, missingInMhtml);
-  }
-  
   // Helper to normalize URL (decode HTML entities)
   const normalizeUrl = (url: string): string => {
     return url
