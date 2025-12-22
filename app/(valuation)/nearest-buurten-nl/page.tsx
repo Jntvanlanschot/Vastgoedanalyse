@@ -25,15 +25,22 @@ export default function NearestBuurtenNLPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const addressGeoStr = sessionStorage.getItem('addressGeo');
+      console.log('[NearestBuurtenNL] addressGeo from sessionStorage:', addressGeoStr);
       if (addressGeoStr) {
         try {
           const addressGeo = JSON.parse(addressGeoStr);
+          console.log('[NearestBuurtenNL] Parsed addressGeo:', addressGeo);
           if (addressGeo.city) {
+            console.log('[NearestBuurtenNL] Setting city to:', addressGeo.city);
             setCity(addressGeo.city);
+          } else {
+            console.warn('[NearestBuurtenNL] No city found in addressGeo');
           }
         } catch (e) {
           console.warn('Failed to parse addressGeo from sessionStorage:', e);
         }
+      } else {
+        console.warn('[NearestBuurtenNL] No addressGeo found in sessionStorage');
       }
     }
   }, []);
@@ -453,6 +460,7 @@ export default function NearestBuurtenNLPage() {
               addressLng={subject.lng}
               city={city}
             />
+            {city && <div className="text-xs text-gray-500 mt-2">City prop: {city}</div>}
           </div>
           
           {/* Content Section */}
