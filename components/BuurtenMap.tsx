@@ -135,10 +135,10 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
             const isSelected = selectedBuurt === buurtCode;
             
             return {
-              color: isSelected ? '#1e40af' : '#374151',
-              weight: isSelected ? 3 : 2,
-              fillColor: isSelected ? '#3b82f6' : '#e5e7eb',
-              fillOpacity: isSelected ? 0.4 : 0.2,
+              color: isSelected ? '#1e40af' : '#6b7280', // Darker border for visibility
+              weight: isSelected ? 3 : 2.5, // Thicker borders
+              fillColor: isSelected ? '#3b82f6' : '#d1d5db', // Lighter fill
+              fillOpacity: isSelected ? 0.4 : 0.25, // More visible fill
               opacity: 1,
             };
           },
@@ -245,31 +245,10 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
           (map as any)._addressMarker = marker;
         }
 
-        // Fit map to GeoJSON bounds, but ensure address is visible
-        if (geoJsonData.features && geoJsonData.features.length > 0) {
-          const bounds = geoJsonLayer.getBounds();
-          
-          // If address is provided, ensure it's included in the bounds
-          if (addressLat && addressLng) {
-            const addressPoint = L.default.latLng(addressLat, addressLng);
-            bounds.extend(addressPoint);
-          }
-          
-          // Fit bounds with padding to show all neighborhoods
-          map.fitBounds(bounds, { 
-            padding: [50, 50], // Add padding so boundaries aren't at the edge
-            maxZoom: 15 // Limit max zoom so we can see multiple neighborhoods
-          });
-          
-          // Center on address after a short delay to ensure bounds are set
-          if (addressLat && addressLng) {
-            setTimeout(() => {
-              map.setView([addressLat, addressLng], Math.min(map.getZoom(), 14), { animate: true });
-            }, 200);
-          }
-        } else if (addressLat && addressLng) {
-          // If no GeoJSON features but address is provided, center on address
-          map.setView([addressLat, addressLng], 13);
+        // Only center on address if provided (don't force fitBounds - let user pan/zoom freely)
+        if (addressLat && addressLng) {
+          // Center on address with appropriate zoom level to see neighborhoods
+          map.setView([addressLat, addressLng], 13, { animate: false });
         }
 
         setIsLoading(false);
