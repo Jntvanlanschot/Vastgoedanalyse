@@ -211,10 +211,35 @@ export default function BuurtenMap({ className = '', showNetherlands = false, ad
         geoJsonLayerRef.current = geoJsonLayer;
         geoJsonLayer.addTo(map);
 
-        // Fit map to GeoJSON bounds
+        // Fit map to GeoJSON bounds, but ensure address is visible
         if (geoJsonData.features && geoJsonData.features.length > 0) {
-          const bounds = geoJsonLayer.getBounds();
-          map.fitBounds(bounds);
+          try {
+            const bounds = geoJsonLayer.getBounds();
+            // Check if bounds are valid
+            if (bounds.isValid()) {
+              // If address is provided, ensure it's included in bounds
+              if (addressLat && addressLng) {
+                bounds.extend([addressLat, addressLng]);
+              }
+              map.fitBounds(bounds, { padding: [20, 20] });
+            } else {
+              // If bounds are invalid, just center on address
+              if (addressLat && addressLng) {
+                map.setView([addressLat, addressLng], 13);
+              }
+            }
+          } catch (e) {
+            console.error('Error fitting bounds:', e);
+            // Fallback: center on address
+            if (addressLat && addressLng) {
+              map.setView([addressLat, addressLng], 13);
+            }
+          }
+        } else {
+          // No features, center on address
+          if (addressLat && addressLng) {
+            map.setView([addressLat, addressLng], 13);
+          }
         }
 
         setIsLoading(false);
