@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Playwright and csv-writer must not be bundled by webpack — they rely on native Node.js
+  serverExternalPackages: ['playwright', 'csv-writer'],
   // Disable ESLint during builds (but keep it in development)
   eslint: {
     // Warning: This allows production builds to successfully complete even if

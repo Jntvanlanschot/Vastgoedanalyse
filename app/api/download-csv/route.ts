@@ -1,49 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
+import { readFileSync, existsSync } from 'fs';
+import { tmpdir } from 'os';
+import path from 'path';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const runId = searchParams.get('runId');
-    const datasetId = searchParams.get('datasetId');
 
-    console.log('Download CSV request:', { runId, datasetId });
+    if (!runId) {
+      return NextResponse.json({ error: 'runId is required' }, { status: 400 });
+    }
 
-    if (!runId || !datasetId) {
+    // Prevent path traversal: runId must be a UUID
+    if (!/^[0-9a-f-]{36}$/.test(runId)) {
+      return NextResponse.json({ error: 'Invalid runId format' }, { status: 400 });
+    }
+
+    const csvPath = path.join(tmpdir(), `${runId}.csv`);
+    console.log('Download CSV request for runId:', runId, '→', csvPath);
+
+    if (!existsSync(csvPath)) {
       return NextResponse.json(
-        { error: 'runId and datasetId are required' },
-        { status: 400 }
+        { error: 'Dataset not found. The scraper may not have completed yet or the run ID is invalid.' },
+        { status: 404 }
       );
     }
 
-    const apifyToken = process.env.APIFY_API_TOKEN;
-    if (!apifyToken) {
-      console.error('Apify API token not configured');
-      return NextResponse.json(
-        { error: 'Apify API token not configured' },
-        { status: 500 }
-      );
-    }
+    const csvData = readFileSync(csvPath, 'utf8');
+    console.log('Serving CSV for runId:', runId, '— length:', csvData.length);
 
-    console.log('Fetching dataset from Apify:', datasetId);
-
-    // Fetch the dataset as CSV with longer timeout for large datasets
-    const datasetResponse = await axios.get(
-      `https://api.apify.com/v2/datasets/${datasetId}/items?format=csv&clean=true&token=${apifyToken}`,
-      {
-        responseType: 'text',
-        timeout: 120000, // 2 minutes timeout for large datasets
-      }
-    );
-
-    const csvData = datasetResponse.data;
-    console.log('Dataset fetched successfully, length:', csvData.length);
-    
-    // Generate filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `funda-data-${runId}-${timestamp}.csv`;
 
-    // Return CSV file for download
     return new NextResponse(csvData, {
       status: 200,
       headers: {
@@ -54,28 +43,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error downloading CSV:', error);
-    
-    // Check if it's an Axios error with specific status
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 404) {
-        return NextResponse.json(
-          { error: 'Dataset not found. The scraper may not have completed yet or the dataset ID is invalid.' },
-          { status: 404 }
-        );
-      }
-      if (error.response?.status === 401) {
-        return NextResponse.json(
-          { error: 'Unauthorized. Check Apify API token.' },
-          { status: 401 }
-        );
-      }
-    }
-    
+    console.error('Error serving CSV:', error);
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-      },
+      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
       { status: 500 }
     );
   }
