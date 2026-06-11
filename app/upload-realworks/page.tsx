@@ -167,6 +167,18 @@ export default function UploadRealworksPage() {
         })
       );
 
+      // Custom similarity weights saved via the /tuning page (optional)
+      let weights: Record<string, number> | undefined;
+      try {
+        const savedWeights = localStorage.getItem('customSimilarityWeights');
+        if (savedWeights) {
+          weights = JSON.parse(savedWeights);
+          console.log('Using custom similarity weights from /tuning:', weights);
+        }
+      } catch (e) {
+        console.error('Failed to parse custom similarity weights:', e);
+      }
+
       // Send small JSON payload to API (no big bodies)
       const response = await fetch('/api/upload-realworks', {
         method: 'POST',
@@ -175,6 +187,7 @@ export default function UploadRealworksPage() {
           referenceData,
           csvData,
           blobs: uploadedBlobs,
+          ...(weights ? { weights } : {}),
         }),
       }).catch((err) => {
         console.error('Fetch error:', err);

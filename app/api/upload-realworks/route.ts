@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Branch: JSON (blob URLs) or multipart form-data (fallback)
     if (isJson) {
       const body = await request.json();
-      const { referenceData, csvData, blobs } = body || {};
+      const { referenceData, csvData, blobs, weights } = body || {};
 
       if (!referenceData) {
         return NextResponse.json(
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return await handleWithBlobs(referenceData, csvData, blobs);
+      return await handleWithBlobs(referenceData, csvData, blobs, weights);
     }
 
     // Fallback: multipart form-data (legacy path)
@@ -110,7 +110,16 @@ export async function POST(request: NextRequest) {
     }
 
     const csvData = (formData.get('csvData') as string) || '';
-    return await handleWithFiles(referenceData, csvData, realworksFiles);
+    let weights: unknown;
+    const weightsStr = formData.get('weights') as string | null;
+    if (weightsStr) {
+      try {
+        weights = JSON.parse(weightsStr);
+      } catch {
+        weights = undefined;
+      }
+    }
+    return await handleWithFiles(referenceData, csvData, realworksFiles, weights);
   } catch (error) {
     console.error('[upload-realworks] Error in API:', error);
     if (error instanceof Error) {
@@ -139,12 +148,15 @@ export async function POST(request: NextRequest) {
 async function handleWithBlobs(
   referenceData: any,
   csvData: string,
-  blobs: BlobRef[]
+  blobs: BlobRef[],
+  weights?: unknown
 ) {
   try {
     // Import JS workflow
     const { runWorkflow } = await import('@/lib/workflow/runWorkflow');
-    
+    const { sanitizeWeights } = await import('@/lib/workflow/calculateSimilarity');
+    const customWeights = sanitizeWeights(weights);
+
     // Process reference data to extract street name
     const processedReferenceData = {
       ...referenceData,
@@ -185,7 +197,8 @@ async function handleWithBlobs(
       processedReferenceData,
       csvData || null,
       realworksFiles,
-      streetSimilarityCache
+      streetSimilarityCache,
+      customWeights
     );
     const workflowTime = Date.now() - workflowStartTime;
     console.log(`[upload-realworks] Workflow completed in ${workflowTime}ms`);
@@ -347,12 +360,15 @@ async function handleWithBlobs(
 async function handleWithFiles(
   referenceData: any,
   csvData: string,
-  realworksFiles: File[]
+  realworksFiles: File[],
+  weights?: unknown
 ) {
   try {
     // Import JS workflow
     const { runWorkflow } = await import('@/lib/workflow/runWorkflow');
-    
+    const { sanitizeWeights } = await import('@/lib/workflow/calculateSimilarity');
+    const customWeights = sanitizeWeights(weights);
+
     // Process reference data to extract street name
     const processedReferenceData = {
       ...referenceData,
@@ -379,7 +395,8 @@ async function handleWithFiles(
       processedReferenceData,
       csvData || null,
       realworksFileBuffers,
-      streetSimilarityCache
+      streetSimilarityCache,
+      customWeights
     );
 
     // Upload PDF and Excel to Vercel Blob if generated

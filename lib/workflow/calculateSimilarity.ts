@@ -45,8 +45,22 @@ interface StreetSimilarityCache {
   [streetName: string]: any[]; // StreetProfile objects
 }
 
-// Optimized weights from Python
-const OPTIMIZED_WEIGHTS = {
+export interface SimilarityWeights {
+  weight_street_name: number;
+  weight_osm_street: number;
+  weight_area: number;
+  weight_distance: number;
+  weight_garden: number;
+  weight_rooms: number;
+  weight_balcony: number;
+  weight_energy_label: number;
+  weight_sale_date: number;
+  weight_year_built: number;
+  gracht_penalty: number;
+}
+
+// Optimized weights from Python (production defaults)
+export const DEFAULT_WEIGHTS: SimilarityWeights = {
   weight_street_name: 0.1,
   weight_osm_street: 0.1,
   weight_area: 0.33,
@@ -59,6 +73,41 @@ const OPTIMIZED_WEIGHTS = {
   weight_year_built: 0.01,
   gracht_penalty: 0.0035,
 };
+
+/**
+ * Validate untrusted weight input (e.g. from a request body).
+ * Returns only known keys with finite numbers clamped to 0..1,
+ * or undefined when nothing usable was provided.
+ */
+export function sanitizeWeights(input: unknown): Partial<SimilarityWeights> | undefined {
+  if (!input || typeof input !== 'object') return undefined;
+  const result: Partial<SimilarityWeights> = {};
+  for (const key of Object.keys(DEFAULT_WEIGHTS) as Array<keyof SimilarityWeights>) {
+    const value = (input as Record<string, unknown>)[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      result[key] = Math.min(1, Math.max(0, value));
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Per-feature subscores (each 0..1), independent of weights.
+ * gracht_mismatch flags whether the gracht penalty applies.
+ */
+export interface FeatureScores {
+  street_name: number;
+  osm_street: number;
+  area: number;
+  distance: number;
+  garden: number;
+  rooms: number;
+  balcony: number;
+  sale_date: number;
+  year_built: number;
+  energy_label: number;
+  gracht_mismatch: boolean;
+}
 
 /**
  * Calculate string similarity using Levenshtein distance
@@ -228,123 +277,156 @@ function calculateSaleDateSimilarity(refDate: string | undefined, rowDate: strin
 }
 
 /**
+ * Calculate all per-feature subscores for a candidate vs the reference property.
+ * Weights are NOT applied here — combine with combineFeatureScores().
+ */
+export function calculateFeatureScores(
+  row: CandidateProperty,
+  referenceData: ReferenceData,
+  streetSimilarityCache?: StreetSimilarityCache
+): FeatureScores {
+  // Check for gracht mismatch (HEAVY penalty!)
+  const refStreet = (referenceData.street_name || '').toLowerCase().trim();
+  const rowStreet = (
+    row.street ||
+    row['address/street_name'] ||
+    ''
+  ).toLowerCase().trim();
+
+  const refIsGracht = refStreet.includes('gracht');
+  const rowIsGracht = rowStreet.includes('gracht');
+
+  // 1. Street similarity
+  let streetScore = 0;
+  if (refStreet && rowStreet) {
+    streetScore = refStreet === rowStreet
+      ? 1.0 // Same street = perfect match
+      : calculateStringSimilarity(refStreet, rowStreet);
+  }
+
+  // 2. OSM-based street similarity
+  const osmStreetScore = calculateOsmStreetSimilarity(row, referenceData, streetSimilarityCache);
+
+  // 3. Area similarity
+  const areaScore = calculateAreaSimilarity(referenceData.area_m2, row.rw_area_m2 || row.area_m2);
+
+  // 4. Distance similarity
+  const distanceScore = calculateDistanceSimilarity(
+    referenceData.latitude,
+    referenceData.longitude,
+    row.latitude,
+    row.longitude
+  );
+
+  // 5. Garden similarity
+  const refGarden = referenceData.has_garden || false;
+  const rowGarden = row.rw_has_garden ?? row.has_garden ?? false;
+  const gardenScore = refGarden === rowGarden ? 1.0 : 0.5;
+
+  // 6. Rooms similarity
+  const refRooms = referenceData.rooms || 0;
+  const rowRooms = row.rw_rooms || row.rooms || 0;
+  let roomScore = 0.5;
+  if (refRooms > 0 && rowRooms > 0) {
+    const roomDiff = Math.abs(rowRooms - refRooms);
+    roomScore = Math.max(0, 1 - roomDiff / Math.max(refRooms, 1));
+  }
+
+  // 7. Balcony/Terrace similarity
+  const refBalcony = referenceData.has_balcony || referenceData.has_terrace || false;
+  const rowBalcony = row.rw_has_balcony ?? row.rw_has_terrace ?? row.has_balcony ?? row.has_terrace ?? false;
+  const balconyScore = refBalcony === rowBalcony ? 1.0 : 0.5;
+
+  // 8. Sale date similarity
+  const saleDateScore = calculateSaleDateSimilarity(
+    referenceData.sale_date,
+    row.rw_sale_date || row.sale_date
+  );
+
+  // 9. Year built similarity
+  const yearScore = calculateYearBuiltSimilarity(
+    referenceData.year_built,
+    row.rw_year_built || row.year_built
+  );
+
+  // 10. Energy label similarity
+  const refEnergy = referenceData.energy_label || 'B';
+  const rowEnergy = row.rw_energy_label || row.energy_label || 'Unknown';
+  const energyScore = calculateEnergyLabelSimilarity(refEnergy, rowEnergy);
+
+  return {
+    street_name: streetScore,
+    osm_street: osmStreetScore,
+    area: areaScore,
+    distance: distanceScore,
+    garden: gardenScore,
+    rooms: roomScore,
+    balcony: balconyScore,
+    sale_date: saleDateScore,
+    year_built: yearScore,
+    energy_label: energyScore,
+    gracht_mismatch: refIsGracht !== rowIsGracht,
+  };
+}
+
+/**
+ * Combine per-feature subscores into a single similarity score using the given weights.
+ * Pure function — safe to use client-side for live re-ranking.
+ */
+export function combineFeatureScores(
+  features: FeatureScores,
+  weights: SimilarityWeights = DEFAULT_WEIGHTS
+): number {
+  const w = weights;
+
+  const score =
+    w.weight_street_name * features.street_name +
+    w.weight_osm_street * features.osm_street +
+    w.weight_area * features.area +
+    w.weight_distance * features.distance +
+    w.weight_garden * features.garden +
+    w.weight_rooms * features.rooms +
+    w.weight_balcony * features.balcony +
+    w.weight_sale_date * features.sale_date +
+    w.weight_year_built * features.year_built;
+
+  // Base similarity is normalized by the sum of base weights, so only their ratios matter
+  const maxBaseScore =
+    w.weight_street_name +
+    w.weight_osm_street +
+    w.weight_area +
+    w.weight_distance +
+    w.weight_garden +
+    w.weight_rooms +
+    w.weight_balcony +
+    w.weight_sale_date +
+    w.weight_year_built;
+
+  const baseSimilarity = maxBaseScore > 0 ? Math.min(1.0, score / maxBaseScore) : 0.0;
+
+  // Energy label acts as a blend factor: energy% energy label + (1 - energy%) base similarity
+  const combinedSimilarity =
+    w.weight_energy_label * features.energy_label +
+    (1 - w.weight_energy_label) * baseSimilarity;
+
+  // Apply gracht penalty to the ENTIRE score
+  const grachtPenalty = features.gracht_mismatch ? w.gracht_penalty : 1.0;
+
+  return Math.min(1.0, combinedSimilarity * grachtPenalty); // Cap at 1.0
+}
+
+/**
  * Calculate similarity score between reference property and candidate property
  */
 export function calculateSimpleSimilarityScore(
   row: CandidateProperty,
   referenceData: ReferenceData,
-  streetSimilarityCache?: StreetSimilarityCache
+  streetSimilarityCache?: StreetSimilarityCache,
+  weights: SimilarityWeights = DEFAULT_WEIGHTS
 ): number {
   try {
-    let score = 0.0;
-    
-    // Check for gracht mismatch (HEAVY penalty!)
-    const refStreet = (referenceData.street_name || '').toLowerCase().trim();
-    const rowStreet = (
-      row.street ||
-      row['address/street_name'] ||
-      ''
-    ).toLowerCase().trim();
-    
-    const refIsGracht = refStreet.includes('gracht');
-    const rowIsGracht = rowStreet.includes('gracht');
-    
-    const w = OPTIMIZED_WEIGHTS;
-    
-    // Apply gracht penalty
-    const grachtPenalty = (refIsGracht !== rowIsGracht) ? w.gracht_penalty : 1.0;
-    
-    // 1. Street similarity (10% weight)
-    if (refStreet && rowStreet) {
-      if (refStreet === rowStreet) {
-        score += w.weight_street_name * 1.0; // Same street = perfect match
-      } else {
-        const streetSimilarity = calculateStringSimilarity(refStreet, rowStreet);
-        score += w.weight_street_name * streetSimilarity;
-      }
-    }
-    
-    // 2. OSM-based street similarity (10% weight)
-    const osmStreetScoreRaw = calculateOsmStreetSimilarity(row, referenceData, streetSimilarityCache);
-    score += w.weight_osm_street * osmStreetScoreRaw;
-    
-    // 3. Area similarity (33% weight)
-    const refArea = referenceData.area_m2;
-    const rowArea = row.rw_area_m2 || row.area_m2;
-    const areaScore = calculateAreaSimilarity(refArea, rowArea);
-    score += w.weight_area * areaScore;
-    
-    // 4. Distance similarity (18% weight)
-    const distanceScore = calculateDistanceSimilarity(
-      referenceData.latitude,
-      referenceData.longitude,
-      row.latitude,
-      row.longitude
-    );
-    score += w.weight_distance * distanceScore;
-    
-    // 5. Garden similarity (2% weight)
-    const refGarden = referenceData.has_garden || false;
-    const rowGarden = row.rw_has_garden ?? row.has_garden ?? false;
-    const gardenScore = refGarden === rowGarden ? 1.0 : 0.5;
-    score += w.weight_garden * gardenScore;
-    
-    // 6. Rooms similarity (5% weight)
-    const refRooms = referenceData.rooms || 0;
-    const rowRooms = row.rw_rooms || row.rooms || 0;
-    if (refRooms > 0 && rowRooms > 0) {
-      const roomDiff = Math.abs(rowRooms - refRooms);
-      const roomScore = Math.max(0, 1 - roomDiff / Math.max(refRooms, 1));
-      score += w.weight_rooms * roomScore;
-    } else {
-      score += w.weight_rooms * 0.5;
-    }
-    
-    // 7. Balcony/Terrace similarity (11% weight)
-    const refBalcony = referenceData.has_balcony || referenceData.has_terrace || false;
-    const rowBalcony = row.rw_has_balcony ?? row.rw_has_terrace ?? row.has_balcony ?? row.has_terrace ?? false;
-    const balconyScore = refBalcony === rowBalcony ? 1.0 : 0.5;
-    score += w.weight_balcony * balconyScore;
-    
-    // 8. Sale date similarity (11% weight)
-    const refSaleDate = referenceData.sale_date;
-    const rowSaleDate = row.rw_sale_date || row.sale_date;
-    const saleDateScore = calculateSaleDateSimilarity(refSaleDate, rowSaleDate);
-    score += w.weight_sale_date * saleDateScore;
-    
-    // 9. Year built similarity (1% weight)
-    const refYear = referenceData.year_built;
-    const rowYear = row.rw_year_built || row.year_built;
-    const yearScore = calculateYearBuiltSimilarity(refYear, rowYear);
-    score += w.weight_year_built * yearScore;
-    
-    // Calculate base similarity (before energy label)
-    const maxBaseScore = 
-      w.weight_street_name +
-      w.weight_osm_street +
-      w.weight_area +
-      w.weight_distance +
-      w.weight_garden +
-      w.weight_rooms +
-      w.weight_balcony +
-      w.weight_sale_date +
-      w.weight_year_built;
-    
-    const baseSimilarity = maxBaseScore > 0 ? Math.min(1.0, score / maxBaseScore) : 0.0;
-    
-    // 10. Energy label similarity (35% weight) - combined with base similarity
-    const refEnergy = referenceData.energy_label || 'B';
-    const rowEnergy = row.rw_energy_label || row.energy_label || 'Unknown';
-    const energySim = calculateEnergyLabelSimilarity(refEnergy, rowEnergy);
-    
-    // Combine: 35% energy label + 65% base similarity
-    const combinedSimilarity = w.weight_energy_label * energySim + (1 - w.weight_energy_label) * baseSimilarity;
-    score = combinedSimilarity;
-    
-    // Apply gracht penalty to the ENTIRE score
-    score = score * grachtPenalty;
-    
-    return Math.min(1.0, score); // Cap at 1.0
+    const features = calculateFeatureScores(row, referenceData, streetSimilarityCache);
+    return combineFeatureScores(features, weights);
   } catch (error) {
     console.error('Error calculating similarity score:', error);
     return 0.0;

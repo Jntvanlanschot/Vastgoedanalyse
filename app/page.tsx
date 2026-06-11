@@ -371,6 +371,16 @@ export default function Home() {
               </button>
             </div>
           </form>
+
+          {/* Parameter tuning */}
+          <div className="text-center pt-2">
+            <a
+              href="/tuning"
+              className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-blue-400 transition-colors"
+            >
+              ⚙️ Parameter tuning — stem de best match selector af
+            </a>
+          </div>
         </div>
       </div>
     </div>

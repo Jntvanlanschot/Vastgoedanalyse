@@ -8,7 +8,7 @@
  */
 
 import { parseMhtmlFile, ParsedProperty } from './parseRealworksMhtml';
-import { calculateSimpleSimilarityScore, ReferenceData, CandidateProperty } from './calculateSimilarity';
+import { calculateSimpleSimilarityScore, ReferenceData, CandidateProperty, SimilarityWeights, DEFAULT_WEIGHTS } from './calculateSimilarity';
 import Papa from 'papaparse';
 // CRITICAL: Apply fontkit patch BEFORE pdfmake/fontkit imports
 import { applyFontkitTriePatch } from '@/lib/fontkit-trie-patch';
@@ -215,7 +215,8 @@ function processCsvForTopStreets(
 function processRealworksForTop15(
   properties: ParsedProperty[],
   referenceData: ReferenceData,
-  streetSimilarityCache?: StreetSimilarityCache
+  streetSimilarityCache?: StreetSimilarityCache,
+  weights?: SimilarityWeights
 ): {
   status: string;
   message: string;
@@ -277,7 +278,7 @@ function processRealworksForTop15(
     
     // Calculate similarity scores
     const scoredProperties = uniqueProperties.map(prop => {
-      const similarityScore = calculateSimpleSimilarityScore(prop, referenceData, streetSimilarityCache);
+      const similarityScore = calculateSimpleSimilarityScore(prop, referenceData, streetSimilarityCache, weights);
       return {
         ...prop,
         similarity_score: similarityScore,
@@ -317,10 +318,15 @@ export async function runWorkflow(
   referenceData: ReferenceData,
   csvData: string | null,
   realworksFiles: Array<{ buffer: Buffer; filename: string }>,
-  streetSimilarityCache?: StreetSimilarityCache
+  streetSimilarityCache?: StreetSimilarityCache,
+  customWeights?: Partial<SimilarityWeights>
 ): Promise<WorkflowResult> {
   try {
     console.log('=== STARTING API WORKFLOW WITH REALWORKS ===');
+    const weights: SimilarityWeights = { ...DEFAULT_WEIGHTS, ...customWeights };
+    if (customWeights) {
+      console.log('Using custom similarity weights:', weights);
+    }
     
     // Step 1: Process CSV for top streets (simplified - street analysis done separately)
     console.log('STEP 1: Processing CSV data...');
@@ -364,7 +370,8 @@ export async function runWorkflow(
     const top15Result = processRealworksForTop15(
       realworksResult.properties,
       referenceData,
-      streetSimilarityCache
+      streetSimilarityCache,
+      weights
     );
     
     const step4Result = {

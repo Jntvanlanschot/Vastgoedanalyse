@@ -15,6 +15,9 @@
     },
     "app/api/upload-realworks-public/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/tuning/route.ts": {
+      "maxDuration": 300
     }
   },
   "rewrites": [
