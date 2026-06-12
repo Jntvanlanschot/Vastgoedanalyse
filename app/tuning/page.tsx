@@ -492,64 +492,86 @@ export default function TuningPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
-            {BASE_WEIGHT_KEYS.map(({ key, label }) => (
-              <div key={key}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-300">{label}</span>
-                  <span className="text-gray-400">
-                    {weights[key].toFixed(3)}
-                    <span className="text-gray-500 ml-1">
-                      ({baseWeightSum > 0 ? ((weights[key] / baseWeightSum) * 100).toFixed(0) : 0}%)
+            {BASE_WEIGHT_KEYS.map(({ key, label }) => {
+              // UI scale 0-10 in whole steps; stored internally as 0-1.
+              // Untouched sliders keep the exact (non-integer) production default.
+              const uiValue = weights[key] * 10;
+              return (
+                <div key={key}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-300">{label}</span>
+                    <span className="text-gray-400">
+                      {Number.isInteger(uiValue) ? uiValue : uiValue.toFixed(1)}
+                      <span className="text-gray-500 ml-1">
+                        ({baseWeightSum > 0 ? ((weights[key] / baseWeightSum) * 100).toFixed(0) : 0}%)
+                      </span>
                     </span>
-                  </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={10}
+                    step={1}
+                    value={uiValue}
+                    onChange={(e) => setWeight(key, parseInt(e.target.value) / 10)}
+                    className="w-full accent-blue-500"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.005}
-                  value={weights[key]}
-                  onChange={(e) => setWeight(key, parseFloat(e.target.value))}
-                  className="w-full accent-blue-500"
-                />
-              </div>
-            ))}
+              );
+            })}
+
+            {(() => {
+              const energyUi = weights.weight_energy_label * 10;
+              return (
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-yellow-300">Energielabel</span>
+                    <span className="text-gray-400">
+                      {Number.isInteger(energyUi) ? energyUi : energyUi.toFixed(1)}
+                      <span className="text-gray-500 ml-1">
+                        ({(weights.weight_energy_label * 100).toFixed(0)}% van eindscore)
+                      </span>
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={10}
+                    step={1}
+                    value={energyUi}
+                    onChange={(e) => setWeight('weight_energy_label', parseInt(e.target.value) / 10)}
+                    className="w-full accent-yellow-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Vast aandeel van het energielabel in de eindscore; de rest komt uit de overige kenmerken samen.
+                  </p>
+                </div>
+              );
+            })()}
 
             <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-yellow-300">Energielabel (blend)</span>
-                <span className="text-gray-400">{weights.weight_energy_label.toFixed(3)}</span>
+              <div className="text-sm text-red-300 mb-2">Gracht-mismatch</div>
+              <div className="flex gap-2">
+                {[
+                  { label: 'Uitsluiten', value: DEFAULT_WEIGHTS.gracht_penalty },
+                  { label: 'Halve score', value: 0.5 },
+                  { label: 'Geen penalty', value: 1 },
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    onClick={() => setWeight('gracht_penalty', opt.value)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                      Math.abs(weights.gracht_penalty - opt.value) < 0.01
+                        ? 'bg-red-700 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.005}
-                value={weights.weight_energy_label}
-                onChange={(e) => setWeight('weight_energy_label', parseFloat(e.target.value))}
-                className="w-full accent-yellow-500"
-              />
               <p className="text-xs text-gray-500 mt-1">
-                Aandeel energielabel in de eindscore; de rest komt uit de overige kenmerken samen.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-red-300">Gracht-penalty (multiplier)</span>
-                <span className="text-gray-400">{weights.gracht_penalty.toFixed(4)}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.0005}
-                value={weights.gracht_penalty}
-                onChange={(e) => setWeight('gracht_penalty', parseFloat(e.target.value))}
-                className="w-full accent-red-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Score × deze factor als één van beide wél en de ander níet aan een gracht ligt (1 = geen penalty).
+                Wat te doen als één van beide woningen wél aan een gracht ligt en de ander niet.
               </p>
             </div>
           </div>
