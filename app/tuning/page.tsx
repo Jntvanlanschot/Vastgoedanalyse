@@ -78,7 +78,34 @@ export default function TuningPage() {
   const [hasSavedWeights, setHasSavedWeights] = useState(false);
   const [showCount, setShowCount] = useState(15);
   const [copied, setCopied] = useState(false);
+  const [autoLoaded, setAutoLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchFromBlobs = async (
+    referenceData: Record<string, unknown>,
+    blobs: Array<{ url: string; name: string }>
+  ) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/tuning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceData, blobs }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Request mislukt (status ${response.status})`);
+      }
+      const data = await response.json();
+      setCandidates(data.candidates || []);
+      setTotalParsed(data.total_parsed || 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Er ging iets mis');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Prefill reference from earlier steps and load previously saved weights
   useEffect(() => {
@@ -119,6 +146,22 @@ export default function TuningPage() {
     } catch (e) {
       console.error('Failed to prefill reference data:', e);
     }
+
+    // Reuse the Realworks upload from the last analysis, so tuning is iterative
+    try {
+      const blobsStr = sessionStorage.getItem('tuningBlobs');
+      const refStr = sessionStorage.getItem('referenceData');
+      if (blobsStr && refStr) {
+        const blobs = JSON.parse(blobsStr);
+        if (Array.isArray(blobs) && blobs.length > 0) {
+          setAutoLoaded(true);
+          fetchFromBlobs(JSON.parse(refStr), blobs);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to auto-load tuning data from last analysis:', e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFiles = (fileList: FileList | null) => {
@@ -264,6 +307,11 @@ export default function TuningPage() {
           {hasSavedWeights && (
             <p className="mt-2 inline-block text-sm bg-green-900/30 border border-green-500 text-green-300 px-3 py-1 rounded-full">
               Aangepaste parameters actief — nieuwe analyses gebruiken deze gewichten
+            </p>
+          )}
+          {autoLoaded && (
+            <p className="mt-2 block text-sm text-blue-300">
+              📂 Realworks data van je laatste analyse wordt automatisch geladen — direct tunen, geen upload nodig.
             </p>
           )}
         </div>

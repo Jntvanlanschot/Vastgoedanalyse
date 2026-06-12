@@ -190,6 +190,12 @@ export default function AnalysisResultsPage() {
                   </button>
                 )}
                 <Link
+                  href="/tuning"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  🔧 Parameters Tunen
+                </Link>
+                <Link
                   href="/"
                   className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
@@ -199,6 +205,10 @@ export default function AnalysisResultsPage() {
             );
           })()}
         </div>
+        <p className="mt-4 text-center text-sm text-gray-500">
+          Met &quot;Parameters Tunen&quot; gebruik je de zojuist geüploade Realworks data om de match-gewichten
+          iteratief af te stemmen — zonder opnieuw te uploaden.
+        </p>
       </div>
     </div>
   );

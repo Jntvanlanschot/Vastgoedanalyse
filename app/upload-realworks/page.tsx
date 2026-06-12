@@ -167,6 +167,13 @@ export default function UploadRealworksPage() {
         })
       );
 
+      // Keep blob refs so the /tuning page can reuse this upload without re-uploading
+      try {
+        sessionStorage.setItem('tuningBlobs', JSON.stringify(uploadedBlobs));
+      } catch (e) {
+        console.error('Failed to store blob refs for tuning:', e);
+      }
+
       // Custom similarity weights saved via the /tuning page (optional)
       let weights: Record<string, number> | undefined;
       try {
