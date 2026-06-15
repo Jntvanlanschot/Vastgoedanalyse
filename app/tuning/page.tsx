@@ -45,8 +45,10 @@ interface ReferenceForm {
   balkon: boolean;
 }
 
-// Base weights are normalized by their sum, so only ratios matter
+// All weights are normalized by their sum, so only ratios matter.
+// Energielabel is now a normal weighted feature (just with a higher default).
 const BASE_WEIGHT_KEYS: Array<{ key: keyof SimilarityWeights; label: string }> = [
+  { key: 'weight_energy_label', label: 'Energielabel' },
   { key: 'weight_area', label: 'Oppervlakte' },
   { key: 'weight_distance', label: 'Afstand' },
   { key: 'weight_street_name', label: 'Straatnaam' },
@@ -584,35 +586,6 @@ export default function TuningPage() {
               );
             })}
 
-            {(() => {
-              const energyUi = weights.weight_energy_label * 10;
-              return (
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-yellow-300">Energielabel</span>
-                    <span className="text-gray-400">
-                      {Number.isInteger(energyUi) ? energyUi : energyUi.toFixed(1)}
-                      <span className="text-gray-500 ml-1">
-                        ({(weights.weight_energy_label * 100).toFixed(0)}% van eindscore)
-                      </span>
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={10}
-                    step={1}
-                    value={energyUi}
-                    onChange={(e) => setWeight('weight_energy_label', parseInt(e.target.value) / 10)}
-                    className="w-full accent-yellow-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Vast aandeel van het energielabel in de eindscore; de rest komt uit de overige kenmerken samen.
-                  </p>
-                </div>
-              );
-            })()}
-
             <div>
               <div className="text-sm text-red-300 mb-2">Gracht-mismatch</div>
               <div className="flex gap-2">
@@ -725,8 +698,88 @@ export default function TuningPage() {
           </div>
         )}
 
+        {/* Live ranking */}
+        {ranked && (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">
+                Beste matches <span className="text-gray-400 font-normal">(live)</span>
+              </h2>
+              <select
+                value={showCount}
+                onChange={(e) => setShowCount(parseInt(e.target.value))}
+                className="px-3 py-1.5 bg-gray-700 text-white text-sm rounded-lg border border-gray-600"
+              >
+                {[15, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>Top {n}</option>
+                ))}
+              </select>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-400 border-b border-gray-700">
+                    <th className="py-2 pr-3">#</th>
+                    <th className="py-2 pr-3">Δ</th>
+                    <th className="py-2 pr-3">Adres</th>
+                    <th className="py-2 pr-3 text-right">Prijs</th>
+                    <th className="py-2 pr-3 text-right">m²</th>
+                    <th className="py-2 pr-3 text-right">Kamers</th>
+                    <th className="py-2 pr-3">Label</th>
+                    <th className="py-2 pr-3">Verkocht</th>
+                    <th className="py-2 pr-3 text-right">Opp.</th>
+                    <th className="py-2 pr-3 text-right">Energie</th>
+                    <th className="py-2 pr-3 text-right">Datum</th>
+                    <th className="py-2 text-right">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranked.slice(0, showCount).map((c, i) => {
+                    const rank = i + 1;
+                    const delta = c.defaultRank - rank;
+                    return (
+                      <tr
+                        key={c.address_full}
+                        className={`border-b border-gray-700/50 ${
+                          rank <= 15 ? 'text-gray-200' : 'text-gray-500'
+                        }`}
+                      >
+                        <td className="py-2 pr-3">{rank}</td>
+                        <td className={`py-2 pr-3 ${
+                          delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-600'
+                        }`}>
+                          {delta > 0 ? `▲${delta}` : delta < 0 ? `▼${-delta}` : '–'}
+                        </td>
+                        <td className="py-2 pr-3 max-w-xs truncate" title={c.address_full}>
+                          {c.address_full}
+                          {c.features.gracht_mismatch && (
+                            <span className="ml-2 text-xs text-red-400" title="Gracht-penalty actief">⚓</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 text-right whitespace-nowrap">{formatPrice(c.rw_sale_price)}</td>
+                        <td className="py-2 pr-3 text-right">{c.rw_area_m2 ?? '—'}</td>
+                        <td className="py-2 pr-3 text-right">{c.rw_rooms ?? '—'}</td>
+                        <td className="py-2 pr-3">{c.rw_energy_label ?? '—'}</td>
+                        <td className="py-2 pr-3 whitespace-nowrap">{c.rw_sale_date ?? '—'}</td>
+                        <td className="py-2 pr-3 text-right text-gray-400">{formatScore(c.features.area)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-400">{formatScore(c.features.energy_label)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-400">{formatScore(c.features.sale_date)}</td>
+                        <td className="py-2 text-right font-medium text-blue-300">{formatScore(c.score)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Δ = positieverandering t.o.v. de standaard gewichten. De kolommen Opp./Energie/Datum tonen de
+              ongewogen subscores per kenmerk. Afstand is neutraal (50%) zolang er geen coördinaten beschikbaar zijn.
+            </p>
+          </div>
+        )}
+
         {/* Profiles */}
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-gray-800 rounded-lg p-6" id="profielen">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
             <h2 className="text-lg font-semibold text-white">Profielen</h2>
             <button
@@ -820,85 +873,6 @@ export default function TuningPage() {
           </div>
         </div>
 
-        {/* Live ranking */}
-        {ranked && (
-          <div className="bg-gray-800 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">
-                Beste matches <span className="text-gray-400 font-normal">(live)</span>
-              </h2>
-              <select
-                value={showCount}
-                onChange={(e) => setShowCount(parseInt(e.target.value))}
-                className="px-3 py-1.5 bg-gray-700 text-white text-sm rounded-lg border border-gray-600"
-              >
-                {[15, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>Top {n}</option>
-                ))}
-              </select>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-400 border-b border-gray-700">
-                    <th className="py-2 pr-3">#</th>
-                    <th className="py-2 pr-3">Δ</th>
-                    <th className="py-2 pr-3">Adres</th>
-                    <th className="py-2 pr-3 text-right">Prijs</th>
-                    <th className="py-2 pr-3 text-right">m²</th>
-                    <th className="py-2 pr-3 text-right">Kamers</th>
-                    <th className="py-2 pr-3">Label</th>
-                    <th className="py-2 pr-3">Verkocht</th>
-                    <th className="py-2 pr-3 text-right">Opp.</th>
-                    <th className="py-2 pr-3 text-right">Energie</th>
-                    <th className="py-2 pr-3 text-right">Datum</th>
-                    <th className="py-2 text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ranked.slice(0, showCount).map((c, i) => {
-                    const rank = i + 1;
-                    const delta = c.defaultRank - rank;
-                    return (
-                      <tr
-                        key={c.address_full}
-                        className={`border-b border-gray-700/50 ${
-                          rank <= 15 ? 'text-gray-200' : 'text-gray-500'
-                        }`}
-                      >
-                        <td className="py-2 pr-3">{rank}</td>
-                        <td className={`py-2 pr-3 ${
-                          delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-600'
-                        }`}>
-                          {delta > 0 ? `▲${delta}` : delta < 0 ? `▼${-delta}` : '–'}
-                        </td>
-                        <td className="py-2 pr-3 max-w-xs truncate" title={c.address_full}>
-                          {c.address_full}
-                          {c.features.gracht_mismatch && (
-                            <span className="ml-2 text-xs text-red-400" title="Gracht-penalty actief">⚓</span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-3 text-right whitespace-nowrap">{formatPrice(c.rw_sale_price)}</td>
-                        <td className="py-2 pr-3 text-right">{c.rw_area_m2 ?? '—'}</td>
-                        <td className="py-2 pr-3 text-right">{c.rw_rooms ?? '—'}</td>
-                        <td className="py-2 pr-3">{c.rw_energy_label ?? '—'}</td>
-                        <td className="py-2 pr-3 whitespace-nowrap">{c.rw_sale_date ?? '—'}</td>
-                        <td className="py-2 pr-3 text-right text-gray-400">{formatScore(c.features.area)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-400">{formatScore(c.features.energy_label)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-400">{formatScore(c.features.sale_date)}</td>
-                        <td className="py-2 text-right font-medium text-blue-300">{formatScore(c.score)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-xs text-gray-500">
-              Δ = positieverandering t.o.v. de standaard gewichten. De kolommen Opp./Energie/Datum tonen de
-              ongewogen subscores per kenmerk. Afstand is neutraal (50%) zolang er geen coördinaten beschikbaar zijn.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

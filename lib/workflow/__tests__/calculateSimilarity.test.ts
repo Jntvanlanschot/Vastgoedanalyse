@@ -32,14 +32,13 @@ function makeCandidate(overrides: Partial<CandidateProperty> = {}): CandidatePro
 }
 
 describe('calculateSimpleSimilarityScore', () => {
-  it('reproduces the original formula for a near-perfect match', () => {
-    // Hand-computed with the pre-refactor implementation:
+  it('is a normalized weighted average over all features incl. energy label', () => {
     // street=1, osm=0.5 (no cache), area=1, distance=0.5 (no coords), garden=1,
-    // rooms=1, balcony=1, sale_date=0.5 (missing), year_built=0.5 (missing)
-    // weighted sum = 0.81, base weights sum = 1.01, base = 0.81/1.01
-    // combined = 0.35*1 (energy) + 0.65*base = 0.8712871287...
+    // rooms=1, balcony=1, sale_date=0.5 (missing), year_built=0.5 (missing), energy=1 (B==B)
+    // weighted base numerator = 0.81; energy term = 0.5*1 = 0.5 -> 1.31
+    // total weight = 1.01 (base) + 0.5 (energy) = 1.51
     const score = calculateSimpleSimilarityScore(makeCandidate(), reference);
-    expect(score).toBeCloseTo(0.35 + 0.65 * (0.81 / 1.01), 10);
+    expect(score).toBeCloseTo(1.31 / 1.51, 10);
   });
 
   it('applies the gracht penalty on a gracht mismatch', () => {

@@ -68,7 +68,7 @@ export const DEFAULT_WEIGHTS: SimilarityWeights = {
   weight_garden: 0.02,
   weight_rooms: 0.05,
   weight_balcony: 0.11,
-  weight_energy_label: 0.35,
+  weight_energy_label: 0.5,
   weight_sale_date: 0.11,
   weight_year_built: 0.01,
   gracht_penalty: 0.0035,
@@ -379,6 +379,10 @@ export function combineFeatureScores(
 ): number {
   const w = weights;
 
+  // Energy label is just another weighted feature: it gets a higher default
+  // weight (more important) but never overrides the rest. Score is the
+  // weighted average over all features, normalized by the sum of weights,
+  // so only the ratios between weights matter.
   const score =
     w.weight_street_name * features.street_name +
     w.weight_osm_street * features.osm_street +
@@ -388,10 +392,10 @@ export function combineFeatureScores(
     w.weight_rooms * features.rooms +
     w.weight_balcony * features.balcony +
     w.weight_sale_date * features.sale_date +
-    w.weight_year_built * features.year_built;
+    w.weight_year_built * features.year_built +
+    w.weight_energy_label * features.energy_label;
 
-  // Base similarity is normalized by the sum of base weights, so only their ratios matter
-  const maxBaseScore =
+  const totalWeight =
     w.weight_street_name +
     w.weight_osm_street +
     w.weight_area +
@@ -400,19 +404,15 @@ export function combineFeatureScores(
     w.weight_rooms +
     w.weight_balcony +
     w.weight_sale_date +
-    w.weight_year_built;
+    w.weight_year_built +
+    w.weight_energy_label;
 
-  const baseSimilarity = maxBaseScore > 0 ? Math.min(1.0, score / maxBaseScore) : 0.0;
-
-  // Energy label acts as a blend factor: energy% energy label + (1 - energy%) base similarity
-  const combinedSimilarity =
-    w.weight_energy_label * features.energy_label +
-    (1 - w.weight_energy_label) * baseSimilarity;
+  const similarity = totalWeight > 0 ? Math.min(1.0, score / totalWeight) : 0.0;
 
   // Apply gracht penalty to the ENTIRE score
   const grachtPenalty = features.gracht_mismatch ? w.gracht_penalty : 1.0;
 
-  return Math.min(1.0, combinedSimilarity * grachtPenalty); // Cap at 1.0
+  return Math.min(1.0, similarity * grachtPenalty); // Cap at 1.0
 }
 
 /**
