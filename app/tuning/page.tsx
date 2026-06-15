@@ -15,6 +15,7 @@ import {
   getActiveProfileIndex,
   setActiveProfileIndex,
 } from '@/lib/tuningProfiles';
+import { calculateAdvicePrice } from '@/lib/workflow/calculatePrice';
 
 interface TuningCandidate {
   address_full: string;
@@ -66,6 +67,10 @@ function formatScore(score: number): string {
   return (score * 100).toFixed(1) + '%';
 }
 
+function formatNumberNL(n: number): string {
+  return n.toLocaleString('nl-NL');
+}
+
 export default function TuningPage() {
   const [reference, setReference] = useState<ReferenceForm>({
     address: '',
@@ -89,6 +94,7 @@ export default function TuningPage() {
   );
   const [activeIndex, setActiveIndex] = useState(-1);
   const [loadedFromSlot, setLoadedFromSlot] = useState<number | null>(null);
+  const [targetPrice, setTargetPrice] = useState<number | ''>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFromBlobs = async (
@@ -215,10 +221,15 @@ export default function TuningPage() {
     try {
       const referenceData = buildReferenceData();
       const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      // Local dev has no blob token; also no body limit, so always use form-data there.
+      const isLocalDev =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1');
       let response: Response;
 
-      if (totalSize < 4 * 1024 * 1024) {
-        // Small uploads: straight to the API as form-data
+      if (isLocalDev || totalSize < 4 * 1024 * 1024) {
+        // Small uploads (or local dev): straight to the API as form-data
         const formData = new FormData();
         formData.append('referenceData', JSON.stringify(referenceData));
         files.forEach((file, i) => formData.append(`realworks_file_${i + 1}`, file));
@@ -275,6 +286,20 @@ export default function TuningPage() {
       }))
       .sort((a, b) => b.score - a.score);
   }, [candidates, weights]);
+
+  // Live advice price from the current ranking — identical math to the final report
+  const priceResult = useMemo(() => {
+    if (!ranked) return null;
+    const area = typeof reference.oppervlakte === 'number' ? reference.oppervlakte : 0;
+    return calculateAdvicePrice(
+      ranked.map((c) => ({
+        score: c.score,
+        salePrice: c.rw_sale_price,
+        areaM2: c.rw_area_m2,
+      })),
+      area
+    );
+  }, [ranked, reference.oppervlakte]);
 
   const baseWeightSum = BASE_WEIGHT_KEYS.reduce((sum, { key }) => sum + weights[key], 0);
 
@@ -615,6 +640,90 @@ export default function TuningPage() {
             </div>
           </div>
         </div>
+
+        {/* Advice price */}
+        {ranked && (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-semibold text-white">Adviesprijs (live)</h2>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-400">Bekende verkoopprijs</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">€</span>
+                  <input
+                    type="number"
+                    value={targetPrice}
+                    onChange={(e) =>
+                      setTargetPrice(e.target.value ? parseInt(e.target.value) : '')
+                    }
+                    placeholder="bijv. 525000"
+                    className="w-40 pl-7 pr-3 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {priceResult ? (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: 'Conservatief', price: priceResult.conservativePrice, perM2: priceResult.conservativePerM2, accent: 'text-gray-300' },
+                    { label: 'Adviesprijs', price: priceResult.neutralPrice, perM2: priceResult.avgPricePerM2, accent: 'text-blue-300' },
+                    { label: 'Optimistisch', price: priceResult.optimisticPrice, perM2: priceResult.optimisticPerM2, accent: 'text-gray-300' },
+                  ].map((s) => (
+                    <div
+                      key={s.label}
+                      className={`rounded-lg p-4 text-center ${
+                        s.label === 'Adviesprijs' ? 'bg-blue-900/20 border border-blue-500' : 'bg-gray-700/50'
+                      }`}
+                    >
+                      <div className="text-xs text-gray-400 mb-1">{s.label}</div>
+                      <div className={`text-xl font-semibold ${s.accent}`}>
+                        € {formatNumberNL(Math.round(s.price))}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        € {formatNumberNL(Math.round(s.perM2))}/m²
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {typeof targetPrice === 'number' && targetPrice > 0 && (() => {
+                  const diff = priceResult.neutralPrice - targetPrice;
+                  const pct = (diff / targetPrice) * 100;
+                  const close = Math.abs(pct) <= 2;
+                  return (
+                    <div
+                      className={`mt-4 rounded-lg p-3 text-center text-sm ${
+                        close
+                          ? 'bg-green-900/20 border border-green-600 text-green-300'
+                          : 'bg-gray-700/40 text-gray-300'
+                      }`}
+                    >
+                      Adviesprijs vs. bekende verkoop:{' '}
+                      <span className="font-semibold">
+                        {diff >= 0 ? '+' : '−'}€ {formatNumberNL(Math.abs(Math.round(diff)))}
+                      </span>{' '}
+                      ({pct >= 0 ? '+' : ''}{pct.toFixed(1)}%)
+                      {close && ' ✓ binnen 2%'}
+                    </div>
+                  );
+                })()}
+
+                <p className="mt-3 text-xs text-gray-500">
+                  Berekend op {priceResult.comparablesUsed} vergelijkbare woningen (score ≥ 0,55, max 12),
+                  gewogen op score². Dit is exact dezelfde berekening als in het eindrapport. Vul een bekende
+                  verkoopprijs in en stem de gewichten zo dat de adviesprijs daar dichtbij komt.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">
+                Geen adviesprijs mogelijk: vul de oppervlakte van de referentiewoning in en zorg dat er
+                matches met verkoopprijs én score ≥ 0,55 zijn.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Profiles */}
         <div className="bg-gray-800 rounded-lg p-6">

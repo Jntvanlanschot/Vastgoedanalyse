@@ -149,48 +149,6 @@ export default function UploadRealworksPage() {
       const csvData =
         sessionStorage.getItem('csvData') || 'address_full,street_name\n';
 
-      // Upload files directly to Vercel Blob (browser → Blob, not through API route)
-      // This supports files > 6MB via multipart uploads
-      const uploadedBlobs = await Promise.all(
-        uploadedFiles.map(async (uploadedFile) => {
-          try {
-            const { upload } = await import('@vercel/blob/client');
-            console.log(`Uploading ${uploadedFile.file.name} (${(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB) directly to Vercel Blob`);
-            
-            // Use multipart for larger files to handle them efficiently
-            const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
-              access: 'public',
-              handleUploadUrl: '/api/upload-blob',
-              multipart: uploadedFile.file.size > 5 * 1024 * 1024, // Use multipart for files > 5MB
-              clientPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
-            });
-            
-            console.log(`Upload successful for ${uploadedFile.file.name}: ${blob.url}`);
-            
-            return {
-              url: blob.url,
-              name: uploadedFile.file.name,
-              size: uploadedFile.file.size,
-              type: uploadedFile.file.type || 'application/octet-stream',
-            };
-          } catch (error) {
-            // Re-throw with more context
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : `Unknown error uploading ${uploadedFile.file.name}`;
-            throw new Error(`Failed to upload ${uploadedFile.file.name}: ${errorMessage}`);
-          }
-        })
-      );
-
-      // Keep blob refs so the /tuning page can reuse this upload without re-uploading
-      try {
-        sessionStorage.setItem('tuningBlobs', JSON.stringify(uploadedBlobs));
-      } catch (e) {
-        console.error('Failed to store blob refs for tuning:', e);
-      }
-
       // Similarity weights from the selected tuning profile (optional)
       let weights: Record<string, number> | undefined;
       if (selectedProfile >= 0 && profiles[selectedProfile]) {
@@ -198,22 +156,92 @@ export default function UploadRealworksPage() {
         console.log(`Using tuning profile "${profiles[selectedProfile]!.name}":`, weights);
       }
 
-      // Send small JSON payload to API (no big bodies)
-      const response = await fetch('/api/upload-realworks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          referenceData,
-          csvData,
-          blobs: uploadedBlobs,
-          ...(weights ? { weights } : {}),
-        }),
-      }).catch((err) => {
-        console.error('Fetch error:', err);
-        throw new Error(
-          `Network error: ${err.message}. Please check if the server is running and try again.`
+      // Local dev has no BLOB_READ_WRITE_TOKEN and no serverless body limit,
+      // so send files straight to the API as multipart form-data.
+      // Production uses Vercel Blob (browser → Blob) to bypass the 4.5MB limit.
+      const isLocalDev =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1');
+
+      let response: Response;
+
+      if (isLocalDev) {
+        const formData = new FormData();
+        formData.append('referenceData', JSON.stringify(referenceData));
+        formData.append('csvData', csvData);
+        if (weights) formData.append('weights', JSON.stringify(weights));
+        uploadedFiles.forEach((uf, i) =>
+          formData.append(`realworks_file_${i + 1}`, uf.file)
         );
-      });
+        // No blob URLs available locally — tuning page will use its own file picker
+        sessionStorage.removeItem('tuningBlobs');
+
+        response = await fetch('/api/upload-realworks', {
+          method: 'POST',
+          body: formData,
+        }).catch((err) => {
+          console.error('Fetch error:', err);
+          throw new Error(
+            `Network error: ${err.message}. Draait de server nog?`
+          );
+        });
+      } else {
+        // Upload files directly to Vercel Blob (supports files > 6MB)
+        const uploadedBlobs = await Promise.all(
+          uploadedFiles.map(async (uploadedFile) => {
+            try {
+              const { upload } = await import('@vercel/blob/client');
+              console.log(`Uploading ${uploadedFile.file.name} (${(uploadedFile.file.size / 1024 / 1024).toFixed(2)} MB) directly to Vercel Blob`);
+
+              const blob = await upload(uploadedFile.file.name, uploadedFile.file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload-blob',
+                multipart: uploadedFile.file.size > 5 * 1024 * 1024, // multipart for files > 5MB
+                clientPayload: JSON.stringify({ uploadedAt: new Date().toISOString() }),
+              });
+
+              console.log(`Upload successful for ${uploadedFile.file.name}: ${blob.url}`);
+
+              return {
+                url: blob.url,
+                name: uploadedFile.file.name,
+                size: uploadedFile.file.size,
+                type: uploadedFile.file.type || 'application/octet-stream',
+              };
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : `Unknown error uploading ${uploadedFile.file.name}`;
+              throw new Error(`Failed to upload ${uploadedFile.file.name}: ${errorMessage}`);
+            }
+          })
+        );
+
+        // Keep blob refs so the /tuning page can reuse this upload without re-uploading
+        try {
+          sessionStorage.setItem('tuningBlobs', JSON.stringify(uploadedBlobs));
+        } catch (e) {
+          console.error('Failed to store blob refs for tuning:', e);
+        }
+
+        response = await fetch('/api/upload-realworks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            referenceData,
+            csvData,
+            blobs: uploadedBlobs,
+            ...(weights ? { weights } : {}),
+          }),
+        }).catch((err) => {
+          console.error('Fetch error:', err);
+          throw new Error(
+            `Network error: ${err.message}. Please check if the server is running and try again.`
+          );
+        });
+      }
 
       if (!response.ok) {
         // try json, fall back to text

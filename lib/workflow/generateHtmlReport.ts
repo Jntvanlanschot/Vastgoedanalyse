@@ -5,6 +5,7 @@
 
 import { CandidateProperty } from './calculateSimilarity';
 import { ReferenceData } from './calculateSimilarity';
+import { calculateAdvicePrice } from './calculatePrice';
 
 function extractStreetAndNumber(addressFull: string): string {
   if (!addressFull) return 'Onbekend adres';
@@ -71,35 +72,26 @@ export function generateHtmlReport(
   const referenceRooms = referenceData.rooms || 0;
   const referenceEnergyLabel = referenceData.energy_label || 'Onbekend';
 
-  // Calculate price scenarios (same as PDF)
-  const PRICE_CALC_TOP_N = 12;
-  const PRICE_CALC_MIN_SCORE = 0.55;
-  
-  const validPrices = top15
-    .filter(p => p.rw_sale_price && p.rw_area_m2 && p.rw_area_m2 > 0 && (p.final_score || p.similarity_score || 0) >= PRICE_CALC_MIN_SCORE)
-    .slice(0, PRICE_CALC_TOP_N)
-    .map(p => ({
-      pricePerM2: (p.rw_sale_price || 0) / (p.rw_area_m2 || 1),
+  // Calculate price scenarios via the shared helper (also used by the /tuning page)
+  const priceResult = calculateAdvicePrice(
+    top15.map(p => ({
       score: p.final_score || p.similarity_score || 0,
-    }));
+      salePrice: p.rw_sale_price,
+      areaM2: p.rw_area_m2,
+    })),
+    referenceData.area_m2
+  );
 
   let priceScenariosHtml = '';
-  if (validPrices.length > 0 && referenceData.area_m2) {
-    const totalWeight = validPrices.reduce((sum, p) => sum + Math.pow(p.score, 2), 0);
-    const avgPricePerM2 = validPrices.reduce((sum, p) => sum + p.pricePerM2 * Math.pow(p.score, 2), 0) / totalWeight;
-
-    const prices = validPrices.map(p => p.pricePerM2).sort((a, b) => a - b);
-    const conservativePerM2 = prices.length >= 3 
-      ? prices[Math.floor(prices.length * 0.25)] 
-      : avgPricePerM2 * 0.88;
-    const optimisticPerM2 = prices.length >= 3 
-      ? prices[Math.floor(prices.length * 0.75)] 
-      : avgPricePerM2 * 1.12;
-
-    const areaM2 = referenceData.area_m2;
-    const conservativePrice = conservativePerM2 * areaM2;
-    const neutralPrice = avgPricePerM2 * areaM2;
-    const optimisticPrice = optimisticPerM2 * areaM2;
+  if (priceResult) {
+    const {
+      avgPricePerM2,
+      conservativePerM2,
+      optimisticPerM2,
+      conservativePrice,
+      neutralPrice,
+      optimisticPrice,
+    } = priceResult;
 
     priceScenariosHtml = `
       <div class="price-scenarios">
