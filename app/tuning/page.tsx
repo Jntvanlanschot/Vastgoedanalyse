@@ -7,6 +7,14 @@ import {
   FeatureScores,
   combineFeatureScores,
 } from '@/lib/workflow/calculateSimilarity';
+import {
+  SLOT_COUNT,
+  TuningProfile,
+  loadProfiles,
+  saveProfiles,
+  getActiveProfileIndex,
+  setActiveProfileIndex,
+} from '@/lib/tuningProfiles';
 
 interface TuningCandidate {
   address_full: string;
@@ -35,8 +43,6 @@ interface ReferenceForm {
   tuin: boolean;
   balkon: boolean;
 }
-
-const STORAGE_KEY = 'customSimilarityWeights';
 
 // Base weights are normalized by their sum, so only ratios matter
 const BASE_WEIGHT_KEYS: Array<{ key: keyof SimilarityWeights; label: string }> = [
@@ -75,10 +81,14 @@ export default function TuningPage() {
   const [candidates, setCandidates] = useState<TuningCandidate[] | null>(null);
   const [totalParsed, setTotalParsed] = useState(0);
   const [weights, setWeights] = useState<SimilarityWeights>({ ...DEFAULT_WEIGHTS });
-  const [hasSavedWeights, setHasSavedWeights] = useState(false);
   const [showCount, setShowCount] = useState(15);
   const [copied, setCopied] = useState(false);
   const [autoLoaded, setAutoLoaded] = useState(false);
+  const [profiles, setProfiles] = useState<Array<TuningProfile | null>>(
+    Array(SLOT_COUNT).fill(null)
+  );
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [loadedFromSlot, setLoadedFromSlot] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchFromBlobs = async (
@@ -107,16 +117,16 @@ export default function TuningPage() {
     }
   };
 
-  // Prefill reference from earlier steps and load previously saved weights
+  // Prefill reference from earlier steps and load saved profiles
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setWeights({ ...DEFAULT_WEIGHTS, ...JSON.parse(saved) });
-        setHasSavedWeights(true);
-      }
-    } catch (e) {
-      console.error('Failed to load saved weights:', e);
+    const loaded = loadProfiles();
+    setProfiles(loaded);
+    const active = getActiveProfileIndex();
+    setActiveIndex(active);
+    // Start from the active profile's weights if one is set
+    if (active >= 0 && loaded[active]) {
+      setWeights({ ...DEFAULT_WEIGHTS, ...loaded[active]!.weights });
+      setLoadedFromSlot(active);
     }
 
     try {
@@ -272,14 +282,57 @@ export default function TuningPage() {
     setWeights((prev) => ({ ...prev, [key]: value }));
   };
 
-  const saveWeights = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(weights));
-    setHasSavedWeights(true);
+  // --- Profiles ---
+  const persistProfiles = (next: Array<TuningProfile | null>) => {
+    setProfiles(next);
+    saveProfiles(next);
   };
 
-  const clearSavedWeights = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setHasSavedWeights(false);
+  const saveToSlot = (index: number) => {
+    const next = [...profiles];
+    const existingName = next[index]?.name;
+    const name = existingName || `Profiel ${index + 1}`;
+    next[index] = { name, weights: { ...weights } };
+    persistProfiles(next);
+    setLoadedFromSlot(index);
+  };
+
+  const loadFromSlot = (index: number) => {
+    const profile = profiles[index];
+    if (!profile) return;
+    setWeights({ ...DEFAULT_WEIGHTS, ...profile.weights });
+    setLoadedFromSlot(index);
+  };
+
+  const renameSlot = (index: number, name: string) => {
+    const next = [...profiles];
+    if (next[index]) {
+      next[index] = { ...next[index]!, name };
+      persistProfiles(next);
+    }
+  };
+
+  const clearSlot = (index: number) => {
+    const next = [...profiles];
+    next[index] = null;
+    persistProfiles(next);
+    if (activeIndex === index) {
+      setActiveIndex(-1);
+      setActiveProfileIndex(-1);
+    }
+    if (loadedFromSlot === index) setLoadedFromSlot(null);
+  };
+
+  const activateProfile = (index: number) => {
+    // Save current weights into the slot first so "active" reflects what's on screen
+    saveToSlot(index);
+    setActiveIndex(index);
+    setActiveProfileIndex(index);
+  };
+
+  const useStandardForAnalyses = () => {
+    setActiveIndex(-1);
+    setActiveProfileIndex(-1);
   };
 
   const copyWeights = async () => {
@@ -304,9 +357,9 @@ export default function TuningPage() {
           <p className="text-gray-400 mt-2">
             Stem de gewichten van de best match selector af en zie de top 15 live veranderen.
           </p>
-          {hasSavedWeights && (
+          {activeIndex >= 0 && profiles[activeIndex] && (
             <p className="mt-2 inline-block text-sm bg-green-900/30 border border-green-500 text-green-300 px-3 py-1 rounded-full">
-              Aangepaste parameters actief — nieuwe analyses gebruiken deze gewichten
+              Actief voor analyses: &quot;{profiles[activeIndex]!.name}&quot;
             </p>
           )}
           {autoLoaded && (
@@ -474,20 +527,6 @@ export default function TuningPage() {
               >
                 {copied ? 'Gekopieerd ✓' : 'Kopieer JSON'}
               </button>
-              <button
-                onClick={saveWeights}
-                className="px-3 py-1.5 text-sm rounded-lg bg-green-700 text-white hover:bg-green-600"
-              >
-                Gebruik in analyses
-              </button>
-              {hasSavedWeights && (
-                <button
-                  onClick={clearSavedWeights}
-                  className="px-3 py-1.5 text-sm rounded-lg bg-red-900/60 text-red-200 hover:bg-red-800"
-                >
-                  Verwijder opgeslagen
-                </button>
-              )}
             </div>
           </div>
 
@@ -574,6 +613,101 @@ export default function TuningPage() {
                 Wat te doen als één van beide woningen wél aan een gracht ligt en de ander niet.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Profiles */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+            <h2 className="text-lg font-semibold text-white">Profielen</h2>
+            <button
+              onClick={useStandardForAnalyses}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                activeIndex < 0
+                  ? 'bg-green-700 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {activeIndex < 0 ? '✓ Standaard actief' : 'Gebruik standaard'}
+            </button>
+          </div>
+          <p className="text-sm text-gray-400 mb-4">
+            Sla de huidige gewichten op in een genoemd profiel (10 slots). Het actieve profiel wordt gebruikt
+            wanneer je een analyse start. &quot;Opslaan&quot; bewaart de schuifregelaars zoals ze nu staan.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {profiles.map((profile, i) => {
+              const isActive = activeIndex === i;
+              const isLoaded = loadedFromSlot === i;
+              return (
+                <div
+                  key={i}
+                  className={`rounded-lg border p-3 ${
+                    isActive
+                      ? 'border-green-500 bg-green-900/10'
+                      : profile
+                      ? 'border-gray-600 bg-gray-700/40'
+                      : 'border-dashed border-gray-700 bg-gray-700/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm w-6 shrink-0">{i + 1}.</span>
+                    {profile ? (
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) => renameSlot(i, e.target.value)}
+                        className="flex-1 min-w-0 px-2 py-1 bg-gray-700 text-white text-sm rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      />
+                    ) : (
+                      <span className="flex-1 text-sm text-gray-500 italic">Leeg slot</span>
+                    )}
+                    {isActive && (
+                      <span className="text-xs text-green-400 shrink-0">actief</span>
+                    )}
+                    {!isActive && isLoaded && (
+                      <span className="text-xs text-blue-400 shrink-0">geladen</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <button
+                      onClick={() => saveToSlot(i)}
+                      className="px-2.5 py-1 text-xs rounded bg-blue-700 text-white hover:bg-blue-600"
+                    >
+                      {profile ? 'Overschrijf' : 'Opslaan'}
+                    </button>
+                    {profile && (
+                      <>
+                        <button
+                          onClick={() => loadFromSlot(i)}
+                          className="px-2.5 py-1 text-xs rounded bg-gray-600 text-gray-100 hover:bg-gray-500"
+                        >
+                          Laden
+                        </button>
+                        <button
+                          onClick={() => activateProfile(i)}
+                          disabled={isActive}
+                          className={`px-2.5 py-1 text-xs rounded ${
+                            isActive
+                              ? 'bg-green-800 text-green-300 cursor-default'
+                              : 'bg-green-700 text-white hover:bg-green-600'
+                          }`}
+                        >
+                          Activeer
+                        </button>
+                        <button
+                          onClick={() => clearSlot(i)}
+                          className="px-2.5 py-1 text-xs rounded bg-red-900/60 text-red-200 hover:bg-red-800"
+                        >
+                          Wis
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

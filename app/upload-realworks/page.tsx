@@ -2,6 +2,13 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  SLOT_COUNT,
+  TuningProfile,
+  loadProfiles,
+  getActiveProfileIndex,
+  setActiveProfileIndex,
+} from '@/lib/tuningProfiles';
 
 interface UploadedFile {
   file: File;
@@ -30,7 +37,17 @@ export default function UploadRealworksPage() {
   const [totalSizeMb, setTotalSizeMb] = useState<number>(0);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [profiles, setProfiles] = useState<Array<TuningProfile | null>>(
+    Array(SLOT_COUNT).fill(null)
+  );
+  const [selectedProfile, setSelectedProfile] = useState(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load tuning profiles and the active selection
+  useEffect(() => {
+    setProfiles(loadProfiles());
+    setSelectedProfile(getActiveProfileIndex());
+  }, []);
 
   useEffect(() => {
     // Get street analysis data from sessionStorage (optional - may not exist if skipping scraper)
@@ -174,16 +191,11 @@ export default function UploadRealworksPage() {
         console.error('Failed to store blob refs for tuning:', e);
       }
 
-      // Custom similarity weights saved via the /tuning page (optional)
+      // Similarity weights from the selected tuning profile (optional)
       let weights: Record<string, number> | undefined;
-      try {
-        const savedWeights = localStorage.getItem('customSimilarityWeights');
-        if (savedWeights) {
-          weights = JSON.parse(savedWeights);
-          console.log('Using custom similarity weights from /tuning:', weights);
-        }
-      } catch (e) {
-        console.error('Failed to parse custom similarity weights:', e);
+      if (selectedProfile >= 0 && profiles[selectedProfile]) {
+        weights = profiles[selectedProfile]!.weights as unknown as Record<string, number>;
+        console.log(`Using tuning profile "${profiles[selectedProfile]!.name}":`, weights);
       }
 
       // Send small JSON payload to API (no big bodies)
@@ -472,6 +484,38 @@ export default function UploadRealworksPage() {
               ))}
             </div>
           )}
+
+          {/* Tuning profile selector */}
+          <div className="mt-8 pt-6 border-t border-gray-700">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Tuning profiel
+            </label>
+            <select
+              value={selectedProfile}
+              onChange={(e) => {
+                const idx = parseInt(e.target.value);
+                setSelectedProfile(idx);
+                setActiveProfileIndex(idx);
+              }}
+              className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+            >
+              <option value={-1}>Standaard (aanbevolen gewichten)</option>
+              {profiles.map((p, i) =>
+                p ? (
+                  <option key={i} value={i}>
+                    {i + 1}. {p.name}
+                  </option>
+                ) : null
+              )}
+            </select>
+            <p className="mt-2 text-xs text-gray-500">
+              Kies welke gewichten de best match selector gebruikt. Profielen maak en bewaar je op de{' '}
+              <a href="/tuning" className="text-blue-400 hover:text-blue-300">
+                tuning pagina
+              </a>
+              .
+            </p>
+          </div>
 
           {/* Error message */}
           {error && (
