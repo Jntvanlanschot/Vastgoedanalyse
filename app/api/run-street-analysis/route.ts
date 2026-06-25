@@ -91,16 +91,26 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
     const streetMap = new Map<string, { count: number; prices: number[] }>();
     
     for (const row of rows) {
-      const street = findValue(row, [
+      // Try direct street name columns first, then extract from Apify's combined Title field
+      let street = findValue(row, [
         'address/street_name',
         'street_name',
         'address_street_name',
         'address.street_name',
-        'address',
       ]);
+
+      if (!street) {
+        // Apify actor: "AddressDetails/Title" = "Keizersgracht 100" — strip house number
+        const title = findValue(row, ['AddressDetails/Title', 'address']);
+        if (title) {
+          street = String(title).replace(/\s+\d+\S*$/, '').trim();
+        }
+      }
+
       if (!street) continue;
 
       const priceRaw = findValue(row, [
+        'Price/NumericSellingPrice',       // Apify actor
         'price/selling_price/0',
         'price/asking_price/0',
         'selling_price',
