@@ -20,6 +20,7 @@ export default function NearestBuurtenNLPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [city, setCity] = useState<string | undefined>(undefined);
+  const [scrapingStatus, setScrapingStatus] = useState<string>('');
 
   // Load city from sessionStorage
   useEffect(() => {
@@ -92,9 +93,7 @@ export default function NearestBuurtenNLPage() {
     try {
       setIsScraping(true);
       setError(null);
-
-      // Build Apify config dynamically based on selected buurten
-      const apifyConfig = buildApifyInputFromBuurten(selected);
+      setScrapingStatus('Funda scraper starten...');
 
       // Get reference data from sessionStorage
       const referenceDataStr = sessionStorage.getItem('referenceData');
@@ -107,13 +106,21 @@ export default function NearestBuurtenNLPage() {
         }
       }
 
-      // Combine Apify config with reference data
+      if (!referenceData) {
+        throw new Error('Referentiedata niet gevonden. Ga terug naar de startpagina.');
+      }
+
+      // Send buurtSlugs + city (cleaner, server-side URL building)
+      const citySlug = selected[0]?.municipalitySlug;
       const requestBody = {
-        ...apifyConfig,
-        referenceData: referenceData
+        buurtSlugs: selected.map(b => b.fundaSlug),
+        city: citySlug,
+        referenceData,
       };
 
       console.log('Sending request to /api/run-scraper:', requestBody);
+
+      setScrapingStatus('Funda.nl scrapen via Apify (dit duurt 1–2 minuten)...');
 
       const response = await fetch('/api/run-scraper', {
         method: 'POST',
@@ -161,6 +168,7 @@ export default function NearestBuurtenNLPage() {
           throw new Error('No datasetId received from scraper');
         }
         
+        setScrapingStatus('CSV data ophalen...');
         console.log('Fetching CSV data from Apify dataset...');
         const apifyToken = process.env.NEXT_PUBLIC_APIFY_TOKEN || '';
         if (!apifyToken) {
@@ -188,9 +196,8 @@ export default function NearestBuurtenNLPage() {
           }
           console.log('Verified CSV data in sessionStorage, length:', storedCsv.length);
           
-          // Now run street analysis separately (to avoid timeout in scraper route)
-          // Street analysis is REQUIRED - do not proceed without it
-          console.log('Starting street analysis (REQUIRED)...');
+          setScrapingStatus('Stratenanalyse uitvoeren...');
+          console.log('Starting street analysis...');
           
           // Get reference data from sessionStorage
           const referenceDataStr = sessionStorage.getItem('referenceData');
@@ -299,11 +306,11 @@ export default function NearestBuurtenNLPage() {
             }
             }
             
-            // Wait a moment for download to start before redirecting
+            setScrapingStatus('Doorsturen naar volgende stap...');
             setTimeout(() => {
-            console.log('All data verified - redirecting to upload-realworks page...');
+              console.log('All data verified - redirecting to upload-realworks page...');
               window.location.href = '/upload-realworks';
-            }, 1000); // 1 second delay
+            }, 500);
           } else {
           throw new Error('Failed to fetch CSV data from Apify dataset');
           }
@@ -337,6 +344,7 @@ export default function NearestBuurtenNLPage() {
       }
       console.error('Scraper error:', err);
       setError(errorMessage);
+      setScrapingStatus('');
     } finally {
       setIsScraping(false);
     }
@@ -580,7 +588,7 @@ export default function NearestBuurtenNLPage() {
             <p className="text-sm text-gray-600 mb-4">
               Start de Funda scraper met de aangevinkte buurten (1–3 toegestaan):
             </p>
-            
+
             <button
               onClick={runAnalysis}
               disabled={isScraping || selectedIndexes.size < 1 || selectedIndexes.size > 3}
@@ -588,6 +596,14 @@ export default function NearestBuurtenNLPage() {
             >
               {isScraping ? 'Analyse Bezig...' : 'Start Funda Scraper'}
             </button>
+
+            {scrapingStatus && (
+              <p className="mt-3 text-sm text-blue-700 font-medium">{scrapingStatus}</p>
+            )}
+
+            {error && (
+              <div className="mt-3 p-3 bg-red-100 text-red-800 rounded-md text-sm">{error}</div>
+            )}
           </div>
         </div>
 
@@ -597,9 +613,12 @@ export default function NearestBuurtenNLPage() {
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Scraper Bezig...</h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-2">
                   Dit kan enkele minuten duren. Sluit deze pagina niet.
                 </p>
+                {scrapingStatus && (
+                  <p className="text-sm text-blue-600 font-medium">{scrapingStatus}</p>
+                )}
               </div>
             </div>
           </div>

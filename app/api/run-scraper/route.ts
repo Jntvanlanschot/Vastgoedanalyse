@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
-import { tmpdir } from 'os';
-import path from 'path';
 import { cityToSlug, slugifyStreetName } from '@/lib/funda/slug';
-import { runFundaScraper, writeCsv } from '@/lib/fundaScraper';
 
-// Playwright scraping can take several minutes for large result sets
 export const maxDuration = 300;
+
+const ACTOR_ID = 'isEqQn5XKtr3D3fRW';
+const APIFY_BASE = 'https://api.apify.com/v2';
+
+interface ApifyRunResponse {
+  data: { id: string; status: string; defaultDatasetId: string };
+}
+
+interface ApifyRunStatus {
+  data: { status: string; defaultDatasetId: string };
+}
 
 interface StreetScrapingRequest {
   city?: string;
@@ -23,24 +29,68 @@ interface WijkScrapingRequest {
   wijkSlugs: string[];
 }
 
-function buildDownloadUrl(runId: string): string {
+function buildDownloadUrl(runId: string, datasetId: string): string {
   const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  return `${base}/api/download-csv?runId=${runId}`;
+  return `${base}/api/download-csv?runId=${runId}&datasetId=${datasetId}`;
 }
 
-async function scrapeAndSave(searchUrls: string[], maxItems: number, label: string) {
-  const runId = randomUUID();
-  const csvPath = path.join(tmpdir(), `${runId}.csv`);
+async function apifyScrape(searchUrls: string[], maxItems: number, label: string) {
+  const token = process.env.APIFY_API_TOKEN;
+  if (!token) throw new Error('APIFY_API_TOKEN is not configured');
 
-  console.log(`[${label}] Starting Playwright scraper for ${searchUrls.length} URL(s), max ${maxItems} items`);
-  console.log(`[${label}] Search URLs:`, searchUrls);
+  const body = {
+    searchUrls,
+    maxItems,
+    includeSold: true,
+    includeUnderOffer: true,
+    proxyConfiguration: { useApifyProxy: true },
+  };
 
-  const listings = await runFundaScraper(searchUrls, maxItems);
+  console.log(`[${label}] Starting Apify actor ${ACTOR_ID} for ${searchUrls.length} URL(s)`);
 
-  console.log(`[${label}] Scraper finished: ${listings.length} listing(s). Writing to ${csvPath}`);
-  await writeCsv(csvPath, listings);
+  const startRes = await fetch(`${APIFY_BASE}/acts/${ACTOR_ID}/runs?token=${token}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 
-  return { runId, csvPath, count: listings.length };
+  if (!startRes.ok) {
+    const text = await startRes.text();
+    throw new Error(`Apify start failed (${startRes.status}): ${text}`);
+  }
+
+  const startData: ApifyRunResponse = await startRes.json();
+  const runId = startData.data.id;
+  const datasetId = startData.data.defaultDatasetId;
+
+  console.log(`[${label}] Run started: runId=${runId} datasetId=${datasetId}`);
+
+  // Poll every 5 s, max 50 attempts = 250 s (within 300 s maxDuration)
+  const maxAttempts = 50;
+  const pollInterval = 5000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    const statusRes = await fetch(`${APIFY_BASE}/actor-runs/${runId}?token=${token}`);
+    if (!statusRes.ok) {
+      console.warn(`[${label}] Status check failed on attempt ${attempt}`);
+      continue;
+    }
+
+    const statusData: ApifyRunStatus = await statusRes.json();
+    const status = statusData.data.status;
+    console.log(`[${label}] Attempt ${attempt}: status=${status}`);
+
+    if (status === 'SUCCEEDED') {
+      return { runId, datasetId };
+    }
+    if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+      throw new Error(`Apify run ended with status: ${status}`);
+    }
+  }
+
+  throw Object.assign(new Error('Apify run timed out after 250 seconds'), { code: 'TIMEOUT', runId, datasetId });
 }
 
 async function handleStreetScraping(requestBody: StreetScrapingRequest) {
@@ -56,13 +106,13 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
   const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
-  const { runId } = await scrapeAndSave([searchUrl], 150, 'streets');
+  const { runId, datasetId } = await apifyScrape([searchUrl], 150, 'streets');
 
   return NextResponse.json({
     success: true,
     runId,
-    datasetId: runId,
-    downloadUrl: buildDownloadUrl(runId),
+    datasetId,
+    downloadUrl: buildDownloadUrl(runId, datasetId),
     message: 'Scraper completed successfully.',
   });
 }
@@ -88,13 +138,13 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
   const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
-  const { runId } = await scrapeAndSave([searchUrl], 150, 'buurten');
+  const { runId, datasetId } = await apifyScrape([searchUrl], 150, 'buurten');
 
   return NextResponse.json({
     success: true,
     runId,
-    datasetId: runId,
-    downloadUrl: buildDownloadUrl(runId),
+    datasetId,
+    downloadUrl: buildDownloadUrl(runId, datasetId),
     message: 'Scraper completed successfully.',
   });
 }
@@ -112,13 +162,13 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
   const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
-  const { runId } = await scrapeAndSave([searchUrl], 150, 'wijken');
+  const { runId, datasetId } = await apifyScrape([searchUrl], 150, 'wijken');
 
   return NextResponse.json({
     success: true,
     runId,
-    datasetId: runId,
-    downloadUrl: buildDownloadUrl(runId),
+    datasetId,
+    downloadUrl: buildDownloadUrl(runId, datasetId),
     message: 'Scraper completed successfully.',
   });
 }
@@ -160,19 +210,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid configuration: searchUrls is required' }, { status: 400 });
     }
 
-    const { runId } = await scrapeAndSave(searchUrls, maxItems ?? 150, 'fundaConfig');
+    const { runId, datasetId } = await apifyScrape(searchUrls, maxItems ?? 150, 'fundaConfig');
 
     return NextResponse.json({
       success: true,
       runId,
-      datasetId: runId,
-      downloadUrl: buildDownloadUrl(runId),
-      message: 'Scraper completed successfully. Dataset is ready to be fetched.',
+      datasetId,
+      downloadUrl: buildDownloadUrl(runId, datasetId),
+      message: 'Scraper completed successfully.',
     });
 
-  } catch (error) {
-    console.error('Error running Playwright scraper:', error);
+  } catch (error: any) {
+    console.error('Error running Apify scraper:', error);
     const message = error instanceof Error ? error.message : String(error);
+
+    if (error?.code === 'TIMEOUT') {
+      return NextResponse.json(
+        { error: message, runId: error.runId, datasetId: error.datasetId },
+        { status: 408 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: message,

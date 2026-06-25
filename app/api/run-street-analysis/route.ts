@@ -214,17 +214,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // On Vercel, use JavaScript implementation (no Python available)
-    // On localhost, use Python implementation (faster and more accurate)
-    const usePython = !process.env.VERCEL;
-    
-    if (usePython) {
-      console.log('Using Python implementation (localhost)...');
-      return await runPythonStreetAnalysis(csvData, referenceData);
-    } else {
-      console.log('Using JavaScript implementation (Vercel)...');
-      return await runJavaScriptStreetAnalysis(csvData, referenceData);
-    }
+    console.log('Using JavaScript implementation...');
+    return await runJavaScriptStreetAnalysis(csvData, referenceData);
 
   } catch (error) {
     console.error('Error in street analysis:', error);

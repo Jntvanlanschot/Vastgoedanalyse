@@ -35,7 +35,6 @@
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
     "pdfmake": "^0.2.12",
-    "playwright": "^1.60.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-leaflet": "^5.0.0"
