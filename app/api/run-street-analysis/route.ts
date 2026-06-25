@@ -50,17 +50,80 @@ function extractStreetName(address: string): string {
   return parts.replace(/\s+\d+.*$/, '').trim();
 }
 
-function processCSVForTopStreets(csvData: string, referenceData: any): StreetScore[] {
-  try {
-    // Parse CSV robustly (auto-detect delimiter, handle semicolons/tabs)
-    const parsed = Papa.parse(csvData, {
+// Multi-factor street-selection weights (sum = 1.00).
+// Anchored on the reference street's listings in the scraped CSV; falls back
+// gracefully to name/gracht when an anchor signal is missing.
+const STREET_WEIGHTS = {
+  price_per_m2: 0.30, // similar price level (EUR/m2)
+  neighbourhood: 0.25, // same buurt
+  proximity: 0.15, // geographic distance
+  gracht: 0.15, // both gracht or both not
+  name: 0.15, // street-name similarity
+};
+
+function toNum(v: any): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (v === undefined || v === null || v === '') return null;
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Parse the Funda/Apify CSV. Handles standard CSV directly; as a best-effort
+// fallback it strips a UTF-8 BOM and un-wraps a double-quoted export (where the
+// real CSV was placed inside one quoted field with doubled quotes).
+function parseFundaCsv(csvData: string): any[] {
+  const tryParse = (text: string): any[] => {
+    const p = Papa.parse(text, {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: true,
-      delimitersToGuess: [',', ';', '\t', '|']
+      delimitersToGuess: [',', ';', '\t', '|'],
     });
+    return (p.data as any[]).filter(Boolean);
+  };
+  const KNOWN = ['AddressDetails/Title', 'address/street_name', 'street_name', 'Price/NumericSellingPrice'];
+  const hasKnownCols = (rows: any[]) => rows.length > 0 && KNOWN.some((k) => k in rows[0]);
 
-    const rows = (parsed.data as any[]).filter(Boolean);
+  let rows = tryParse(csvData);
+  if (hasKnownCols(rows)) return rows;
+
+  // Strip BOM, then try to unwrap a double-quoted export.
+  let text = csvData.charCodeAt(0) === 0xfeff ? csvData.slice(1) : csvData;
+  const first = text.indexOf('"');
+  const last = text.lastIndexOf('"');
+  if (first !== -1 && last > first) {
+    const unwrapped = tryParse(text.slice(first + 1, last).replace(/""/g, '"'));
+    if (hasKnownCols(unwrapped)) return unwrapped;
+  }
+
+  if (!hasKnownCols(rows)) {
+    console.warn('[street-analysis] Expected Funda columns not found after parsing; CSV format may be unexpected.');
+  }
+  return rows;
+}
+
+interface StreetAgg {
+  count: number;
+  prices: number[];
+  pricesPerM2: number[];
+  lats: number[];
+  lngs: number[];
+  neighbourhood: string;
+}
+
+function processCSVForTopStreets(csvData: string, referenceData: any): StreetScore[] {
+  try {
+    const rows = parseFundaCsv(csvData);
     if (!rows.length) {
       return [{
         street_name: 'Unknown Street',
@@ -68,137 +131,140 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
         city: 'Amsterdam',
         properties_count: 0,
         average_price: 500000,
-        similarity_score: 0
+        similarity_score: 0,
       }];
     }
 
-    // Accept multiple possible column names
     const findValue = (row: any, keys: string[]): any => {
       for (const k of keys) {
         if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
       }
       return undefined;
     };
-    
-    // Get reference street name
+
+    // Reference street from the entered address (always known, even if not scraped)
     let refStreetName = referenceData.street_name || '';
     if (!refStreetName && referenceData.address_full) {
       refStreetName = extractStreetName(referenceData.address_full);
     }
     refStreetName = refStreetName.toLowerCase().trim();
-    
-    // Group by street and calculate stats
-    const streetMap = new Map<string, { count: number; prices: number[] }>();
-    
+    const refIsGracht = refStreetName.includes('gracht');
+
+    // Group listings per street
+    const streetMap = new Map<string, StreetAgg>();
     for (const row of rows) {
-      // Try direct street name columns first, then extract from Apify's combined Title field
       let street = findValue(row, [
-        'address/street_name',
-        'street_name',
-        'address_street_name',
-        'address.street_name',
+        'address/street_name', 'street_name', 'address_street_name', 'address.street_name',
       ]);
-
       if (!street) {
-        // Apify actor: "AddressDetails/Title" = "Keizersgracht 100" — strip house number
         const title = findValue(row, ['AddressDetails/Title', 'address']);
-        if (title) {
-          street = String(title).replace(/\s+\d+\S*$/, '').trim();
-        }
+        if (title) street = String(title).replace(/\s+\d+\S*$/, '').trim();
       }
-
       if (!street) continue;
+      street = String(street).trim();
 
-      const priceRaw = findValue(row, [
-        'Price/NumericSellingPrice',       // Apify actor
-        'price/selling_price/0',
-        'price/asking_price/0',
-        'selling_price',
-        'price_selling_price_0',
-        'price',
-        'asking_price',
-      ]);
-      const price = typeof priceRaw === 'number'
-        ? priceRaw
-        : parseFloat(String(priceRaw).replace(/[^\d.-]/g, '')) || 0;
+      const price = toNum(findValue(row, [
+        'Price/NumericSellingPrice', 'price/selling_price/0', 'price/asking_price/0',
+        'selling_price', 'price_selling_price_0', 'price', 'asking_price',
+      ]));
+      const area = toNum(findValue(row, [
+        'FastView/LivingArea', 'Advertising/TargetingOptions/woonoppervlakte',
+        'floor_area/0', 'living_area', 'area_m2',
+      ]));
+      const lat = toNum(findValue(row, ['Coordinates/Latitude', 'latitude', 'lat']));
+      const lng = toNum(findValue(row, ['Coordinates/Longitude', 'longitude', 'lng', 'lon']));
+      const hood = String(findValue(row, [
+        'AddressDetails/NeighborhoodName', 'Advertising/TargetingOptions/buurt',
+        'address/neighbourhood', 'neighbourhood',
+      ]) || '').toLowerCase().trim();
 
       if (!streetMap.has(street)) {
-        streetMap.set(street, { count: 0, prices: [] });
+        streetMap.set(street, { count: 0, prices: [], pricesPerM2: [], lats: [], lngs: [], neighbourhood: '' });
       }
-      
-      const streetData = streetMap.get(street)!;
-      streetData.count++;
-      if (price > 0) {
-        streetData.prices.push(price);
-      }
+      const agg = streetMap.get(street)!;
+      agg.count++;
+      if (price && price > 0) agg.prices.push(price);
+      if (price && price > 0 && area && area > 0) agg.pricesPerM2.push(price / area);
+      if (lat !== null && lng !== null) { agg.lats.push(lat); agg.lngs.push(lng); }
+      if (!agg.neighbourhood && hood) agg.neighbourhood = hood;
     }
-    
-    // Calculate scores for each street
+
+    const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+
+    // Build the anchor from the reference street's own listings (if scraped),
+    // otherwise from the reference property's data.
+    const refAgg = streetMap.get(
+      [...streetMap.keys()].find((s) => s.toLowerCase().trim() === refStreetName) || ''
+    );
+    const anchorPpsm = refAgg ? avg(refAgg.pricesPerM2) : null;
+    const anchorLat = refAgg ? avg(refAgg.lats) : null;
+    const anchorLng = refAgg ? avg(refAgg.lngs) : null;
+    const anchorHood =
+      (refAgg && refAgg.neighbourhood) ||
+      String(referenceData.neighbourhood || '').toLowerCase().trim() ||
+      '';
+
+    const w = STREET_WEIGHTS;
     const streetScores: StreetScore[] = [];
-    
     for (const [streetName, data] of streetMap.entries()) {
-      // Simple similarity: exact match = 1.0, otherwise string similarity
-      let similarity = 0.0;
       const streetLower = streetName.toLowerCase().trim();
-      
-      if (streetLower === refStreetName) {
-        similarity = 1.0;
-      } else {
-        similarity = calculateStringSimilarity(refStreetName, streetName);
-      }
-      
-      // Calculate average price
-      const avgPrice = data.prices.length > 0
-        ? Math.round(data.prices.reduce((a, b) => a + b, 0) / data.prices.length)
-        : 500000;
-      
+      const streetPpsm = avg(data.pricesPerM2);
+      const streetLat = avg(data.lats);
+      const streetLng = avg(data.lngs);
+
+      // Each factor 0..1, neutral 0.5 when the needed data is missing.
+      const priceScore =
+        anchorPpsm && streetPpsm ? Math.max(0, 1 - Math.abs(streetPpsm - anchorPpsm) / anchorPpsm) : 0.5;
+      const hoodScore = anchorHood && data.neighbourhood ? (data.neighbourhood === anchorHood ? 1.0 : 0.3) : 0.5;
+      const proxScore =
+        anchorLat !== null && anchorLng !== null && streetLat !== null && streetLng !== null
+          ? Math.max(0, 1 - haversineKm(anchorLat, anchorLng, streetLat, streetLng) / 3)
+          : 0.5;
+      const grachtScore = streetLower.includes('gracht') === refIsGracht ? 1.0 : 0.0;
+      const nameScore = streetLower === refStreetName ? 1.0 : calculateStringSimilarity(refStreetName, streetName);
+
+      const similarity =
+        w.price_per_m2 * priceScore +
+        w.neighbourhood * hoodScore +
+        w.proximity * proxScore +
+        w.gracht * grachtScore +
+        w.name * nameScore;
+
       streetScores.push({
         street_name: streetName,
         name: streetName,
         city: 'Amsterdam',
         properties_count: data.count,
-        average_price: avgPrice,
-        similarity_score: similarity
+        average_price: data.prices.length ? Math.round(avg(data.prices)!) : 500000,
+        similarity_score: similarity,
       });
     }
-    
-    // Sort by similarity score
+
     streetScores.sort((a, b) => b.similarity_score - a.similarity_score);
-    
-    // Find reference street
-    const refStreetData = streetScores.find(s => 
-      s.street_name.toLowerCase().trim() === refStreetName
-    );
-    
-    // Build final result: reference street first, then top 9 others
+
+    // Reference street ALWAYS first
+    const refStreetData = streetScores.find((s) => s.street_name.toLowerCase().trim() === refStreetName);
     const finalStreets: StreetScore[] = [];
-    
-    if (refStreetData) {
-      finalStreets.push({
-        ...refStreetData,
-        is_reference: true
-      });
-    } else {
-      finalStreets.push({
-        street_name: refStreetName || 'Unknown',
-        name: refStreetName || 'Unknown',
-        city: 'Amsterdam',
-        properties_count: 0,
-        average_price: 0,
-        similarity_score: 1.0,
-        is_reference: true
-      });
-    }
-    
-    // Add top 9 other streets (excluding reference)
+    finalStreets.push(
+      refStreetData
+        ? { ...refStreetData, is_reference: true }
+        : {
+            street_name: refStreetName || 'Unknown',
+            name: refStreetName || 'Unknown',
+            city: 'Amsterdam',
+            properties_count: 0,
+            average_price: 0,
+            similarity_score: 1.0,
+            is_reference: true,
+          }
+    );
+
     const otherStreets = streetScores
-      .filter(s => s.street_name.toLowerCase().trim() !== refStreetName)
+      .filter((s) => s.street_name.toLowerCase().trim() !== refStreetName)
       .slice(0, 9);
-    
     finalStreets.push(...otherStreets);
-    
+
     return finalStreets;
-    
   } catch (error) {
     console.error('Error processing CSV:', error);
     return [{
@@ -207,7 +273,7 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
       city: 'Amsterdam',
       properties_count: 0,
       average_price: 0,
-      similarity_score: 0
+      similarity_score: 0,
     }];
   }
 }
