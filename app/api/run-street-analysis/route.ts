@@ -164,8 +164,9 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
       street = String(street).trim();
 
       const price = toNum(findValue(row, [
-        'Price/NumericSellingPrice', 'price/selling_price/0', 'price/asking_price/0',
-        'selling_price', 'price_selling_price_0', 'price', 'asking_price',
+        'Price/NumericSellingPrice', 'Advertising/TargetingOptions/vraagprijs',
+        'price/selling_price/0', 'price/asking_price/0',
+        'selling_price', 'price_selling_price_0', 'price', 'asking_price', 'vraagprijs',
       ]));
       const area = toNum(findValue(row, [
         'FastView/LivingArea', 'Advertising/TargetingOptions/woonoppervlakte',

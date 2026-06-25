@@ -38,12 +38,13 @@ async function apifyScrape(searchUrls: string[], maxItems: number, label: string
   const token = process.env.APIFY_API_TOKEN;
   if (!token) throw new Error('APIFY_API_TOKEN is not configured');
 
+  // Input shape must match the actor's schema, otherwise the actor ignores
+  // unknown fields and falls back to its defaults (scraping the wrong area).
   const body = {
-    searchUrls,
+    startUrls: searchUrls.map((url) => ({ url })),
+    proxy: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] },
+    includeNeighborhoodData: false,
     maxItems,
-    includeSold: true,
-    includeUnderOffer: true,
-    proxyConfiguration: { useApifyProxy: true },
   };
 
   console.log(`[${label}] Starting Apify actor ${ACTOR_ID} for ${searchUrls.length} URL(s)`);
@@ -102,8 +103,8 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
 
   const citySlug = cityToSlug(city);
   const streetSlugs = streets.map(s => `${citySlug}/straat-${slugifyStreetName(s)}`);
-  const selectedAreaParam = encodeURIComponent(JSON.stringify(streetSlugs));
-  const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(['nl', ...streetSlugs]));
+  const availabilityParam = encodeURIComponent(JSON.stringify(['negotiations', 'unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
   const { runId, datasetId } = await apifyScrape([searchUrl], 150, 'streets');
@@ -134,8 +135,8 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
 
   const citySlug = cityToSlug(city);
   const selectedAreas = buurtSlugs.map(slug => `${citySlug}/${slug}`);
-  const selectedAreaParam = encodeURIComponent(JSON.stringify(selectedAreas));
-  const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(['nl', ...selectedAreas]));
+  const availabilityParam = encodeURIComponent(JSON.stringify(['negotiations', 'unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
   const { runId, datasetId } = await apifyScrape([searchUrl], 150, 'buurten');
@@ -158,8 +159,8 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
 
   const citySlug = cityToSlug(city);
   const wijkAreaSlugs = wijkSlugs.map(s => `${citySlug}/${s}`);
-  const selectedAreaParam = encodeURIComponent(JSON.stringify(wijkAreaSlugs));
-  const availabilityParam = encodeURIComponent(JSON.stringify(['unavailable']));
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(['nl', ...wijkAreaSlugs]));
+  const availabilityParam = encodeURIComponent(JSON.stringify(['negotiations', 'unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
   const { runId, datasetId } = await apifyScrape([searchUrl], 150, 'wijken');
