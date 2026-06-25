@@ -54,11 +54,11 @@ function extractStreetName(address: string): string {
 // Anchored on the reference street's listings in the scraped CSV; falls back
 // gracefully to name/gracht when an anchor signal is missing.
 const STREET_WEIGHTS = {
-  price_per_m2: 0.30, // similar price level (EUR/m2)
-  neighbourhood: 0.25, // same buurt
-  proximity: 0.15, // geographic distance
-  gracht: 0.15, // both gracht or both not
-  name: 0.15, // street-name similarity
+  proximity: 0.45, // geographic distance to the reference address (most reliable signal)
+  neighbourhood: 0.20, // same buurt
+  price_per_m2: 0.15, // similar price level (only when the reference street is in the data)
+  gracht: 0.10, // both gracht or both not
+  name: 0.10, // street-name similarity
 };
 
 function toNum(v: any): number | null {
@@ -192,17 +192,20 @@ function processCSVForTopStreets(csvData: string, referenceData: any): StreetSco
 
     const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
 
-    // Build the anchor from the reference street's own listings (if scraped),
-    // otherwise from the reference property's data.
+    // Anchor on the reference PROPERTY (address geocoding) first — it's always
+    // available, even when the reference street was not scraped. Fall back to
+    // the reference street's own listings if present in the data.
     const refAgg = streetMap.get(
       [...streetMap.keys()].find((s) => s.toLowerCase().trim() === refStreetName) || ''
     );
-    const anchorPpsm = refAgg ? avg(refAgg.pricesPerM2) : null;
-    const anchorLat = refAgg ? avg(refAgg.lats) : null;
-    const anchorLng = refAgg ? avg(refAgg.lngs) : null;
+    const refLat = toNum(referenceData.latitude ?? referenceData.lat);
+    const refLng = toNum(referenceData.longitude ?? referenceData.lng);
+    const anchorLat = refLat !== null ? refLat : refAgg ? avg(refAgg.lats) : null;
+    const anchorLng = refLng !== null ? refLng : refAgg ? avg(refAgg.lngs) : null;
+    const anchorPpsm = refAgg ? avg(refAgg.pricesPerM2) : null; // needs ref street in data
     const anchorHood =
-      (refAgg && refAgg.neighbourhood) ||
       String(referenceData.neighbourhood || '').toLowerCase().trim() ||
+      (refAgg && refAgg.neighbourhood) ||
       '';
 
     const w = STREET_WEIGHTS;

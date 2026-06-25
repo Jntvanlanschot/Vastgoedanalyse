@@ -214,7 +214,24 @@ export default function NearestBuurtenNLPage() {
           if (!referenceData) {
             throw new Error('Reference data not found in sessionStorage');
           }
-          
+
+          // Merge geocoded coordinates + neighbourhood so the street selector
+          // can anchor on the reference location (it lives in addressGeo, not referenceData).
+          try {
+            const addressGeoStr = sessionStorage.getItem('addressGeo');
+            if (addressGeoStr) {
+              const geo = JSON.parse(addressGeoStr);
+              referenceData = {
+                ...referenceData,
+                latitude: referenceData.latitude ?? geo.lat,
+                longitude: referenceData.longitude ?? geo.lng,
+                neighbourhood: referenceData.neighbourhood || geo.neighbourhood || '',
+              };
+            }
+          } catch (e) {
+            console.error('Failed to merge addressGeo into referenceData:', e);
+          }
+
           // Call street analysis API with longer timeout
           console.log('Calling street analysis API...');
           const streetAnalysisResponse = await fetch('/api/run-street-analysis', {
