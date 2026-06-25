@@ -103,7 +103,7 @@ async function handleStreetScraping(requestBody: StreetScrapingRequest) {
 
   const citySlug = cityToSlug(city);
   const streetSlugs = streets.map(s => `${citySlug}/straat-${slugifyStreetName(s)}`);
-  const selectedAreaParam = encodeURIComponent(JSON.stringify(['nl', ...streetSlugs]));
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(streetSlugs));
   const availabilityParam = encodeURIComponent(JSON.stringify(['negotiations', 'unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
@@ -135,7 +135,7 @@ async function handleBuurtScraping(requestBody: BuurtScrapingRequest) {
 
   const citySlug = cityToSlug(city);
   const selectedAreas = buurtSlugs.map(slug => `${citySlug}/${slug}`);
-  const selectedAreaParam = encodeURIComponent(JSON.stringify(['nl', ...selectedAreas]));
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(selectedAreas));
   const availabilityParam = encodeURIComponent(JSON.stringify(['negotiations', 'unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
@@ -159,7 +159,7 @@ async function handleWijkScraping(requestBody: WijkScrapingRequest) {
 
   const citySlug = cityToSlug(city);
   const wijkAreaSlugs = wijkSlugs.map(s => `${citySlug}/${s}`);
-  const selectedAreaParam = encodeURIComponent(JSON.stringify(['nl', ...wijkAreaSlugs]));
+  const selectedAreaParam = encodeURIComponent(JSON.stringify(wijkAreaSlugs));
   const availabilityParam = encodeURIComponent(JSON.stringify(['negotiations', 'unavailable']));
   const searchUrl = `https://www.funda.nl/zoeken/koop?selected_area=${selectedAreaParam}&availability=${availabilityParam}`;
 
